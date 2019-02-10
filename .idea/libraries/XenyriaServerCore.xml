@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="XenyriaServerCore">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../Compiled/XenyriaServerCore.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

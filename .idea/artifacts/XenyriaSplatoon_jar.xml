@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="XenyriaSplatoon:jar">
+    <output-path>$PROJECT_DIR$/../../Compiled</output-path>
+    <root id="archive" name="XenyriaSplatoon.jar">
+      <element id="module-output" name="XenyriaSplatoon" />
+    </root>
+  </artifact>
+</component>

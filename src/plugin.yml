@@ -1,0 +1,44 @@
+name: XenyriaSplatoon
+author: _TrasherMC
+version: 1.0
+api-version: 1.13
+main: de.xenyria.splatoon.XenyriaSplatoon
+
+depend: [XenyriaServerCore, XenyriaStructures, XenyriaSchematics]
+
+commands:
+  shootingrange:
+    description: Teleportiert dich zum Waffentestbereich.
+    usage: /<command>
+    aliases: [sr]
+  splatoon:
+    description: Splatoon-Testbefehl
+    usage: /<command>
+  suicide:
+    description: Toetet dich.
+    usage: /<command>
+  weapon:
+    description: Erlaubt die Verwaltung der Waffen
+    usage: /<command>
+  tutorial:
+    description: Teleportiert dich zum Tutorialkurs
+    usage: /<command>
+  aidbg:
+    description: AI-Debugging
+    usage: /<command>
+  pe:
+    description: ProjectileExaminer
+    usage: /<command>
+  arena:
+    description: Arena-Verwaltungsbefehl
+    usage: /<command>
+  match:
+    description: Match-Verwaltungsbefehl
+    usage: /<command>
+  slobby:
+    description: Teleportiert dich zur Lobby
+    usage: /<command>
+    aliases: [sl]
+  dsv:
+    description: Vector-Testtool fuer Waffen
+    usage: /<command>

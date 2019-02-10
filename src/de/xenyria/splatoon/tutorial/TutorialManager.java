@@ -1,0 +1,200 @@
+package de.xenyria.splatoon.tutorial;
+
+import de.xenyria.schematics.internal.XenyriaSchematic;
+import de.xenyria.schematics.internal.access.XenyriaSchematicWorldAccess;
+import de.xenyria.schematics.internal.change.BlockChange;
+import de.xenyria.schematics.internal.history.BlockChangeHistory;
+import de.xenyria.schematics.internal.history.SchematicBlockAccess;
+import de.xenyria.schematics.internal.placeholder.StoredPlaceholder;
+import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.arena.ArenaProvider;
+import de.xenyria.splatoon.arena.boundary.ArenaBoundaryConfiguration;
+import de.xenyria.splatoon.arena.placeholder.ArenaPlaceholder;
+import de.xenyria.splatoon.game.color.Color;
+import de.xenyria.splatoon.game.team.Team;
+import net.minecraft.server.v1_13_R2.*;
+import org.apache.commons.io.FileUtils;
+import org.bukkit.*;
+import org.bukkit.Chunk;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.WorldType;
+import org.bukkit.block.Block;
+import org.bukkit.craftbukkit.v1_13_R2.CraftChunk;
+import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_13_R2.block.CraftBlock;
+import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
+import org.bukkit.craftbukkit.v1_13_R2.generator.CraftChunkData;
+import org.bukkit.craftbukkit.v1_13_R2.util.CraftMagicNumbers;
+import org.bukkit.generator.ChunkGenerator;
+import org.bukkit.material.MaterialData;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.util.Vector;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
+public class TutorialManager {
+
+    private XenyriaSchematic schematic;
+
+    private static boolean enabled = true;
+    public static boolean isEnabled() { return enabled; }
+
+    public TutorialManager() throws Exception {
+
+        if(enabled) {
+
+            //schematic = XenyriaSchematic.fromFile(new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "sp_tutorial.xsc"));
+
+            Bukkit.unloadWorld("sp_tutorial", false);
+
+            // Alle Dateien aus der Tutorialwelt löschen
+            File folder = new File(System.getProperty("user.dir") + File.separator + "sp_tutorial");
+            FileUtils.deleteDirectory(folder);
+            Bukkit.createWorld(new WorldCreator("sp_tutorial").generator("VoidGenerator"));
+
+            World world = Bukkit.createWorld(new WorldCreator("sp_tutorial").type(WorldType.FLAT).generator(new ChunkGenerator() {
+                @Override
+                public ChunkData generateChunkData(World world, Random random, int x, int z, BiomeGrid biome) {
+                    CraftChunkData data = new CraftChunkData(world);
+                    return data;
+                }
+            }));
+            world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+            world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+            world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+            world.setGameRule(GameRule.DO_ENTITY_DROPS, false);
+            world.setGameRule(GameRule.RANDOM_TICK_SPEED, 0);
+            world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
+            world.setGameRule(GameRule.MOB_GRIEFING, false);
+            world.setGameRule(GameRule.SPAWN_RADIUS, 0);
+            world.setGameRule(GameRule.DO_FIRE_TICK, false);
+            world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false);
+            world.setGameRule(GameRule.NATURAL_REGENERATION, false);
+            world.setAutoSave(false);
+
+            XenyriaSplatoon.getXenyriaLogger().log("TutorialManager bereit!");
+            createClusters();
+
+        } else {
+
+            XenyriaSplatoon.getXenyriaLogger().warn("TutorialManager wird nicht initialisiert - Nicht aktiv.");
+
+        }
+
+    }
+
+    public World getWorld() { return Bukkit.getWorld("sp_tutorial"); }
+    private ArrayList<TutorialMatch> matches = new ArrayList<>();
+
+    public void createClusters() {
+
+        ArrayList<ChunkCoordIntPair> pairs = new ArrayList<>();
+        int x = 0;
+        for(int i = 0; i < 1; i++) {
+
+            ArrayList<Color> colors = Color.getRandomColors(2);
+            Color primary = colors.get(0);
+            Color secondary = colors.get(1);
+
+            ChunkCoordIntPair pair = new ChunkCoordIntPair(1, 1);
+
+            ArrayList<ArenaPlaceholder> placeholders = new ArrayList<>();
+            placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
+                return Material.ORANGE_TERRACOTTA; }
+                public Material getReplacement() { return primary.getClay(); }
+                public boolean addMetadata() { return false; }
+                public Metadata getMetadata() { return null; }
+            });
+            placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
+                return Material.BLUE_TERRACOTTA; }
+                public Material getReplacement() { return primary.getClay(); }
+                public boolean addMetadata() { return false; }
+                public Metadata getMetadata() { return null; }
+            });
+            placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
+                return Material.ORANGE_WOOL; }
+                public Material getReplacement() { return primary.getWool(); }
+                public boolean addMetadata() { return true; }
+                public Metadata getMetadata() { return new Metadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), primary.name())); }
+            });
+            placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
+                return Material.BLUE_WOOL; }
+                public Material getReplacement() { return secondary.getWool(); }
+                public boolean addMetadata() { return true; }
+                public Metadata getMetadata() { return new Metadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), secondary.name())); }
+            });
+
+            ArenaProvider.ArenaGenerationTask task = new ArenaProvider.ArenaGenerationTask(getWorld(), "tutorial_map.xsc", new Vector(i*300, 64, 0), null, null, placeholders);
+            long begin = System.nanoTime();
+            task.work();
+            long end = System.nanoTime();
+
+            XenyriaSplatoon.getXenyriaLogger().log("Cluster #" + i + " generiert. (Dauerte " + ((end - begin) / 1000000f) + " ms)");
+
+            TutorialMatch match = new TutorialMatch(getWorld());
+            Team team = new Team(primary);
+            Team enemy = new Team(secondary);
+            match.registerTeam(team);
+            match.registerTeam(enemy);
+            for(StoredPlaceholder placeholder : task.getSchematic().getStoredPlaceholders()) {
+
+                match.handlePlaceholder(new Vector(i*300, 64, 0), placeholder);
+
+            }
+
+            match.createRails();
+            matches.add(match);
+
+            try {
+
+                Vector offset = new Vector(i * 300, 64, 0);
+                ArenaBoundaryConfiguration configuration = ArenaBoundaryConfiguration.fromFile(new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "arena" + File.separator + "tutorial_map.sbounds"));
+                for(ArenaBoundaryConfiguration.ArenaBoundaryBlock block : configuration.getPaintableSurfaces()) {
+
+                    Vector realPos = offset.clone().add(new Vector(block.x, block.y, block.z));
+                    Block block1 = getWorld().getBlockAt(realPos.getBlockX(), realPos.getBlockY(), realPos.getBlockZ());
+                    block1.setMetadata("Paintable", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), true));
+                    block1.setMetadata("Wall", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), block.wall));
+
+                }
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+            }
+
+            x+=300;
+
+        }
+
+        for(ChunkCoordIntPair pair : pairs) {
+
+            Chunk chunk = getWorld().getChunkAt(pair.x, pair.z);
+            ((CraftWorld)getWorld()).getHandle().updateBrightness(EnumSkyBlock.SKY, new BlockPosition(0,0,0), ((CraftChunk)chunk).getHandle());
+
+        }
+
+    }
+
+    public TutorialMatch getFreeCluster() {
+
+        for(TutorialMatch match : matches) {
+
+            if(match.getHumanPlayers().isEmpty()) {
+
+                return match;
+
+            }
+
+        }
+        return null;
+
+    }
+
+}

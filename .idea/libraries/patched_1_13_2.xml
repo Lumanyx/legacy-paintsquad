@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="patched_1.13.2">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../Testserver/Splatoon/plugins/ProtocolLib.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../Testserver/Splatoon/splatoonsrv.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/../../Testserver/Splatoon/splatoonsrv.jar!/" />
+    </SOURCES>
+  </library>
+</component>
