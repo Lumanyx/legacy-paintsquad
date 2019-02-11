@@ -17,6 +17,7 @@ import de.xenyria.splatoon.game.player.userdata.inventory.ItemCategory;
 import de.xenyria.splatoon.game.player.userdata.inventory.ItemRewriteRule;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -50,14 +51,12 @@ public class WeaponSetItem extends InventoryItem {
         }
 
         WeaponSetItem setItem = new WeaponSetItem(player, material, durability, null, set);
-        setItem.equipFlag = equipped;
+        setItem.addToPlayerInventory();
+        setItem.setEquipped(equipped);
 
         return setItem;
 
     }
-
-    private boolean equipFlag;
-    public boolean isEquipped() { return equipFlag; }
 
     @Override
     public ItemCategory getCategory() {
@@ -109,8 +108,9 @@ public class WeaponSetItem extends InventoryItem {
         builder.addAttributeHider();
         builder.setUnbreakable(true);
 
-        if(equipFlag) {
+        if(isEquipped()) {
 
+            builder.addEnchantment(Enchantment.DURABILITY, 1);
             builder.addLore("§2" + Characters.OKAY + " §aAngelegt");
 
         } else {

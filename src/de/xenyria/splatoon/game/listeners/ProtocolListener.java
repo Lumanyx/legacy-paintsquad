@@ -22,6 +22,7 @@ import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.scoreboard.EntityHighlightController;
 import de.xenyria.splatoon.game.projectile.ink.InkProjectile;
 import de.xenyria.splatoon.lobby.shop.AbstractShopkeeper;
+import de.xenyria.splatoon.lobby.shop.gear.GearShopItem;
 import net.minecraft.server.v1_13_R2.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -160,55 +161,59 @@ public class ProtocolListener extends PacketAdapter {
         } else if(event.getPacketType() == PacketType.Play.Server.ABILITIES) {
 
             SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
-            if(player.getMatch().inIntro()) {
+            if(player != null && player.getMatch() != null) {
 
-                if(player.getMatch().getIntroManager() != null) {
+                if (player.getMatch().inIntro()) {
 
-                    if(player.getMatch().getIntroManager().introPhase() == IntroManager.Phase.MAP_PREVIEW) {
+                    if (player.getMatch().getIntroManager() != null) {
 
-                        event.getPacket().getFloat().write(1, 0.35f);
+                        if (player.getMatch().getIntroManager().introPhase() == IntroManager.Phase.MAP_PREVIEW) {
 
-                    } else {
+                            event.getPacket().getFloat().write(1, 0.35f);
 
-                        event.getPacket().getFloat().write(1, 0.7f);
+                        } else {
+
+                            event.getPacket().getFloat().write(1, 0.7f);
+
+                        }
+
+                    }
+
+                    //event.getPacket().getFloat().write(1, 5f);
+                } else if (player.getMatch().inOutro()) {
+
+                    if (player.getMatch().getOutroManager() != null) {
+
+                        if (player.getMatch().getOutroManager().isZoomActive()) {
+
+                            event.getPacket().getFloat().write(1, 0.2f);
+
+                        }
 
                     }
 
                 }
 
-                //event.getPacket().getFloat().write(1, 5f);
-            } else if(player.getMatch().inOutro()) {
+                if (player != null && player.getEquipment().getPrimaryWeapon() != null) {
 
-                if(player.getMatch().getOutroManager() != null) {
+                    if (player.getEquipment().getPrimaryWeapon() instanceof AbstractCharger) {
 
-                    if(player.getMatch().getOutroManager().isZoomActive()) {
+                        AbstractCharger charger = (AbstractCharger) player.getEquipment().getPrimaryWeapon();
+                        if (charger.hasZoom() && charger.isSelected() && charger.isCharging()) {
 
-                        event.getPacket().getFloat().write(1, 0.2f);
+                            event.getPacket().getFloat().write(1, charger.getZoomModificator());
 
-                    }
+                        }
 
-                }
+                    } else if (player.getEquipment().getPrimaryWeapon() instanceof AbstractSplatling) {
 
-            }
+                        event.getPacket().getFloat().write(1, 0f);
 
-            if(player != null && player.getEquipment().getPrimaryWeapon() != null) {
+                    } else if (player.getEquipment().getPrimaryWeapon() instanceof AbstractBlaster) {
 
-                if(player.getEquipment().getPrimaryWeapon() instanceof AbstractCharger) {
-
-                    AbstractCharger charger = (AbstractCharger) player.getEquipment().getPrimaryWeapon();
-                    if (charger.hasZoom() && charger.isSelected() && charger.isCharging()) {
-
-                        event.getPacket().getFloat().write(1, charger.getZoomModificator());
+                        event.getPacket().getFloat().write(1, 0f);
 
                     }
-
-                } else if(player.getEquipment().getPrimaryWeapon() instanceof AbstractSplatling) {
-
-                    event.getPacket().getFloat().write(1, 0f);
-
-                } else if(player.getEquipment().getPrimaryWeapon() instanceof AbstractBlaster) {
-
-                    event.getPacket().getFloat().write(1, 0f);
 
                 }
 
@@ -228,23 +233,40 @@ public class ProtocolListener extends PacketAdapter {
 
                     byte origVal = (byte) watcher.getObject(0);
                     watcher.setObject(0, serializer, BitUtil.setBit(origVal, 6, true));
+
                     event.getPacket().getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
 
                 } else {
 
-                    if(player.getEquipment().getSpecialWeapon() != null && player.getEquipment().getSpecialWeapon().isActive()) {
+                    if(GearShopItem.getShopItemEntityIDs().containsKey(id)) {
 
-                        if(player.getEquipment().getSpecialWeapon() instanceof Baller) {
+                        WrappedDataWatcher watcher = new WrappedDataWatcher(GearShopItem.getShopItemEntityIDs().get(id).getDataWatcher()).deepClone();
+                        ItemStack stack = watcher.getItemStack(6);
+                        if (ItemBuilder.hasValue(stack, "rwr_mat")) {
 
-                            Baller baller = ((Baller)player.getEquipment().getSpecialWeapon());
-                            if(baller.mimic != null && id == baller.mimic.getId()) {
+                            stack = Gear.rewriteItemStack(stack);
 
-                                WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(baller.mimic.getBukkitEntity()).deepClone();
-                                WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(Byte.class);
+                        }
+                        watcher.setObject(6, stack);
+                        event.getPacket().getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
 
-                                byte origVal = (byte) watcher.getObject(0);
-                                watcher.setObject(0, serializer, BitUtil.setBit(origVal, 1, true));
-                                event.getPacket().getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
+                    } else {
+
+                        if (player.getEquipment().getSpecialWeapon() != null && player.getEquipment().getSpecialWeapon().isActive()) {
+
+                            if (player.getEquipment().getSpecialWeapon() instanceof Baller) {
+
+                                Baller baller = ((Baller) player.getEquipment().getSpecialWeapon());
+                                if (baller.mimic != null && id == baller.mimic.getId()) {
+
+                                    WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(baller.mimic.getBukkitEntity()).deepClone();
+                                    WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(Byte.class);
+
+                                    byte origVal = (byte) watcher.getObject(0);
+                                    watcher.setObject(0, serializer, BitUtil.setBit(origVal, 1, true));
+                                    event.getPacket().getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
+
+                                }
 
                             }
 

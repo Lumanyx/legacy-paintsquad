@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.equipment;
 
 import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.equipment.gear.boots.FootGear;
 import de.xenyria.splatoon.game.equipment.gear.chest.BodyGear;
 import de.xenyria.splatoon.game.equipment.gear.head.HeadGear;
@@ -90,9 +91,6 @@ public class Equipment {
         headGear = (HeadGear) XenyriaSplatoon.getGearRegistry().newInstance(1);
         bodyGear = (BodyGear) XenyriaSplatoon.getGearRegistry().newInstance(2);
         footGear = (FootGear) XenyriaSplatoon.getGearRegistry().newInstance(3);
-        headGear.assignToPlayer(player, 1);
-        bodyGear.assignToPlayer(player, 2);
-        footGear.assignToPlayer(player, 3);
 
         if(player instanceof SplatoonHumanPlayer) {
 
@@ -150,6 +148,25 @@ public class Equipment {
         setPrimaryWeapon(set.getPrimaryWeapon());
         setSecondaryWeapon(set.getSecondary());
         setSpecialWeapon(set.getSpecial());
+
+    }
+
+    public void setHeadGear(Gear gear) {
+
+        this.headGear = (HeadGear) gear;
+        player.updateEquipment();
+
+    }
+    public void setBodyGear(Gear gear) {
+
+        this.bodyGear = (BodyGear) gear;
+        player.updateEquipment();
+
+    }
+    public void setFootGear(Gear gear) {
+
+        this.footGear = (FootGear) gear;
+        player.updateEquipment();
 
     }
 

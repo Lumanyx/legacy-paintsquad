@@ -34,7 +34,7 @@ public class NMSUtil {
 
         for(SplatoonHumanPlayer player : SplatoonHumanPlayer.getHumanPlayers()) {
 
-            if(player.isSquid() && player.getLocation().distance(entity.getBukkitEntity().getLocation()) < 96) {
+            if(player.getWorld().equals(entity.getBukkitEntity().getWorld()) && player.isSquid() && player.getLocation().distance(entity.getBukkitEntity().getLocation()) < 96) {
 
                 ((CraftPlayer)player.getPlayer()).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.getId()));
 

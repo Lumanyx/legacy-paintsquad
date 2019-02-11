@@ -2,12 +2,13 @@ package de.xenyria.splatoon.game.player.userdata.inventory;
 
 import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
+import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSetRegistry;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 public enum ItemCategory {
 
-    WEAPONS(Material.STONE_HOE, "§cWaffensets", "§7Hier findest du deine\n§7erworbenen Waffensets.", 36 * 3),
+    WEAPONS(Material.STONE_HOE, "§cWaffensets", "§7Hier findest du deine\n§7erworbenen Waffensets.", WeaponSetRegistry.size()),
     HELMETS(Material.LEATHER_HELMET, "§6Helme", "§7Hier findest du deine\n§7erworbenen Helme.", 36),
     CHESTPLATES(Material.LEATHER_CHESTPLATE, "§eBrustpanzer", "§7Hier findest du deine\n§7erworbenen Brustpanzer.", 36),
     BOOTS(Material.LEATHER_BOOTS, "§aStiefel", "§7Hier findest du deine\n§7erworbenen Stiefel.", 36),

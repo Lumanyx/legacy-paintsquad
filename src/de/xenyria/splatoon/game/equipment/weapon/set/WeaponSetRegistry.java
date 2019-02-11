@@ -60,4 +60,5 @@ public class WeaponSetRegistry {
 
     }
 
+    public static int size() { return sets.size(); }
 }

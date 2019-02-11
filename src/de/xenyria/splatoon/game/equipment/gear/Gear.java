@@ -1,12 +1,17 @@
 package de.xenyria.splatoon.game.equipment.gear;
 
+import com.mysql.fabric.xmlrpc.base.Data;
 import de.xenyria.api.spigot.ItemBuilder;
+import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.equipment.Brand;
 import de.xenyria.splatoon.game.equipment.gear.level.GearLevelManager;
+import de.xenyria.splatoon.game.equipment.gear.registry.SplatoonGearRegistry;
+import de.xenyria.splatoon.game.equipment.gear.registry.SplatoonGenericGearRegistry;
 import de.xenyria.splatoon.game.equipment.weapon.BrandedEquipment;
 import de.xenyria.splatoon.game.equipment.weapon.util.ProgressBarUtil;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import org.bukkit.Material;
 import org.bukkit.event.entity.ItemMergeEvent;
 import org.bukkit.inventory.ItemStack;
@@ -33,6 +38,37 @@ public abstract class Gear implements BrandedEquipment {
     }
 
     private int price;
+
+    public static Gear newInstance(int gearID) {
+
+        if(SplatoonGearRegistry.isRegistered(gearID)) {
+
+            return XenyriaSplatoon.getGearRegistry().newInstance(gearID);
+
+        } else if(SplatoonGenericGearRegistry.isRegistered(gearID)) {
+
+            return XenyriaSplatoon.getGenericGearRegistry().getNewGearInstance(gearID);
+
+        }
+        return null;
+
+    }
+
+    public static Gear dummyInstance(int i) {
+
+        if(SplatoonGearRegistry.isRegistered(i)) {
+
+            return XenyriaSplatoon.getGearRegistry().dummyInstance(i);
+
+        } else if(SplatoonGenericGearRegistry.isRegistered(i)) {
+
+            return XenyriaSplatoon.getGenericGearRegistry().dummyInstance(i);
+
+        }
+        return null;
+
+    }
+
     public int getPrice() { return price; }
 
     private org.bukkit.Color color;
@@ -40,9 +76,6 @@ public abstract class Gear implements BrandedEquipment {
 
     private int originID;
     public int getOriginID() { return originID; }
-
-    private int inventoryID;
-    public int getInventoryID() { return inventoryID; }
 
     private String name;
     public String getName() { return name; }
@@ -77,9 +110,9 @@ public abstract class Gear implements BrandedEquipment {
     private int maxSubAbilities = 1;
     public int getMaxSubAbilities() { return maxSubAbilities; }
 
-    public ItemStack asItemStack(@Nullable Color color) {
+    public ItemBuilder handleItemBuilder(ItemBuilder stack, @Nullable Color color) {
 
-        ItemBuilder stack = new ItemBuilder(material).setDisplayName(brand.getDisplayName() + name).addLore(
+        stack.setDisplayName("§e§l" + name).addLore(
                 "§8§l> Rüstungstyp", "§7" + type.getDisplayName(), ""
         );
 
@@ -115,7 +148,7 @@ public abstract class Gear implements BrandedEquipment {
 
             } else {
 
-                colorPrefix = assignedPlayer.getColor().prefix();
+                colorPrefix = "§e";
                 stack.addColor(this.color);
 
             }
@@ -133,7 +166,7 @@ public abstract class Gear implements BrandedEquipment {
 
             } else {
 
-                stack.addLore("§bNoch " + getGearData().experienceToNextRank() + " XP bis Stufe " + gearData.currentLevel() + 1);
+                stack.addLore("§bNoch " + getGearData().experienceToNextRank() + " XP bis Stufe " + (gearData.currentLevel()));
 
             }
 
@@ -145,6 +178,15 @@ public abstract class Gear implements BrandedEquipment {
 
         }
 
+        return stack;
+
+    }
+
+    public ItemStack asItemStack(@Nullable Color color) {
+
+        ItemBuilder stack = new ItemBuilder(material);
+        stack.setUnbreakable(true);
+        handleItemBuilder(stack, color);
         ItemStack stack1 = stack.create();
         if(this.color == null && color != null) {
 
@@ -156,8 +198,17 @@ public abstract class Gear implements BrandedEquipment {
 
             }
 
-        }
+        } else {
 
+            if(stack1.getItemMeta() instanceof LeatherArmorMeta) {
+
+                LeatherArmorMeta meta = (LeatherArmorMeta) stack1.getItemMeta();
+                meta.setColor(this.color);
+                stack1.setItemMeta(meta);
+
+            }
+
+        }
         return stack1;
 
     }
@@ -179,14 +230,30 @@ public abstract class Gear implements BrandedEquipment {
     public Material getMaterial() { return material; }
 
     private SplatoonPlayer assignedPlayer;
-    public void assignToPlayer(SplatoonPlayer player, int equipmentID) {
+    public void assignToPlayer(SplatoonPlayer player) {
 
         assignedPlayer = player;
-        this.inventoryID = equipmentID;
 
     }
 
     private SpecialEffect defaultAbility;
     public SpecialEffect getDefaultEffect() { return defaultAbility; }
+
+    public void addExistingData(GearItem.StoredGearData data) {
+
+        this.gearData = new GearData(this);
+        gearData.setExperience(data.getExperience());
+        gearData.setPrimaryEffect(gearData.getPrimaryEffect());
+        if(data.getSubEffects() != null) {
+
+            for(SpecialEffect effect : data.getSubEffects()) {
+
+                gearData.getSubAbilities().add(effect);
+
+            }
+
+        }
+
+    }
 
 }

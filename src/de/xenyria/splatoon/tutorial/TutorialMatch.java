@@ -50,7 +50,6 @@ public class TutorialMatch extends Match {
         if(!getHumanPlayers().isEmpty()) {
 
             SplatoonHumanPlayer player = getHumanPlayers().get(0);
-            player.getPlayer().sendMessage("Tutorial finish triggered.");
             player.getEquipment().resetPrimaryWeapon();
             player.getEquipment().resetSecondaryWeapon();
             player.getEquipment().resetSpecialWeapon();

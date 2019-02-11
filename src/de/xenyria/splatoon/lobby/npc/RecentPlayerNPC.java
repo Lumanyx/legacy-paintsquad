@@ -13,6 +13,7 @@ import de.xenyria.splatoon.game.equipment.gear.boots.FootGear;
 import de.xenyria.splatoon.game.equipment.gear.chest.BodyGear;
 import de.xenyria.splatoon.game.equipment.gear.head.HeadGear;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
+import de.xenyria.splatoon.lobby.SplatoonLobby;
 import de.xenyria.splatoon.lobby.npc.animation.RecentPlayerAnimation;
 import de.xenyria.splatoon.lobby.npc.animation.TalkAnimation;
 import net.minecraft.server.v1_13_R2.*;
@@ -24,6 +25,8 @@ import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.Score;
+import org.bukkit.scoreboard.Scoreboard;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -133,10 +136,18 @@ public class RecentPlayerNPC {
                 if (player.getLocation().distance(this.player.getBukkitEntity().getLocation()) <= RECENT_PLAYER_RANGE) {
 
                     SplatoonHumanPlayer humanPlayer = SplatoonHumanPlayer.getPlayer(player);
-                    if(humanPlayer != null) {
+                    if(humanPlayer != null && humanPlayer.getMatch() != null && humanPlayer.getMatch() instanceof SplatoonLobby) {
 
                         RecentPlayer player1 = humanPlayer.getRandomRecentPlayer();
                         if(player1 != null) {
+
+                            Scoreboard scoreboard = humanPlayer.getPlayer().getScoreboard();
+                            org.bukkit.scoreboard.Team team = scoreboard.getTeam("lobby-team-npc");
+                            if(team != null) {
+
+                                team.addEntry(player1.getName());
+
+                            }
 
                             spawn(humanPlayer, player1);
                             humanPlayer.markAsSpawned(player1);

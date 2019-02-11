@@ -278,8 +278,9 @@ public abstract class WeaponModel {
 
                     }
 
-                    stand1.getWorld().addEntity(stand1);stand.setVisible(false);
+                    stand1.getWorld().addEntity(stand1);
                     stand = (ArmorStand) stand1.getBukkitEntity();
+                    stand.setVisible(false);
 
                     stand.setVisible(false);
                     stand.setCanMove(false);

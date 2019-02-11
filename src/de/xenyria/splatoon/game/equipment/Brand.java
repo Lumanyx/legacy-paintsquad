@@ -3,6 +3,8 @@ package de.xenyria.splatoon.game.equipment;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.core.chat.Chat;
 
+import java.util.Random;
+
 public enum Brand {
 
     PROTO("Prototyp", "PR0T0", "§e§l[PR0T0] "),
@@ -22,6 +24,17 @@ public enum Brand {
 
 
     private String name;
+
+    public static Brand randomBrand() {
+
+        while (true) {
+
+            Brand brand = values()[new Random().nextInt(Brand.values().length - 1)];
+            if(brand != NOT_BRANDED) { return brand; }
+
+        }
+
+    }
 
     public String getName() {
         return name;

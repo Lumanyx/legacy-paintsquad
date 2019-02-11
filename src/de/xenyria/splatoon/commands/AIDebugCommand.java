@@ -12,11 +12,16 @@ import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.ai.pathfinding.path.NodePath;
 import de.xenyria.splatoon.ai.projectile.ProjectileExaminer;
 import de.xenyria.splatoon.ai.task.paint.PaintableRegion;
+import de.xenyria.splatoon.game.match.Match;
+import de.xenyria.splatoon.game.objects.GameObject;
+import de.xenyria.splatoon.game.objects.LaunchPad;
+import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.ink.InkProjectile;
 import de.xenyria.splatoon.game.team.Team;
+import de.xenyria.splatoon.tutorial.TutorialMatch;
 import net.minecraft.server.v1_13_R2.*;
 import org.bukkit.*;
 import org.bukkit.Material;
@@ -72,15 +77,25 @@ public class AIDebugCommand implements CommandExecutor {
                         SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
                         player1.setSpecialPoints(9999);
 
-                    } else if(args[0].equalsIgnoreCase("li")) {
+                    } else if(args[0].equalsIgnoreCase("endtut")) {
 
-                        ArrayList<CinematicSequence> sequences = XenyriaSplatoon.getLobbyManager().getLobby().createIntroSequences(player);
-                        CinematicCamera camera = new CinematicCamera(player.getWorld());
-                        for(CinematicSequence sequence : sequences) { camera.addSequence(sequence); }
-                        camera.setExitGameMode(GameMode.SURVIVAL);
-                        camera.setGamemodeToUse(GameMode.SPECTATOR);
-                        camera.addPlayer(player);
-                        camera.start();
+                        SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+                        Match match = player1.getMatch();
+                        if(match != null && match instanceof TutorialMatch) {
+
+                            TutorialMatch match1 = (TutorialMatch)match;
+                            for(GameObject object : match1.getGameObjects()) {
+
+                                if(object instanceof LaunchPad) {
+
+                                    LaunchPad pad = (LaunchPad)object;
+                                    player.teleport(pad.getLocation());
+
+                                }
+
+                            }
+
+                        }
 
                     } else if(args[0].equalsIgnoreCase("cap")) {
 

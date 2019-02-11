@@ -349,28 +349,12 @@ public class PlayerEventHandler implements Listener {
         ItemStack stack = e.getPlayer().getInventory().getItem(e.getHand());
         handleInteraction(e.getPlayer(), stack, Action.RIGHT_CLICK_AIR);
 
-        Entity entity = e.getRightClicked();
-        if(entity.hasMetadata("ShopItemID")) {
 
-            int shopItemID = entity.getMetadata("ShopItemID").get(0).asInt();
-            for(ShopItem item : ShopItem.getItems()) {
-
-                if(item.getShopItemID() == shopItemID) {
-
-                    item.onInteract(e.getPlayer());
-                    return;
-
-                }
-
-            }
-
-        }
 
         if(e.getRightClicked() != null) {
 
             for (AbstractShopkeeper shopkeeper : AbstractShopkeeper.getShopkeepers()) {
 
-                System.out.println("Compare: " + e.getRightClicked().getEntityId() + ", " + shopkeeper.getEntityID());
                 if (e.getRightClicked().getEntityId() == shopkeeper.getEntityID()) {
 
                     shopkeeper.onInteraction(e.getPlayer());
@@ -484,6 +468,22 @@ public class PlayerEventHandler implements Listener {
         ItemStack stack = event.getPlayer().getInventory().getItem(event.getHand());
         handleInteraction(event.getPlayer(), stack, Action.RIGHT_CLICK_AIR);
 
+        Entity entity = event.getRightClicked();
+        if(entity.hasMetadata("ShopItemID")) {
+
+            int shopItemID = entity.getMetadata("ShopItemID").get(0).asInt();
+            for(ShopItem item : ShopItem.getItems()) {
+
+                if(item.getShopItemID() == shopItemID) {
+
+                    item.onInteract(event.getPlayer());
+                    return;
+
+                }
+
+            }
+
+        }
 
     }
 
@@ -524,6 +524,13 @@ public class PlayerEventHandler implements Listener {
         Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
             SplatoonHumanPlayer player = new SplatoonHumanPlayer(event.getPlayer(), player1);
+
+            if(event.getPlayer().getVariableData().getHandle().exists("splatoon.coins")) {
+
+                player.getUserData().updateCoins(event.getPlayer().getVariableData().getHandle().getInt("splatoon.coins"));
+
+            }
+
             SplatoonHumanPlayer.getHumanPlayers().add(player);
             player1.setFoodLevel(6);
             player.joinMatch(XenyriaSplatoon.getLobbyManager().getLobby());

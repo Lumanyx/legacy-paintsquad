@@ -17,10 +17,14 @@ public abstract class InventoryItem {
         this.rewriteRule = rewriteRule;
         this.durability = durability;
         this.material = material;
-        localItemID = player.getInventory().addItem(this);
 
     }
 
+    public void addToPlayerInventory() {
+
+        localItemID = getPlayer().getInventory().addItem(this);
+
+    }
 
     private ItemRewriteRule rewriteRule;
     private short durability;

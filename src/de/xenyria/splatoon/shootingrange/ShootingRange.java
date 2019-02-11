@@ -52,10 +52,14 @@ public class ShootingRange extends Match {
 
     private void setupScoreboard(Player player1) {
 
-        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId());
-        player.getScoreboard().reset();
+        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId()).getSpigotVariant();
         SplatoonHumanPlayer player2 = SplatoonHumanPlayer.getPlayer(player1);
 
+        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+            player.getScoreboard().reset();
+
+        }, 20l);
         Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
             player.getScoreboard().setBoardName(player2.getColor().prefix() + "§lSplatoon §8" + Characters.SMALL_X + " §7Waffentest");
@@ -67,13 +71,13 @@ public class ShootingRange extends Match {
             player.getScoreboard().setLine(2, "");
             player.getScoreboard().setLine(1, "");
 
-        }, 1l);
+        }, 40l);
 
     }
 
     public void updateValues(Player player1) {
 
-        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId());
+        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId()).getSpigotVariant();
         SplatoonHumanPlayer player2 = SplatoonHumanPlayer.getPlayer(player1);
         player.getScoreboard().setLine(ScoreboardSlotIDs.SHOOTINGRANGE_SCORE, player2.getTeam().getColor().prefix() + "§o§l" + player2.getScoreboardManager().getPointValue());
 
@@ -119,7 +123,7 @@ public class ShootingRange extends Match {
         if(!getHumanPlayers().isEmpty()) {
 
             SplatoonHumanPlayer player = getHumanPlayers().get(0);
-            updateValues(player.getPlayer());
+            //updateValues(player.getPlayer());
 
         }
         super.tick();

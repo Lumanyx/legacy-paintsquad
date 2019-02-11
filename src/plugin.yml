@@ -11,6 +11,9 @@ commands:
     description: Teleportiert dich zum Waffentestbereich.
     usage: /<command>
     aliases: [sr]
+  scoins:
+    description: Erlaubt die Verwaltung von Talern
+    usage: /<command>
   splatoon:
     description: Splatoon-Testbefehl
     usage: /<command>

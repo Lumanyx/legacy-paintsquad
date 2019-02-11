@@ -15,6 +15,7 @@ public class SplatoonGearRegistry {
 
     private static HashMap<Integer, Class> gearClassMap = new HashMap<>();
     private static HashMap<Integer, Gear> dummyInstances = new HashMap<>();
+    public static boolean isRegistered(int id) { return gearClassMap.containsKey(id); }
 
     public SplatoonGearRegistry() {
 

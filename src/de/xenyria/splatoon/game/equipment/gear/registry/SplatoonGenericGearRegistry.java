@@ -3,6 +3,7 @@ package de.xenyria.splatoon.game.equipment.gear.registry;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.equipment.Brand;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
+import de.xenyria.splatoon.game.equipment.gear.GearData;
 import de.xenyria.splatoon.game.equipment.gear.GearType;
 import de.xenyria.splatoon.game.equipment.gear.SpecialEffect;
 import de.xenyria.splatoon.game.equipment.gear.head.HeadGear;
@@ -13,6 +14,7 @@ import org.bukkit.Material;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 public class SplatoonGenericGearRegistry {
@@ -20,7 +22,16 @@ public class SplatoonGenericGearRegistry {
     private static final int DYNAMIC_GEAR_ID_START = 1000;
     private static final int GEAR_AMOUNT_PER_LEVEL = 10;
 
-    private HashMap<Integer, DynamicGearData> gearData = new HashMap<>();
+    private static HashMap<Integer, DynamicGearData> gearData = new HashMap<>();
+    private static HashMap<Integer, Gear> dummyInstances = new HashMap<>();
+
+    public static boolean isRegistered(int gearID) { return gearData.containsKey(gearID); }
+
+    public Gear dummyInstance(int i) {
+
+        return dummyInstances.get(i);
+
+    }
 
     public class DynamicGearData {
 
@@ -44,6 +55,7 @@ public class SplatoonGenericGearRegistry {
             this.brand = brand;
             this.name = name;
             this.ability = effect;
+            dummyInstance = newInstance();
 
         }
 
@@ -67,7 +79,7 @@ public class SplatoonGenericGearRegistry {
 
     }
 
-    private int nextGearItemID() { return gearData.size(); }
+    private int nextGearItemID() { return DYNAMIC_GEAR_ID_START + gearData.size(); }
     public void addHeadGear(String name, Color color) {
 
         int starCount = 1 + (new Random().nextInt(2));
@@ -119,7 +131,7 @@ public class SplatoonGenericGearRegistry {
         }
 
         int gearID = nextGearItemID();
-        Brand brand = Brand.values()[new Random().nextInt(Brand.values().length - 1)];
+        Brand brand = Brand.randomBrand();
         SpecialEffect specialEffect = SpecialEffect.values()[new Random().nextInt(SpecialEffect.values().length - 1)];
         DynamicGearData data = new DynamicGearData(gearID, GearType.BOOTS, price, starCount, color, brand, name, specialEffect);
         gearData.put(gearID, data);
@@ -314,6 +326,11 @@ public class SplatoonGenericGearRegistry {
         addFootGear("Orange Sneaker", Color.ORANGE);
         addFootGear("Hellgrüne Sneaker", Color.LIME);
         addFootGear("Farbneutrale Sneaker", null);
+        for(Map.Entry<Integer, DynamicGearData> entry : gearData.entrySet()) {
+
+            dummyInstances.put(entry.getKey(), entry.getValue().dummyInstance);
+
+        }
         XenyriaSplatoon.getXenyriaLogger().log("Es wurden §e" + gearData.size() + " generische Ausrüstungsteile §7registriert.");
 
     }

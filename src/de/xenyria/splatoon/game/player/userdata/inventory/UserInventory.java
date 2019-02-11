@@ -2,7 +2,9 @@ package de.xenyria.splatoon.game.player.userdata.inventory;
 
 import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
+import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
+import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.set.WeaponSetItem;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.bukkit.Bukkit;
@@ -28,10 +30,12 @@ public class UserInventory {
 
     }
 
-    public static void main(String[] args) {
+    public boolean hasSpace(ItemCategory category) {
 
-        int i = 11;
-        System.out.println(i%9 + " x " + i/9 + "");
+        int max = category.getSlots();
+        int current = items.getOrDefault(category, new ArrayList<>()).size();
+        if((current+1) >= max) { return false; }
+        return true;
 
     }
 
@@ -123,6 +127,91 @@ public class UserInventory {
 
         }
         return 1;
+
+    }
+
+    public InventoryItem getItemFromLocalID(int id) {
+
+        for(Map.Entry<ItemCategory, ArrayList<InventoryItem>> entry : items.entrySet()) {
+
+            for(InventoryItem item : entry.getValue()) {
+
+                if(item.getLocalItemID() == id) {
+
+                    return item;
+
+                }
+
+            }
+
+        }
+
+        return null;
+
+    }
+
+    public int itemCount(ItemCategory category) {
+
+        if(items.containsKey(category)) {
+
+            return items.get(category).size();
+
+        }
+        return 0;
+
+    }
+
+    public void removeItem(InventoryItem item) {
+
+        ItemCategory category = item.getCategory();
+        items.get(category).remove(item);
+
+    }
+    public void removeItem(int id) {
+
+        InventoryItem item = getItemFromLocalID(id);
+        if(item != null) { removeItem(item); }
+
+    }
+
+    public void equipItem(InventoryItem item) {
+
+        for(InventoryItem item1 : items.getOrDefault(item.getCategory(), new ArrayList<>())) {
+
+            if(item1.isEquipped()) {
+
+                if(item1.getLocalItemID() != item.getLocalItemID()) {
+
+                    item1.setEquipped(false);
+                    item1.buildItem();
+
+                } else { return; }
+
+            } else {
+
+                if(item1.getLocalItemID() == item.getLocalItemID()) {
+
+                    item1.setEquipped(true);
+                    item1.buildItem();
+
+                }
+
+            }
+
+        }
+
+        if(item instanceof GearItem) {
+
+            GearItem item1 = (GearItem)item;
+            Gear gear = item1.getGearInstance();
+            switch (gear.getType()) {
+
+                case HELMET: player.getEquipment().setHeadGear(gear); break;
+                case CHESTPLATE: player.getEquipment().setBodyGear(gear); break;
+                case BOOTS: player.getEquipment().setFootGear(gear); break;
+            }
+
+        }
 
     }
 

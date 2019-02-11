@@ -85,6 +85,7 @@ public abstract class AbstractShop {
             int x = 0;
             for(Gear gear1 : gear) {
 
+                System.out.println(gear1);
                 Location location = locations[x];
                 GearShopItem item = GearShopItem.fromGear(gear1, location);
                 items.add(item);

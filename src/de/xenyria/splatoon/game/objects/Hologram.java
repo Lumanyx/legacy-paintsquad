@@ -55,10 +55,14 @@ public class Hologram extends GameObject {
 
             for(SplatoonPlayer player : getMatch().getAllPlayers()) {
 
-                if(player.getLocation().distance(location) <= radius) {
+                if(player.getWorld().equals(location.getWorld())) {
 
-                    visible = true;
-                    break;
+                    if (player.getLocation().distance(location) <= radius) {
+
+                        visible = true;
+                        break;
+
+                    }
 
                 }
 

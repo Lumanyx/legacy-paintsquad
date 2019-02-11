@@ -21,27 +21,67 @@ import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.level.Level;
+import de.xenyria.splatoon.game.player.userdata.level.LevelTree;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.lobby.npc.RecentPlayerNPC;
 import de.xenyria.splatoon.lobby.npc.animation.IdleAnimation;
 import de.xenyria.splatoon.lobby.npc.animation.TalkAnimation;
 import de.xenyria.splatoon.lobby.npc.animation.WalkAnimation;
+import de.xenyria.splatoon.lobby.shop.AbstractShop;
+import de.xenyria.splatoon.lobby.shop.gear.GearShop;
+import de.xenyria.splatoon.lobby.shop.gear.GearShopItem;
+import de.xenyria.splatoon.lobby.shop.gear.GearShopkeeper;
+import de.xenyria.splatoon.lobby.shop.item.ShopItem;
 import de.xenyria.splatoon.lobby.shop.weapons.WeaponShop;
 import de.xenyria.splatoon.lobby.shop.weapons.WeaponShopkeeper;
+import net.minecraft.server.v1_13_R2.EntityArmorStand;
 import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.Score;
+import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.util.Vector;
 
+import javax.swing.text.html.parser.Entity;
 import java.util.ArrayList;
 
 public class SplatoonLobby extends Match {
 
     private static Location lobbySpawn;
     public static Location getLobbySpawn() { return lobbySpawn; }
+
+    public void tick() {
+
+        for(GearShop shop : gearShops) {
+
+            for(ShopItem item : shop.getSortiment().getItems()) {
+
+                GearShopItem item1 = (GearShopItem) item;
+                item1.tick();
+
+                for(SplatoonHumanPlayer player : getHumanPlayers()) {
+
+                    if(player.getLocation().toVector().distance(item.getItem().getLocation().toVector()) <= 5) {
+
+                        item1.playerVisibilityCheck(player.getPlayer());
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        super.tick();
+
+    }
+
+    private ArrayList<GearShop> gearShops = new ArrayList<>();
 
     private Vector camera_1_introduce_begin = new Vector(-.5, 67.75, -7.5);
     private Vector camera_1_introduce_end = new Vector(-.5, 80, -7.5);
@@ -192,15 +232,14 @@ public class SplatoonLobby extends Match {
         bodyGearItemLocations.add(new Vector(33.5, 66.5, 29.5));
 
         headGearShopkeeperLocation = new Location(plazaWorld, 22.5, 66, 29.5, 107f, 0f);
-        headGearItemLocations.add(new Vector(11.5, 66.5, 30.5));
-        headGearItemLocations.add(new Vector(13.5, 66.5, 30.5));
-        headGearItemLocations.add(new Vector(15.5, 66.5, 30.5));
-        headGearItemLocations.add(new Vector(17.5, 66.5, 30.5));
-        headGearItemLocations.add(new Vector(19.5, 66.5, 30.5));
-        headGearItemLocations.add(new Vector(16.5, 66.5, 22.5));
-        headGearItemLocations.add(new Vector(18.5, 66.5, 22.5));
-        headGearItemLocations.add(new Vector(20.5, 66.5, 23.5));
-        headGearItemLocations.add(new Vector(21.5, 66.5, 25.5));
+        headGearItemLocations.add(new Vector(15.5, 66.5, 23.5));
+        headGearItemLocations.add(new Vector(17.5, 66.5, 23.5));
+        headGearItemLocations.add(new Vector(19.5, 66.5, 24.5));
+        headGearItemLocations.add(new Vector(20.5, 66.5, 26.5));
+        headGearItemLocations.add(new Vector(18.5, 66.5, 29.5));
+        headGearItemLocations.add(new Vector(16.5, 66.5, 29.5));
+        headGearItemLocations.add(new Vector(14.5, 66.5, 29.5));
+        headGearItemLocations.add(new Vector(12.5, 66.5, 29.5));
 
         weaponShopkeeperLocation = new Location(plazaWorld, 17.5, 64, 37.3, 180f, 0f);
         triggerShootingRangeLocation = new Location(plazaWorld, 24.5, 64.5, 34);
@@ -212,7 +251,23 @@ public class SplatoonLobby extends Match {
         weaponShopkeeper = new WeaponShopkeeper(weaponShopkeeperLocation);
         weaponShop = new WeaponShop(weaponShopkeeper);
 
+        headShopkeeper = new GearShopkeeper(headGearShopkeeperLocation, "§dHutverkäufer");
+        Location[] locations = new Location[headGearItemLocations.size()];
+        int i = 0;
+        for(Vector vector : headGearItemLocations) {
+
+            locations[i] = new Location(plazaWorld, vector.getX(), vector.getY(), vector.getZ());
+            i++;
+
+        }
+
+        headGearShop = new GearShop(headShopkeeper, AbstractShop.ShopType.HEAD_GEAR, locations);
+        gearShops.add(headGearShop);
+
     }
+
+    private GearShop headGearShop,bodyGearShop,footGearShop;
+    private GearShopkeeper headShopkeeper,bodyShopkeeper,footShopkeeper;
 
     private WeaponShopkeeper weaponShopkeeper;
     private WeaponShop weaponShop;
@@ -345,9 +400,60 @@ public class SplatoonLobby extends Match {
                     ((SplatoonHumanPlayer)player).getPlayer().setGameMode(GameMode.ADVENTURE);
                     ((SplatoonHumanPlayer)player).resetSpawnedRecentPlayers();
                     ((SplatoonHumanPlayer)player).refillRecentPlayerPool();
-                    ((SplatoonHumanPlayer) player).updateInventory();
+                    ((SplatoonHumanPlayer)player).updateInventory();
+
+                    SplatoonHumanPlayer player2 = (SplatoonHumanPlayer)player;
+                    Scoreboard scoreboard = player2.getPlayer().getScoreboard();
+
+                    if(scoreboard.getTeam("lobby-team-npc") == null) {
+
+                        org.bukkit.scoreboard.Team team = scoreboard.registerNewTeam("lobby-team-npc");
+                        team.setPrefix("§8[NPC] ");
+                        team.setColor(ChatColor.YELLOW);
+
+                    }
+                    for(Level level : XenyriaSplatoon.getLevelTree().allLevels()) {
+
+                        if(scoreboard.getTeam("lobby-team-" + level.getID()) == null) {
+
+                            org.bukkit.scoreboard.Team team = scoreboard.registerNewTeam("lobby-team-" + level.getID());
+                            team.setPrefix("§eLv. " + level.getID() + " ");
+                            team.setColor(ChatColor.GRAY);
+
+
+
+                        }
+                        org.bukkit.scoreboard.Team team = scoreboard.getTeam("lobby-team-" + level.getID());
+                        if(level.getID() == player2.getUserData().currentLevel()) {
+
+                            team.addEntry(player2.getName());
+
+                        }
+
+                    }
+
+                    for(SplatoonHumanPlayer humanPlayer1 : getHumanPlayers()) {
+
+                        if(humanPlayer1 != humanPlayer) {
+
+                            org.bukkit.scoreboard.Team team = scoreboard.getTeam("lobby-team-" + humanPlayer.getUserData().currentLevel());
+                            if(team != null) {
+
+                                team.addEntry(humanPlayer.getName());
+
+                            } else {
+
+                                team = scoreboard.registerNewTeam("lobby-team-" + humanPlayer.getUserData().currentLevel());
+                                team.addEntry(humanPlayer.getName());
+
+                            }
+
+                        }
+
+                    }
 
                 }
+
 
             }
 
@@ -358,6 +464,35 @@ public class SplatoonLobby extends Match {
 
                     SplatoonHumanPlayer player1 = (SplatoonHumanPlayer)player;
                     player1.resetSpawnedRecentPlayers();
+
+                    Scoreboard scoreboard1 = player1.getPlayer().getScoreboard();
+                    for(Level level : XenyriaSplatoon.getLevelTree().allLevels()) {
+
+                        org.bukkit.scoreboard.Team team = scoreboard1.getTeam("lobby-team-" + level.getID());
+                        if(team != null) {
+
+                            team.unregister();
+
+                        }
+
+                    }
+                    if(scoreboard1.getTeam("lobby-team-npc") != null) {
+
+                        scoreboard1.getTeam("lobby-team-npc").unregister();
+
+                    }
+
+                    for(SplatoonHumanPlayer otherPlayer : getHumanPlayers()) {
+
+                        if(otherPlayer != player1) {
+
+                            Scoreboard scoreboard = otherPlayer.getPlayer().getScoreboard();
+                            org.bukkit.scoreboard.Team team = scoreboard.getTeam("lobby-team-" + player1.getUserData().currentLevel());
+                            if(team != null) { team.removeEntry(player1.getName()); }
+
+                        }
+
+                    }
 
                 }
 
@@ -402,7 +537,7 @@ public class SplatoonLobby extends Match {
 
     public void updateScoreboard(Player player) {
 
-        XenyriaSpigotPlayer player1 = XenyriaSpigotPlayer.resolveByUUID(player.getUniqueId());
+        XenyriaSpigotPlayer player1 = XenyriaSpigotPlayer.resolveByUUID(player.getUniqueId()).getSpigotVariant();
         SplatoonHumanPlayer humanPlayer = SplatoonHumanPlayer.getPlayer(player);
         int level = humanPlayer.getUserData().currentLevel();
         int target = humanPlayer.getUserData().targetLevel().getID();
@@ -438,4 +573,20 @@ public class SplatoonLobby extends Match {
     public MatchType getMatchType() {
         return MatchType.TUTORIAL;
     }
+
+    public ShopItem getShopItem(int id) {
+
+        for(GearShop shop : gearShops) {
+
+            for(ShopItem item : shop.getSortiment().getItems()) {
+
+                if(item.getShopItemID() == id) { return item; }
+
+            }
+
+        }
+        return null;
+
+    }
+
 }

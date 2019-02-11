@@ -1,5 +1,6 @@
 package de.xenyria.splatoon.game.objects;
 
+import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.color.Color;
@@ -81,12 +82,35 @@ public class LaunchPad extends GameObject {
                                 if(player1.isValid()) {
 
                                     player1.endSuperJump();
+                                    if(player1.isSquid()) {
 
+                                        player1.leaveSquidForm();
+                                        player1.lockSquidForm();
+
+                                    }
+                                    player1.getPlayer().setVelocity(new Vector(0,0,0));
+                                    player1.getPlayer().setAllowFlight(true);
+                                    player1.getPlayer().setFlying(true);
                                     TutorialMatch match = (TutorialMatch) player1.getMatch();
                                     match.endTutorial();
-
                                     player1.leaveMatch();
-                                    player1.teleport(SplatoonLobby.getLobbySpawn());
+                                    Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                        player1.getPlayer().teleport(XenyriaSplatoon.getLobbyManager().getLobby().getLobbySpawn());
+                                        player1.getPlayer().setAllowFlight(true);
+                                        player1.getPlayer().setFlying(true);
+
+                                    }, 10l);
+
+                                    Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                        XenyriaSplatoon.getLobbyManager().addPlayerToLobby(player1);
+                                        XenyriaSplatoon.getLobbyManager().triggerIntro(player1);
+                                        player1.unlockSquidForm();
+
+                                    }, 20l);
+
+                                    /**/
 
                                 }
 
@@ -109,4 +133,5 @@ public class LaunchPad extends GameObject {
 
     }
 
+    public Location getLocation() { return location; }
 }

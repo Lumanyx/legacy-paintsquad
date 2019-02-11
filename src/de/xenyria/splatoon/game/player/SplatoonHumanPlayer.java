@@ -1,5 +1,8 @@
 package de.xenyria.splatoon.game.player;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.events.PacketContainer;
 import com.destroystokyo.paper.Title;
 import com.mojang.authlib.GameProfile;
 import de.xenyria.api.spigot.ItemBuilder;
@@ -31,6 +34,7 @@ import de.xenyria.splatoon.game.player.scoreboard.PlayerScoreboardManager;
 import de.xenyria.splatoon.game.player.superjump.SuperJump;
 import de.xenyria.splatoon.game.player.userdata.UserData;
 import de.xenyria.splatoon.game.player.userdata.inventory.UserInventory;
+import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.set.WeaponSetItem;
 import de.xenyria.splatoon.game.projectile.*;
 import de.xenyria.splatoon.game.team.Team;
@@ -94,6 +98,10 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
         this.spigotPlayer = spigotPlayer;
         WeaponSetItem.fromSet(this, WeaponSetRegistry.getSet(1), true);
+        GearItem.createItem(this, 1, GearItem.StoredGearData.fromBase(1), true);
+        GearItem.createItem(this, 2, GearItem.StoredGearData.fromBase(2), true);
+        GearItem.createItem(this, 3, GearItem.StoredGearData.fromBase(3), true);
+
         this.player = resolve;
         if(!flag) {
 
@@ -338,6 +346,12 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
             scoreboardManager.tick();
             if (!isSplatted()) {
+
+                if(!isSquid() && player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+
+                    player.removePotionEffect(PotionEffectType.INVISIBILITY);
+
+                }
 
                 updateLastSafe();
                 tickInkArmor();
@@ -590,21 +604,25 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                 }
 
-                if (!squidFormLocked) {
+                if(player.getGameMode() == GameMode.ADVENTURE) {
 
-                    if (player.getInventory().getHeldItemSlot() == 2) {
+                    if (!squidFormLocked) {
 
-                        if (!isSquid()) {
+                        if (player.getInventory().getHeldItemSlot() == 2) {
 
-                            enterSquidForm();
+                            if (!isSquid()) {
 
-                        }
+                                enterSquidForm();
 
-                    } else {
+                            }
 
-                        if (isSquid()) {
+                        } else {
 
-                            leaveSquidForm();
+                            if (isSquid()) {
+
+                                leaveSquidForm();
+
+                            }
 
                         }
 
@@ -772,6 +790,10 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
                     squidCameraPosition.locZ = squidPositionStand.locZ;
                     ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(squidCameraPosition));
 
+                } else {
+
+                    addInk(HUMAN_INK_CHARGE_VALUE);
+
                 }
 
             } else {
@@ -844,6 +866,9 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
         if(wasSquidBeforeJump) {
 
             player.teleport(oldLoc);
+            ((CraftPlayer)player).getHandle().setPosition(
+                    oldLoc.getX(), oldLoc.getY(), oldLoc.getZ()
+            );
             enterSquidForm();
 
         } else {
@@ -1426,13 +1451,30 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             player.playSound(player.getLocation(), Sound.ENTITY_FISH_SWIM, 1f, 1f);
             Vector vector = locationVector().clone().add(new Vector(0, 0.325, 0));
 
+            try {
+
+                PacketContainer container = new PacketContainer(PacketType.Play.Server.MOUNT);
+                container.getIntegers().write(0, squidCameraPosition.getId());
+                container.getIntegerArrays().write(0, new int[0]);
+                ProtocolLibrary.getProtocolManager().sendServerPacket(player, container, false);
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+            }
+
             player.teleport(new Location(player.getWorld(), vector.getX(), vector.getY(), vector.getZ(), player.getLocation().getYaw(), player.getLocation().getPitch()));
             ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(squidPositionStand.getId()));
             ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(squidCameraPosition.getId()));
             squidPositionStand = null;
             squidCameraPosition = null;
             player.setGameMode(GameMode.ADVENTURE);
-            player.removePotionEffect(PotionEffectType.INVISIBILITY);
+            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                player.removePotionEffect(PotionEffectType.INVISIBILITY);
+
+            }, 1l);
             player.setWalkSpeed(0.2f);
             player.setFlySpeed(0.1f);
             player.setFlying(false);

@@ -59,4 +59,6 @@ public class LevelTree {
     }
 
     public Level lastLevel() { return levels.get(levels.size() - 1); }
+
+    public Level[] allLevels() { return levels.toArray(new Level[]{}); }
 }

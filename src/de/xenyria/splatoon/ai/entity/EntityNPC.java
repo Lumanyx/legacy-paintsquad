@@ -621,6 +621,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             GameProfile profile = new GameProfile(uuid, team.getColor().prefix() + "[AI] " + name);
             profile.getProperties().put("textures", new Property("textures", skinValue, signature));
+
             return profile;
 
         }

@@ -98,9 +98,9 @@ public class WeaponShop extends AbstractShop {
 
         WeaponSet set = WeaponSetRegistry.getSet(setID);
 
-        Inventory inventory = Bukkit.createInventory(null, 36);
+        Inventory inventory = Bukkit.createInventory(null, 36, PURCHASE_SET);
         for(int i = 0; i < 36; i++) { inventory.setItem(i, ItemBuilder.getUnclickablePane()); }
-        inventory.setItem(14, set.itemStackForPlayer(player.getPlayer(), false));
+        inventory.setItem(13, set.itemStackForPlayer(player.getPlayer(), false));
         inventory.setItem(29, new ItemBuilder(Material.BARRIER).setDisplayName("§cNein").addLore("§7Zurück zum Shop").addToNBT("DismissCategory", set.getPrimaryWeaponType().name()).create());
         inventory.setItem(31, new ItemBuilder(Material.YELLOW_TERRACOTTA).setDisplayName("§eTesten").addLore("§7Teleportiert dich zum Testbereich.").addToNBT("EnterShootingRangeAbs", set.getSetID()).create());
 

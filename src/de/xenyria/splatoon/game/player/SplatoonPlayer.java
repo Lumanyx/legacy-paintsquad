@@ -139,7 +139,7 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
     }
 
-    public Color getColor() { return getTeam().getColor(); }
+    public Color getColor() { return (getTeam() == null) ? null : getTeam().getColor(); }
 
     public void beginRidingInkRail(InkRail rail) {
 

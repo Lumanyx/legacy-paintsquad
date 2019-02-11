@@ -29,7 +29,7 @@ public class ShootingRangeCommand extends SpigotCommand implements CommandExecut
             Match match = player1.getMatch();
             if(match instanceof SplatoonLobby) {
 
-                XenyriaSplatoon.getShootingRangeManager().joinShootingRange(player1);
+                XenyriaSplatoon.getShootingRangeManager().joinShootingRange(player1, false);
 
             } else if(match instanceof ShootingRange) {
 

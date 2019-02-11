@@ -480,7 +480,7 @@ public abstract class BattleMatch extends Match {
 
     private void setupScoreboard(Player player1) {
 
-        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId());
+        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId()).getSpigotVariant();
         player.getScoreboard().reset();
         SplatoonHumanPlayer player2 = SplatoonHumanPlayer.getPlayer(player1);
 
@@ -502,7 +502,7 @@ public abstract class BattleMatch extends Match {
 
     private void updateValues(Player player1) {
 
-        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId());
+        XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId()).getSpigotVariant();
         SplatoonHumanPlayer player2 = SplatoonHumanPlayer.getPlayer(player1);
         player.getScoreboard().setLine(ScoreboardSlotIDs.TURFWAR_SCORE, player2.getTeam().getColor().prefix() + "§o§l" + player2.getScoreboardManager().getPointValue());
 

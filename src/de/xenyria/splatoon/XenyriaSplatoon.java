@@ -2,6 +2,7 @@ package de.xenyria.splatoon;
 
 import com.comphenix.protocol.ProtocolLibrary;
 import com.mojang.brigadier.Message;
+import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.servercore.spigot.logger.XenyriaSpigotLogger;
 import de.xenyria.servercore.spigot.util.WorldUtil;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
@@ -109,6 +110,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         /*XenyriaSpigotAPI.HANDLE_TAB_LIST = false;
         XenyriaSpigotAPI.HANDLE_PLAYER_INFO = false;
         XenyriaSpigotAPI.disablePlayerInfo();*/
+        XenyriaSpigotServerCore.setTOSOnly();
 
         plugin = this;
 
@@ -164,6 +166,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         getCommand("slobby").setAliases(Arrays.asList("sl"));
         getCommand("shootingrange").setExecutor(new ShootingRangeCommand());
         getCommand("shootingrange").setAliases(Arrays.asList("sr"));
+        getCommand("scoins").setExecutor(new SplatoonCoinsCommand());
 
         new PlayerEventHandler();
         new InitializeListener();
