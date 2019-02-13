@@ -111,12 +111,14 @@ public class RecentPlayerNPC {
         while (iterator.hasNext()) {
 
             Player player = iterator.next();
-            if(!player.isOnline() || !player.getWorld().equals(world) || player.getLocation().distance(this.player.getBukkitEntity().getLocation()) >= RECENT_PLAYER_RANGE) {
+            SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+
+            if(!player.isOnline() || !player.getWorld().equals(world) || (player1 != null && player1.getMatch() != null && !(player1.getMatch() instanceof SplatoonLobby))) {
 
                 iterator.remove();
                 if(player.isOnline()) {
 
-                    ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player.getEntityId()));
+                    ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(this.player.getId()));
                     if(seat != null) {
 
                         ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(seat.getId()));
@@ -245,12 +247,12 @@ public class RecentPlayerNPC {
                     player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(this.player, yawBytes));
                     player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAnimation(this.player, (byte)0));
 
-                    /*Bukkit.getScheduler().runTaskLater(XenyriaSpigotServerCore.getPlugin(), () -> {
+                    Bukkit.getScheduler().runTaskLater(XenyriaSpigotServerCore.getPlugin(), () -> {
 
                         PacketPlayOutPlayerInfo removal = new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, player);
                         player1.getNMSPlayer().playerConnection.sendPacket(removal);
 
-                    }, 3l);*/
+                    }, 60l);
 
                 }
 

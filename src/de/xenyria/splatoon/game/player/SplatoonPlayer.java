@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.player;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
@@ -681,9 +682,17 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
         if(this instanceof SplatoonHumanPlayer) {
 
-            GameProfile profile = new GameProfile(UUID.randomUUID(), getNMSPlayer().getName());
+            SplatoonHumanPlayer player = (SplatoonHumanPlayer)this;
+            GameProfile profile = new GameProfile(UUID.randomUUID(), getName());
             GameProfile orig = ((SplatoonHumanPlayer)this).getNMSPlayer().getProfile();
-            profile.getProperties().putAll(orig.getProperties());
+            if(!player.getXenyriaPlayer().hasNickname()) {
+
+                profile.getProperties().putAll(orig.getProperties());
+
+            }
+
+            profile.getProperties().put("textures", new Property("textures", player.getXenyriaPlayer().getNicknameTexture(), player.getXenyriaPlayer().getNicknameSignature()));
+
             return profile;
 
         } else {

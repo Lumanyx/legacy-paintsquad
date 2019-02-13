@@ -20,14 +20,17 @@ public class ArenaData {
     private ArenaCategory category;
     public ArenaCategory getCategory() { return category; }
 
-    public ArenaData(int id, String arenaName, ArenaCategory category, GamemodeSchematicMap map) {
+    public ArenaData(int id, Material material, String arenaName, ArenaCategory category, GamemodeSchematicMap map) {
 
         this.id = id;
+        this.material = material;
         this.category = category;
         this.arenaName = arenaName;
         this.map = map;
 
     }
+
+    private Material material;
 
     private ArrayList<StoredTeamPlaceholder> placeholders = new ArrayList<>();
     public ArrayList<StoredTeamPlaceholder> getPlaceholders() { return placeholders; }
@@ -58,5 +61,8 @@ public class ArenaData {
         return paintDefinition.canPaint(type);
 
     }
+
+    private Material material;
+    public Material getRepresentiveMaterial() { return material; }
 
 }

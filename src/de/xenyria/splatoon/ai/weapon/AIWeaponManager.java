@@ -13,12 +13,14 @@ import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractSplattershot;
 import de.xenyria.splatoon.game.equipment.weapon.primary.SplatoonPrimaryWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SplatBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 import de.xenyria.splatoon.game.util.VectorUtil;
 import net.minecraft.server.v1_13_R2.EntityPlayer;
 import net.minecraft.server.v1_13_R2.EnumItemSlot;
 import net.minecraft.server.v1_13_R2.Item;
 import net.minecraft.server.v1_13_R2.PacketPlayOutEntityEquipment;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
@@ -469,7 +471,22 @@ public class AIWeaponManager {
 
     public static enum AIPrimaryWeaponType {
 
-        SHOOTER, ROLLER;
+        SHOOTER("§aNormale Schusswaffen", Material.STONE_HOE, ResourcePackItemOption.SPLATTERSHOT.getDamageValue()),
+        ROLLER("§aFarbroller", Material.IRON_SHOVEL, ResourcePackItemOption.ROLLER_IDLE.getDamageValue());
+
+        private String name;
+        private Material material;
+        private short durability;
+
+        public ItemBuilder createItem() { return new ItemBuilder(material).setDisplayName(name).setUnbreakable(true).addAttributeHider().setDurability(durability); }
+
+        AIPrimaryWeaponType(String name, Material material, short durability) {
+
+            this.name = name;
+            this.material = material;
+            this.durability = durability;
+
+        }
 
     }
 

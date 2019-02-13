@@ -363,6 +363,7 @@ public class SplatoonLobby extends Match {
         display.addImages(ImageManager.getImage("testfire_alt"));
         display.setDisplayAnimation(new FadeAnimation());
         display.build(world, screen_begin);
+        display.nextImage();
 
         setMatchController(new MatchControlInterface() {
             @Override

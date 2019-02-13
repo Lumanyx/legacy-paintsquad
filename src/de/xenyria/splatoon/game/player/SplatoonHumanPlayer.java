@@ -25,6 +25,7 @@ import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
 import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.LocationProvider;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.TentaMissleTarget;
+import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.objects.Hook;
 import de.xenyria.splatoon.game.objects.InkRail;
@@ -2229,4 +2230,6 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
     public XenyriaSpigotPlayer getXenyriaPlayer() { return spigotPlayer; }
 
     public long millisSinceLastInteraction() { return System.currentTimeMillis() - lastInteraction; }
+
+
 }

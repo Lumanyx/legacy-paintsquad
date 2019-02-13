@@ -3,6 +3,7 @@ package de.xenyria.splatoon.game.player.userdata.inventory;
 import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
+import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.set.WeaponSetItem;
@@ -83,6 +84,21 @@ public class UserInventory {
                 WeaponSetItem item1 = (WeaponSetItem)item;
                 item1.setEquipped(localItemID == item.getLocalItemID());
                 item1.buildItem();
+
+            }
+
+        }
+
+        if(player.isValid() && player.getMatch() != null && player.getMatch() instanceof BattleMatch) {
+
+            BattleMatch match = (BattleMatch) player.getMatch();
+            if(match.isLobbyPhase()) {
+
+                for(SplatoonHumanPlayer player : match.getPlayerLobbyPool()) {
+
+                    match.queuePlayerInventoryUpdate(player);
+
+                }
 
             }
 
@@ -212,6 +228,27 @@ public class UserInventory {
             }
 
         }
+
+    }
+
+    public WeaponSetItem getEquippedSet() {
+
+        for(InventoryItem item : items.get(ItemCategory.WEAPONS)) {
+
+            if(item instanceof WeaponSetItem) {
+
+                WeaponSetItem item1 = (WeaponSetItem) item;
+                if(item1.isEquipped()) {
+
+                    return item1;
+
+                }
+
+            }
+
+        }
+
+        return (WeaponSetItem) items.get(ItemCategory.WEAPONS).get(0);
 
     }
 

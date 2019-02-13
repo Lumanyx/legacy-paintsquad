@@ -55,23 +55,19 @@ public class ShootingRange extends Match {
         XenyriaSpigotPlayer player = XenyriaSpigotPlayer.resolveByUUID(player1.getUniqueId()).getSpigotVariant();
         SplatoonHumanPlayer player2 = SplatoonHumanPlayer.getPlayer(player1);
 
-        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
-
-            player.getScoreboard().reset();
-
-        }, 20l);
+        player.getScoreboard().reset();
         Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
             player.getScoreboard().setBoardName(player2.getColor().prefix() + "§lSplatoon §8" + Characters.SMALL_X + " §7Waffentest");
-            player.getScoreboard().setLine(7, "");
+            player.getScoreboard().setLine(7, "§0");
             player.getScoreboard().setLine(6, "§8" + Characters.ARROW_RIGHT_FROM_TOP + " §7Punkte");
-            player.getScoreboard().setLine(5, "");
-            player.getScoreboard().setLine(4, "");
+            player.getScoreboard().setLine(5, "§0");
+            player.getScoreboard().setLine(4, "§0");
             player.getScoreboard().setLine(3, "§8" + Characters.ARROW_RIGHT_FROM_TOP + " §7Spezialwaffe");
-            player.getScoreboard().setLine(2, "");
-            player.getScoreboard().setLine(1, "");
+            player.getScoreboard().setLine(2, "§0");
+            player.getScoreboard().setLine(1, "§0");
 
-        }, 40l);
+        }, 1l);
 
     }
 
@@ -123,7 +119,7 @@ public class ShootingRange extends Match {
         if(!getHumanPlayers().isEmpty()) {
 
             SplatoonHumanPlayer player = getHumanPlayers().get(0);
-            //updateValues(player.getPlayer());
+            updateValues(player.getPlayer());
 
         }
         super.tick();

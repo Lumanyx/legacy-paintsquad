@@ -16,10 +16,7 @@ import de.xenyria.splatoon.game.equipment.gear.registry.SplatoonGenericGearRegis
 import de.xenyria.splatoon.game.equipment.weapon.SplatoonWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.registry.SplatoonWeaponRegistry;
 import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSetRegistry;
-import de.xenyria.splatoon.game.listeners.InitializeListener;
-import de.xenyria.splatoon.game.listeners.InventoryListener;
-import de.xenyria.splatoon.game.listeners.PlayerEventHandler;
-import de.xenyria.splatoon.game.listeners.ProtocolListener;
+import de.xenyria.splatoon.game.listeners.*;
 import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.DebugMatch;
 import de.xenyria.splatoon.game.match.Match;
@@ -171,6 +168,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         new PlayerEventHandler();
         new InitializeListener();
         new InventoryListener();
+        new MatchGUIListener();
 
         arenaProvider = new ArenaProvider();
         weaponRegistry = new SplatoonWeaponRegistry();

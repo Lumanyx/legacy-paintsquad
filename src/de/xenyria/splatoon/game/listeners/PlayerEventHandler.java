@@ -621,16 +621,6 @@ public class PlayerEventHandler implements Listener {
     @EventHandler
     public void chunkLoad(ChunkLoadEvent event) {
 
-        for(Entity entity : event.getChunk().getEntities()) {
-
-            if (entity.getType() != EntityType.PLAYER) {
-
-                entity.remove();
-
-            }
-
-        }
-
     }
 
 }
