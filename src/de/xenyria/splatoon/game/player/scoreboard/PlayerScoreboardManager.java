@@ -17,13 +17,13 @@ public class PlayerScoreboardManager {
     private int incrementTicker = 0;
     public void tick() {
 
-        if(pointValue < player.getPoints()) {
+        if(pointValue < (int)player.getPoints()) {
 
             pointValue++;
 
-        } else if(pointValue > player.getPoints()) {
+        } else if(pointValue > (int)player.getPoints()) {
 
-            pointValue = player.getPoints();
+            pointValue = (int)player.getPoints();
 
         }
 

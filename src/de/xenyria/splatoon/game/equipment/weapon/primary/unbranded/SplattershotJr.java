@@ -18,6 +18,12 @@ public class SplattershotJr extends AbstractSplattershot {
 
     }
 
+    public float range() {
+
+        return 4f;
+
+    }
+
     @Override
     public ResourcePackItemOption getResourcepackOption() {
         return ResourcePackItemOption.SPLATTERSHOT_JR;

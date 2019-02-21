@@ -68,4 +68,9 @@ public class AerosprayRG extends AbstractSplattershot {
     public ResourcePackItemOption getResourcepackOption() {
         return ResourcePackItemOption.AEROSPRAY_RG;
     }
+
+    @Override
+    public float range() {
+        return 3f;
+    }
 }

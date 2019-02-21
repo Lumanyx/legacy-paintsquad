@@ -5,9 +5,13 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.MultiBlockChangeInfo;
 import com.comphenix.protocol.wrappers.WrappedBlockData;
+import com.destroystokyo.paper.Title;
 import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
+import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.core.chat.Chat;
+import de.xenyria.servercore.spigot.listener.ProtocolListener;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
@@ -17,6 +21,8 @@ import de.xenyria.splatoon.game.equipment.gear.boots.FootGear;
 import de.xenyria.splatoon.game.equipment.gear.chest.BodyGear;
 import de.xenyria.splatoon.game.equipment.gear.head.HeadGear;
 import de.xenyria.splatoon.game.equipment.gear.level.GearLevel;
+import de.xenyria.splatoon.game.equipment.weapon.registry.SplatoonWeaponRegistry;
+import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSet;
 import de.xenyria.splatoon.game.equipment.weapon.util.ProgressBarUtil;
 import de.xenyria.splatoon.game.map.Map;
 import de.xenyria.splatoon.game.match.Match;
@@ -26,6 +32,7 @@ import de.xenyria.splatoon.game.player.userdata.level.Level;
 import de.xenyria.splatoon.game.player.userdata.level.LevelTree;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.ArmorUtil;
+import de.xenyria.splatoon.lobby.SplatoonLobby;
 import net.minecraft.server.v1_13_R2.*;
 import org.bukkit.*;
 import org.bukkit.Material;
@@ -37,12 +44,15 @@ import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.util.Vector;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.*;
 
 public class OutroManager {
@@ -78,12 +88,17 @@ public class OutroManager {
 
             for(int x = 0; x < (blocksForTeam1 * 2); x++) {
 
-                Block block = bar.get(x);
-                block.setType(goodGuys.getColor().getWool());
+                if(x <= (bar.size()-1)) {
+
+                    Block block = bar.get(x);
+                    block.setType(goodGuys.getColor().getWool());
+
+                }
 
             }
 
             int minIndex = bar.size() - (blocksForTeam2*2);
+            if(minIndex < 1) { minIndex = 0; }
 
             for(int x = minIndex; x < (bar.size()); x++) {
 
@@ -106,6 +121,32 @@ public class OutroManager {
     private Location rewardLocation;
     private Vector rewardStraight;
     private Vector rewardNormal;
+
+    private ArrayList<SplatoonHumanPlayer> stayingPlayers = new ArrayList<>();
+    public void addStayingPlayer(SplatoonHumanPlayer player) {
+
+        stayingPlayers.add(player);
+
+    }
+
+    public boolean isStaying(SplatoonHumanPlayer player) { return stayingPlayers.contains(player); }
+
+    public void removeStayingPlayer(SplatoonHumanPlayer player) { stayingPlayers.remove(player); }
+
+    public void doNotStay(SplatoonHumanPlayer player) {
+
+        if (player.getMatch().getOutroManager().isStaying(player)) {
+
+            player.getMatch().getOutroManager().removeStayingPlayer(player);
+
+        }
+
+        player.leaveMatch();
+        XenyriaSplatoon.getLobbyManager().addPlayerToLobby(player);
+        player.getPlayer().sendMessage(Chat.SYSTEM_PREFIX + "Du bist nun wieder in der Lobby!");
+        XenyriaSplatoon.getLobbyManager().getLobby().teleportToFights(player);
+
+    }
 
     public class ResultScreen {
 
@@ -134,7 +175,6 @@ public class OutroManager {
                 boolean isRandom = false;
                 GearType type = gear.getType();
 
-                System.out.println("Check type: " + type + " | RandomIndexes: " + randomIndexes.size());
                 if(randomIndexes.containsKey(type)) {
 
                     for(int yx : randomIndexes.get(type)) {
@@ -228,6 +268,8 @@ public class OutroManager {
             headFinished = player.getEquipment().getHeadGear().getGearData().isFullyLevelled();
             bodyFinished = player.getEquipment().getBodyGear().getGearData().isFullyLevelled();
             footFinished = player.getEquipment().getFootGear().getGearData().isFullyLevelled();
+
+            player.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 2, false, false, false));
 
         }
 
@@ -371,7 +413,7 @@ public class OutroManager {
         rewardLocation = target.clone();
         rewardStraight = vector;
         rewardNormal = locOther.getDirection();
-        target = target.add(rewardNormal.clone().multiply(-2));
+        target = target.add(rewardNormal.clone().multiply(-3));
         rewardLocation = target;
 
     }
@@ -385,7 +427,7 @@ public class OutroManager {
         placedBlocks.clear();
 
 
-        Vector vector1 = rewardLocation.toVector();
+        Vector vector1 = new Vector(Math.floor(rewardLocation.getX()), rewardLocation.getY(), Math.floor(rewardLocation.getZ()));
         for(Map.TeamSpawn.PositionWithMaterial material : resultStand) {
 
             Block block = world.getBlockAt((int)vector1.getX() + (int)material.relativePosition.getX(),
@@ -447,9 +489,10 @@ public class OutroManager {
 
             for(Map.TeamSpawn.PositionWithMaterial material : resultStand) {
 
-                Block block = world.getBlockAt((int)vector1.getX() + (int)material.relativePosition.getX(),
-                        (int)vector1.getY() + (int)material.relativePosition.getY(),
-                        (int)vector1.getZ() + (int)material.relativePosition.getZ());
+                Vector vector2 = new Vector(Math.floor(vector1.getX()), vector1.getY(), Math.floor(vector1.getZ()));
+                Block block = world.getBlockAt((int)vector2.getX() + (int)material.relativePosition.getX(),
+                        (int)vector2.getY() + (int)material.relativePosition.getY(),
+                        (int)vector2.getZ() + (int)material.relativePosition.getZ());
                 block.setType(material.material);
                 placedBlocks.add(block);
 
@@ -527,25 +570,43 @@ public class OutroManager {
                 if(x <= (members.size() - 1)) {
 
                     player1 = members.get(x);
-                    EntityPlayer npc = new EntityPlayer(match.nmsWorld().getMinecraftServer(), (WorldServer)match.nmsWorld(), player1.getGameProfile(), new PlayerInteractManager(match.nmsWorld()));
+                    GameProfile profile = members.get(x).getGameProfile();
+
+                    GameProfile clone = new GameProfile(profile.getId(), profile.getName());
+                    if(profile.getProperties().containsKey("textures")) {
+
+                        Property property = profile.getProperties().get("textures").iterator().next();
+
+                        clone.getProperties().put("textures", new Property("textures", property.getValue(), property.getSignature()));
+
+                    }
+                    clone.getProperties().put(ProtocolListener.GAMEPROFILE_IGNORE_KEY, new Property("xst","xst", "xst"));
+
+                    EntityPlayer npc = new EntityPlayer(match.nmsWorld().getMinecraftServer(), (WorldServer)match.nmsWorld(), clone, new PlayerInteractManager(match.nmsWorld()));
                     npc.yaw = yaw-180;
                     npc.setHeadRotation(yaw);
-                    npc.locX = vector1.getX() + .5;
-                    npc.locY = vector1.getY();
-                    npc.locZ = vector1.getZ() + .5;
+                    npc.locX = Math.ceil(vector1.getX()) - .5;
+                    npc.locY = Math.ceil(vector1.getY());
+                    npc.locZ = Math.ceil(vector1.getZ()) - .5;
                     player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, npc));
+
+                    WeaponSet weaponSet = match.getUsedWeaponSet(player1);
                     Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
 
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(npc));
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(npc, (byte)(npc.yaw * .703)));
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(npc.getId(), EnumItemSlot.MAINHAND,
-                                CraftItemStack.asNMSCopy(player.getEquipment().getPrimaryWeapon().asItemStack())));
+                                CraftItemStack.asNMSCopy(
+                                        SplatoonWeaponRegistry.getDummy(weaponSet.getPrimaryWeapon()).asItemStack())));
 
                     }, 2l);
 
                     screen.npcs.add(npc);
+
+
                     screen.addArmorStand(vector1.clone().add(new Vector(.5, 4, .5)), "§f§lWaffe");
-                    screen.addArmorStand(vector1.clone().add(new Vector(.5, 3.75, .5)), "§e" + player1.getEquipment().getPrimaryWeapon().getName());
+                    screen.addArmorStand(vector1.clone().add(new Vector(.5, 3.75, .5)), "§e" + weaponSet.getName());
                     screen.addArmorStand(vector1.clone().add(new Vector(.5, 3.25, .5)), "§f§lKampfstatistik");
                     screen.addArmorStand(vector1.clone().add(new Vector(.5, 3, .5)), "§a§l" + player1.getStatistic().getSplats() + " Kill(s)");
                     screen.addArmorStand(vector1.clone().add(new Vector(.5, 2.75, .5)), "§e§l" + player1.getStatistic().getAssists() + " Assist(s)");
@@ -575,6 +636,7 @@ public class OutroManager {
 
     public class Reward {
 
+        public boolean finished;
         private int experience;
         private int coins;
         private int gearExperience;
@@ -599,6 +661,100 @@ public class OutroManager {
     private int rewardGiveTicker = 20;
     private Team winningTeam = null;
 
+    private static DecimalFormat decimalFormat = new DecimalFormat("#.#", DecimalFormatSymbols.getInstance(Locale.GERMANY));
+    public static String formatPercentage(float input) {
+
+        String formatted = decimalFormat.format(input);
+        if(!formatted.contains(",")) {
+
+            formatted+=",0";
+
+        }
+        return formatted;
+
+    }
+
+    public static final String BACK_TO_LOBBY_TITLE = "§8" + Characters.ARROW_RIGHT_FROM_TOP + " §7Weiter?";
+    public static final String BATTLE_STATISTIC = "§8" + Characters.ARROW_RIGHT_FROM_TOP + " §7Kampfstatistik";
+    private Inventory backToLobbyInventory = Bukkit.createInventory(null, 9, BACK_TO_LOBBY_TITLE);
+    private Inventory battleStatisticInventory;
+    private boolean setPanes = false;
+
+    private boolean returnToLobbyCompleted = false;
+    private int returnToLobbyTicker = 16;
+
+    public Inventory getResultScreen() { return backToLobbyInventory; }
+    public Inventory getStatisticScreen() { return battleStatisticInventory; }
+    public boolean processResultScreenEvents() { return !returnToLobbyCompleted; }
+
+    public void createBattleStatistics() {
+
+        battleStatisticInventory = Bukkit.createInventory(null, (match.getRegisteredTeams().size()+1)*9, BATTLE_STATISTIC);
+        int i = 0;
+        for(Team team : match.getRegisteredTeams()) {
+
+            battleStatisticInventory.setItem((i*9), new ItemBuilder(team.getColor().getWool()).setDisplayName(team.getColor().prefix() + "Team " + team.getColor().getName()).create());
+
+            int offset = 0;
+            for(SplatoonPlayer player : match.getPlayers(team)) {
+
+                WeaponSet set = match.getUsedWeaponSet(player);
+                battleStatisticInventory.setItem((i*9)+offset, new ItemBuilder(Material.PLAYER_HEAD).setDisplayName(player.coloredName())
+                .addLore("§8§l> §e§lWaffenset")
+                                .addLore("§e" + SplatoonWeaponRegistry.getDummy(set.getPrimaryWeapon()).getName())
+                                .addLore("§e" + SplatoonWeaponRegistry.getDummy(set.getSecondary()).getName())
+                                .addLore("§e" + SplatoonWeaponRegistry.getDummy(set.getSpecial()).getName())
+                        .addLore("")
+                        .addLore("§8§l> §e§lKampfstatistik")
+                        .addLore("§aErledigte Spieler: §7" + player.getStatistic().getSplats())
+                        .addLore("§eAssists: §7" + player.getStatistic().getAssists())
+                        .addLore("§cTode: §7" + player.getStatistic().getDeaths())
+                        .addLore("§6Erreichte Punkte: §7" + player.getPoints())
+                        .addLore("§bSpezialwaffe eingesetzt: §7" + player.getSpecialUseCounter() + " mal")
+                .create());
+                offset++;
+
+            }
+
+            i++;
+
+        }
+        i++;
+        for(int x = (i*9); x < (battleStatisticInventory.getSize()-1); x++) {
+
+            battleStatisticInventory.setItem(x, ItemBuilder.getUnclickablePane());
+
+        }
+        battleStatisticInventory.setItem(battleStatisticInventory.getSize()-2, new ItemBuilder(Material.BARRIER).setDisplayName("§cZurück").addToNBT("Back", true).create());
+
+    }
+
+    public void setItemsForBackToLobbyInventory() {
+
+        if(!setPanes) {
+
+            setPanes = true;
+            for (int i = 0; i < 9; i++) {
+
+                backToLobbyInventory.setItem(i, ItemBuilder.getUnclickablePane());
+
+            }
+            backToLobbyInventory.setItem(2, new ItemBuilder(Material.GREEN_WOOL).setDisplayName("§aIm Raum bleiben").addToNBT("Stay", true).create());
+            backToLobbyInventory.setItem(3, new ItemBuilder(Material.BARRIER).setDisplayName("§cRaum verlassen").addToNBT("Leave", true).create());
+            backToLobbyInventory.setItem(7, new ItemBuilder(Material.IRON_SWORD).setDisplayName("§eKampfstatistik").addToNBT("Stats", true).create());
+
+        }
+
+        if(returnToLobbyTicker != 20) {
+
+            backToLobbyInventory.setItem(0, new ItemBuilder(Material.CLOCK).setDisplayName("§eNoch " + returnToLobbyTicker + " Sekunden").setAmount((
+                    ((returnToLobbyTicker == 0) ? 1 : returnToLobbyTicker)
+                    )).addLore("§7Wenn der Countdown abläuft wirst du automatisch", "§7zurück in die Splatoon Lobby teleportiert.").create());
+
+        }
+
+    }
+
     public void tick() {
 
         if(!despawn) {
@@ -617,7 +773,7 @@ public class OutroManager {
 
         }
 
-        if(!rewardsState) {
+        if(!rewardsState && !endPhase) {
 
             if (resultState) {
 
@@ -625,6 +781,16 @@ public class OutroManager {
 
                     determineTicks--;
                     return;
+
+                }
+
+                for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
+
+                    PacketPlayOutPosition position = new PacketPlayOutPosition(
+                            cameraLocation.getX(), cameraLocation.getY(), cameraLocation.getZ(),
+                            cameraLocation.getYaw(), cameraLocation.getPitch(), new HashSet<>(), 0
+                    );
+                    player.getNMSPlayer().playerConnection.sendPacket(position);
 
                 }
 
@@ -649,8 +815,8 @@ public class OutroManager {
                         percentageTeam1 += 0.64f;
                         percentageTeam2 += 0.64f;
 
-                        goodGuysPercentage.setCustomName("§f§l" + percentageTeam1 + " %");
-                        badGuysPercentage.setCustomName("§f§l" + percentageTeam2 + " %");
+                        goodGuysPercentage.setCustomName("§f§l" + formatPercentage(percentageTeam1) + " %");
+                        badGuysPercentage.setCustomName("§f§l" + formatPercentage(percentageTeam2) + " %");
 
                     } else {
 
@@ -681,10 +847,33 @@ public class OutroManager {
 
                         }
 
-                        percentageTeam1 = 65f;
-                        percentageTeam2 = 35f;
-                        goodGuysPercentage.setCustomName("§f§l" + percentageTeam1 + " %");
-                        badGuysPercentage.setCustomName("§f§l" + percentageTeam2 + " %");
+                        int total = match.paintedBlockCount();
+
+                        int blocksTeam1 = match.getPaintedTurf(goodGuys);
+                        int blocksTeam2 = match.getPaintedTurf(badGuys);
+                        if(blocksTeam1==blocksTeam2) {
+
+                            if(new Random().nextBoolean()) {
+
+                                blocksTeam1+=2;
+                                blocksTeam2+=1;
+                                total+=3;
+
+                            } else {
+
+                                blocksTeam1+=1;
+                                blocksTeam2+=2;
+                                total+=3;
+
+                            }
+
+                        }
+
+                        percentageTeam1 = ((float)blocksTeam1 / (float)total) * 100f;
+                        percentageTeam2 = ((float)blocksTeam2 / (float)total) * 100f;
+
+                        goodGuysPercentage.setCustomName("§f§l" + formatPercentage(percentageTeam1) + " %");
+                        badGuysPercentage.setCustomName("§f§l" + formatPercentage(percentageTeam2) + " %");
 
                         if(percentageTeam1 >= percentageTeam2) {
 
@@ -707,7 +896,12 @@ public class OutroManager {
                             }
 
                         }
-                        match.broadcast(winningTeam.getColor().prefix() + "Team " + winningTeam.getColor().getName() + " §7gewinnt!");
+
+                        float winningPercentage = (winningTeam == goodGuys) ? percentageTeam1 : percentageTeam2;
+
+                        match.broadcast("");
+                        match.broadcast(winningTeam.getColor().prefix() + "Team " + winningTeam.getColor().getName() + " §7gewinnt mit §o§l" + winningTeam.getColor().prefix() + formatPercentage(winningPercentage) + " %§7!");
+                        match.broadcast("");
 
                         setBlocks();
 
@@ -717,6 +911,36 @@ public class OutroManager {
 
                                 Player player1 = player.getPlayer();
                                 player1.spawnParticle(Particle.BLOCK_CRACK, block.getLocation().add(.5, 1.5, .5), 0, CraftBlockData.newData(block.getType(), ""));
+
+                            }
+
+                        }
+                        for (SplatoonHumanPlayer player : match.getHumanPlayers()) {
+
+                            if(!player.isSpectator()) {
+
+                                if(player.getTeam() == winningTeam) {
+
+                                    player.getPlayer().playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, .4f, 1.5f);
+                                    player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE_FAR, .4f, 1.5f);
+                                    player.getPlayer().sendMessage("");
+                                    player.getPlayer().sendMessage(" " + player.getTeam().getColor().prefix() + "§o§lSieg!");
+                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lSieg!", "§7Dein Team hat gewonnen!", 5, 15, 5));
+                                    player.getPlayer().sendMessage(" ");
+                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
+                                    player.getPlayer().sendMessage( " ");
+
+                                } else {
+
+                                    player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, .4f, 1.5f);
+                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lNiederlage!", "§7Dein Team hat verloren.", 5, 15, 5));
+                                    player.getPlayer().sendMessage("");
+                                    player.getPlayer().sendMessage(" " + player.getTeam().getColor().prefix() + "§o§lNiederlage!");
+                                    player.getPlayer().sendMessage("");
+                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
+                                    player.getPlayer().sendMessage( " ");
+
+                                }
 
                             }
 
@@ -763,18 +987,22 @@ public class OutroManager {
 
                                     for (SplatoonHumanPlayer player : players) {
 
-                                        try {
+                                        if(!player.isSpectator() && player.isValid()) {
 
-                                            Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
+                                            try {
 
-                                                player.getPlayer().setGameMode(GameMode.ADVENTURE);
-                                                player.getPlayer().setAllowFlight(true);
-                                                player.getPlayer().setFlying(true);
-                                                player.getPlayer().setFlySpeed(0f);
+                                                Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
 
-                                            });
+                                                    player.getPlayer().setGameMode(GameMode.ADVENTURE);
+                                                    player.getPlayer().setAllowFlight(true);
+                                                    player.getPlayer().setFlying(true);
+                                                    player.getPlayer().setFlySpeed(0f);
 
-                                        } catch (Exception e) {
+                                                });
+
+                                            } catch (Exception e) {
+                                            }
+
                                         }
 
                                     }
@@ -787,11 +1015,14 @@ public class OutroManager {
                                     absoluteTicker = 0;
                                     for (SplatoonHumanPlayer player : players) {
 
-                                        try {
-                                            player.getNMSPlayer().playerConnection.sendPacket(
-                                                    new PacketPlayOutPosition(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), yaw, resultOffset, new HashSet<>(), 0)
-                                            );
-                                        } catch (Exception e) {
+                                        if(!player.isSpectator() && player.isValid()) {
+
+                                            try {
+                                                player.getNMSPlayer().playerConnection.sendPacket(
+                                                        new PacketPlayOutPosition(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), yaw, resultOffset, new HashSet<>(), 0)
+                                                );
+                                            } catch (Exception e) {}
+
                                         }
 
                                     }
@@ -800,11 +1031,14 @@ public class OutroManager {
 
                                     for (SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
-                                        try {
-                                            player.getNMSPlayer().playerConnection.sendPacket(
-                                                    new PacketPlayOutPosition(0, 0, 0, 0, increment, flags, 0)
-                                            );
-                                        } catch (Exception e) {
+                                        if(!player.isSpectator() && player.isValid()) {
+
+                                            try {
+                                                player.getNMSPlayer().playerConnection.sendPacket(
+                                                        new PacketPlayOutPosition(0, 0, 0, 0, increment, flags, 0)
+                                                );
+                                            } catch (Exception e) {}
+
                                         }
 
                                     }
@@ -839,10 +1073,14 @@ public class OutroManager {
 
                         for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
-                            if(player.getTeam().equals(winningTeam)) {
+                            if(player.getTeam() == winningTeam) {
 
-                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutSpawnEntity(fireworks, 76, 22));
-                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(fireworks.getId(), fireworks.getDataWatcher(), false));
+                                if(player.isValid()) {
+
+                                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutSpawnEntity(fireworks, 76, 22));
+                                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(fireworks.getId(), fireworks.getDataWatcher(), false));
+
+                                }
 
                             }
 
@@ -866,7 +1104,7 @@ public class OutroManager {
                                 fireworksRemoved = true;
                                 for (SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
-                                    if (player.getTeam().equals(winningTeam)) {
+                                    if (player.getTeam() != null && player.getTeam().equals(winningTeam)) {
 
                                         for (EntityFireworks fireworks : fireworks) {
 
@@ -903,7 +1141,7 @@ public class OutroManager {
 
             }
 
-        } else {
+        } else if(rewardsState) {
 
             if(!rewardsInit) {
 
@@ -929,9 +1167,13 @@ public class OutroManager {
                     zoomActive = true;
                     for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAbilities(
-                                player.getNMSPlayer().abilities
-                        ));
+                        if(player.isValid() && !player.isSpectator()) {
+
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAbilities(
+                                    player.getNMSPlayer().abilities
+                            ));
+
+                        }
 
                     }
 
@@ -939,66 +1181,86 @@ public class OutroManager {
 
                     for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
-                        player.getPlayer().setGameMode(GameMode.ADVENTURE);
-                        ResultScreen screen = resultScreens.get(player);
-                        EntityPlayer player1 = new EntityPlayer(match.nmsWorld().getMinecraftServer(),
-                                (WorldServer)match.nmsWorld(), player.getGameProfile(), new PlayerInteractManager(
-                                match.nmsWorld()
-                        ));
-                        player1.locX = Math.floor(rewardLocation.getX()) + .5;
-                        player1.locY = Math.ceil(rewardLocation.getY());
-                        player1.locZ = Math.floor(rewardLocation.getZ()) + .5;
-                        player1.yaw = rewardLocation.getYaw() - 90f;
-                        player1.pitch = rewardLocation.getPitch();
-                        screen.npcs.add(player1);
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, player1));
-                        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+                        if(player.isValid() && !player.isSpectator()) {
 
-                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(player1));
-                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(player1, (byte)((rewardLocation.getYaw()-90f) * 0.711)));
-                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAnimation(player1, 0));
+                            player.getPlayer().setGameMode(GameMode.ADVENTURE);
 
-                        }, 2l);
+                            GameProfile profile = player.getGameProfile();
+                            GameProfile clone = new GameProfile(profile.getId(), profile.getName());
+                            if (profile.getProperties().containsKey("textures")) {
 
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2.5, 0)).add(rewardNormal.clone().multiply(3)), "§a§lStufe");
-                        screen.xpBar = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2, 0)).add(rewardNormal.clone().multiply(3)), "");
-                        screen.remainingXP = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2.25, 0)).add(rewardNormal.clone().multiply(3)), "");
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 1.5, 0)).add(rewardNormal.clone().multiply(3)), "§e§lMünzen");
-                        screen.totalCoinCounter = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 1.25, 0)).add(rewardNormal.clone().multiply(3)), "");
-                        screen.updateCoinDisplay();
-                        screen.updateLevelDisplay();
+                                Property property = profile.getProperties().get("textures").iterator().next();
 
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0.75, 0)).add(rewardNormal.clone().multiply(3)), "§e§lAusrüstung");
+                                clone.getProperties().put("textures", new Property("textures", property.getValue(), property.getSignature()));
 
-                        Location rewardLocAlt = rewardLocation.clone();
-                        rewardLocAlt.setYaw(rewardLocation.getYaw() - 90f);
+                            }
+                            clone.getProperties().put(ProtocolListener.GAMEPROFILE_IGNORE_KEY, new Property("xst", "xst", "xst"));
 
-                        EntityArmorStand helmet = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.75, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
-                        helmet.yaw = rewardLocAlt.getYaw();
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(helmet.getId(), EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(player.getEquipment().getHeadGear().asItemStack(player.getColor()))));
+                            ResultScreen screen = resultScreens.get(player);
+                            EntityPlayer player1 = new EntityPlayer(match.nmsWorld().getMinecraftServer(),
+                                    (WorldServer) match.nmsWorld(), clone, new PlayerInteractManager(
+                                    match.nmsWorld()
+                            ));
+                            player1.locX = Math.ceil(rewardLocation.getX()) - .5;
+                            player1.locY = Math.ceil(rewardLocation.getY());
+                            player1.locZ = Math.ceil(rewardLocation.getZ()) - .5;
+                            player1.yaw = rewardLocation.getYaw() - 90f;
+                            player1.pitch = rewardLocation.getPitch();
+                            screen.npcs.add(player1);
 
-                        EntityArmorStand chest = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.325, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
-                        chest.yaw = rewardLocAlt.getYaw();
-                        chest.aS = rewardLocAlt.getYaw();
-                        chest.bodyPose = new Vector3f(0, rewardLocAlt.getYaw(), 0);
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(chest.getId(), EnumItemSlot.CHEST, CraftItemStack.asNMSCopy(player.getEquipment().getBodyGear().asItemStack(player.getColor()))));
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(chest.getId(), chest.getDataWatcher(), false));
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(chest));
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, player1));
+                            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
-                        EntityArmorStand boots = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.25, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
-                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(boots.getId(), EnumItemSlot.FEET, CraftItemStack.asNMSCopy(player.getEquipment().getFootGear().asItemStack(player.getColor()))));
+                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(player1));
+                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(player1, (byte) ((rewardLocation.getYaw() - 90f) * 0.711)));
+                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAnimation(player1, 0));
 
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0.25, 0)).add(rewardNormal.clone().multiply(4.5)), "§e" + player.getEquipment().getHeadGear().getBrand().getIcon() + " §7" + player.getEquipment().getHeadGear().getName());
+                            }, 2l);
 
-                        screen.helmetEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.helmetProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.25, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.625, 0)).add(rewardNormal.clone().multiply(4.5)), "§e" + player.getEquipment().getBodyGear().getBrand().getIcon() + " §7" + player.getEquipment().getBodyGear().getName());
-                        screen.chestplateEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.875, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.chestplateProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.125, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.5, 0)).add(rewardNormal.clone().multiply(4.5)), "§e" + player.getEquipment().getFootGear().getBrand().getIcon() + " §7" + player.getEquipment().getFootGear().getName());
-                        screen.bootsEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.75, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.bootsProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -2, 0)).add(rewardNormal.clone().multiply(4.5)), "");
-                        screen.updateGear();
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2.5, 0)).add(rewardNormal.clone().multiply(3)), "§a§lStufe");
+                            screen.xpBar = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2, 0)).add(rewardNormal.clone().multiply(3)), "");
+                            screen.remainingXP = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 2.25, 0)).add(rewardNormal.clone().multiply(3)), "");
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 1.5, 0)).add(rewardNormal.clone().multiply(3)), "§e§lMünzen");
+                            screen.totalCoinCounter = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 1.25, 0)).add(rewardNormal.clone().multiply(3)), "");
+                            screen.updateCoinDisplay();
+                            screen.updateLevelDisplay();
+                            double offsetDistance = 5.25d;
+
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0.75, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "§e§lAusrüstung");
+
+                            Location rewardLocAlt = rewardLocation.clone();
+                            rewardLocAlt.setYaw(rewardLocation.getYaw() - 90f);
+
+
+                            EntityArmorStand helmet = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.75, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
+                            helmet.yaw = rewardLocAlt.getYaw();
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(helmet.getId(), EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(player.getEquipment().getHeadGear().asItemStack(player.getColor()))));
+
+                            EntityArmorStand chest = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.325, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
+                            chest.yaw = rewardLocAlt.getYaw();
+                            chest.aS = rewardLocAlt.getYaw();
+                            chest.bodyPose = new Vector3f(0, rewardLocAlt.getYaw(), 0);
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(chest.getId(), EnumItemSlot.CHEST, CraftItemStack.asNMSCopy(player.getEquipment().getBodyGear().asItemStack(player.getColor()))));
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(chest.getId(), chest.getDataWatcher(), false));
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(chest));
+
+                            EntityArmorStand boots = screen.addArmorStand(rewardLocAlt.toVector().add(new Vector(0, 0.25, 0)).add(rewardNormal.clone().multiply(2)), "§0", rewardLocAlt.getYaw());
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(boots.getId(), EnumItemSlot.FEET, CraftItemStack.asNMSCopy(player.getEquipment().getFootGear().asItemStack(player.getColor()))));
+
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0.25, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "§e" + player.getEquipment().getHeadGear().getBrand().getIcon() + " §7" + player.getEquipment().getHeadGear().getName());
+
+
+                            screen.helmetEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, 0, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.helmetProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.25, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.625, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "§e" + player.getEquipment().getBodyGear().getBrand().getIcon() + " §7" + player.getEquipment().getBodyGear().getName());
+                            screen.chestplateEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -0.875, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.chestplateProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.125, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.5, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "§e" + player.getEquipment().getFootGear().getBrand().getIcon() + " §7" + player.getEquipment().getFootGear().getName());
+                            screen.bootsEffects = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -1.75, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.bootsProgress = screen.addArmorStand(rewardLocation.toVector().add(new Vector(0, -2, 0)).add(rewardNormal.clone().multiply(offsetDistance)), "");
+                            screen.updateGear();
+
+                        }
 
                     }
 
@@ -1012,7 +1274,7 @@ public class OutroManager {
 
                 new Thread(() -> {
 
-                    while (!rewardsLookComplete) {
+                    while (!rewardsLookComplete && match.inOutro()) {
 
                         try {
                             Thread.sleep(1000 / 60);
@@ -1043,21 +1305,16 @@ public class OutroManager {
 
                         for (SplatoonHumanPlayer player : players) {
 
-                            try {
+                            if(!player.isSpectator() && player.isValid()) {
 
-                                /*
-                                HashSet<PacketPlayOutPosition.EnumPlayerTeleportFlags> flags1 = new HashSet<>();
-                                flags1.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.X);
-                                flags1.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.Y);
-                                flags1.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.Z);
-                                flags1.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.X_ROT);
-                                flags1.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.Y_ROT);*/
+                                try {
 
-                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPosition(
-                                        cameraLocation.getX(), cameraLocation.getY(), cameraLocation.getZ(), rewardYaw, 0f, new HashSet<PacketPlayOutPosition.EnumPlayerTeleportFlags>(), 0));
+                                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPosition(cameraLocation.getX(), cameraLocation.getY(), cameraLocation.getZ(), rewardYaw, 0f, new HashSet<PacketPlayOutPosition.EnumPlayerTeleportFlags>(), 0));
 
 
-                            } catch (Exception e) {}
+                                } catch (Exception e) {}
+
+                            }
 
                         }
 
@@ -1073,202 +1330,208 @@ public class OutroManager {
 
             } else {
 
+                boolean allFinished = true;
                 for(SplatoonHumanPlayer player : players) {
 
-                    Reward reward = rewardMap.getOrDefault(player, defaultReward());
-                    if(!rewardMap.containsKey(player)) {
+                    if(!player.isSpectator() && player.isValid()) {
 
-                        rewardMap.put(player, reward);
+                        Reward reward = rewardMap.getOrDefault(player, defaultReward());
+                        if (!rewardMap.containsKey(player)) {
 
-                    }
+                            rewardMap.put(player, reward);
 
-                    ResultScreen screen = resultScreens.getOrDefault(player, null);
-                    int decrement = 32;
-                    if(screen != null) {
+                        }
+                        if(!reward.finished) {
 
-                        if(reward.coins >= decrement) {
-
-                            reward.coins -= decrement;
-                            player.getUserData().updateCoins(player.getUserData().getCoins() + decrement);
-                            screen.updateCoinDisplay();
-
-                        } else {
-
-                            player.getUserData().updateCoins(player.getUserData().getCoins() + reward.coins);
-                            reward.coins = 0;
-                            screen.updateCoinDisplay();
+                            allFinished = false;
 
                         }
 
-                        if(reward.experience >= decrement) {
+                        ResultScreen screen = resultScreens.getOrDefault(player, null);
+                        int decrement = 32;
+                        if (screen != null && !reward.finished) {
 
-                            reward.experience -= decrement;
-                            player.getUserData().updateExperience(player.getUserData().getExperience() + decrement);
-                            screen.updateLevelDisplay();
+                            if (reward.coins >= decrement) {
 
-                        } else {
+                                reward.coins -= decrement;
+                                player.getUserData().updateCoins(player.getUserData().getCoins() + decrement);
+                                screen.updateCoinDisplay();
 
-                            player.getUserData().updateExperience(player.getUserData().getExperience() + reward.experience);
-                            reward.experience = 0;
-                            screen.updateLevelDisplay();
+                            } else {
 
-                        }
-
-                        int realIncrement = decrement;
-                        if(reward.gearExperience < decrement) {
-
-                            realIncrement = reward.gearExperience;
-
-                        }
-
-                        System.out.println("Reward: " + reward.gearExperience);
-                        if(reward.gearExperience != 0) {
-
-                            reward.gearExperience -= realIncrement;
-                            HeadGear headGear = player.getEquipment().getHeadGear();
-                            BodyGear bodyGear = player.getEquipment().getBodyGear();
-                            FootGear footGear = player.getEquipment().getFootGear();
-                            int headLevel = headGear.getGearData().currentLevel();
-                            int bodyLevel = bodyGear.getGearData().currentLevel();
-                            int footLevel = footGear.getGearData().currentLevel();
-
-                            boolean finishedHeadBefore = headGear.getGearData().isFullyLevelled();
-                            boolean finishedBodyBefore = bodyGear.getGearData().isFullyLevelled();
-                            boolean finishedFootBefore = footGear.getGearData().isFullyLevelled();
-                            headGear.getGearData().setExperience(headGear.getGearData().getExperience() + realIncrement);
-                            bodyGear.getGearData().setExperience(bodyGear.getGearData().getExperience() + realIncrement);
-                            footGear.getGearData().setExperience(footGear.getGearData().getExperience() + realIncrement);
-                            boolean finishedHeadAfter = headGear.getGearData().isFullyLevelled();
-                            boolean finishedBodyAfter = bodyGear.getGearData().isFullyLevelled();
-                            boolean finishedFootAfter = footGear.getGearData().isFullyLevelled();
-
-                            if (headLevel != screen.headGearLevelID
-                                    || (!finishedHeadBefore && finishedHeadAfter)) {
-
-                                screen.headGearIncr++;
-                                screen.headGearLevelID = headLevel;
+                                player.getUserData().updateCoins(player.getUserData().getCoins() + reward.coins);
+                                reward.coins = 0;
+                                screen.updateCoinDisplay();
 
                             }
 
-                            if (bodyLevel != screen.bodyGearLevelID
-                                    || (!finishedBodyBefore && finishedBodyAfter)) {
+                            if (reward.experience >= decrement) {
 
-                                screen.bodyGearIncr++;
-                                screen.bodyGearLevelID = bodyLevel;
+                                reward.experience -= decrement;
+                                player.getUserData().updateExperience(player.getUserData().getExperience() + decrement);
+                                screen.updateLevelDisplay();
 
-                            }
+                            } else {
 
-                            if (footLevel != screen.footGearLevelID
-                                    || (!finishedFootBefore && finishedFootAfter)) {
-
-                                screen.footGearIncr++;
-                                screen.footGearLevelID = footLevel;
-
+                                player.getUserData().updateExperience(player.getUserData().getExperience() + reward.experience);
+                                reward.experience = 0;
+                                screen.updateLevelDisplay();
 
                             }
 
-                            screen.updateGear();
+                            int realIncrement = decrement;
+                            if (reward.gearExperience < decrement) {
 
-                        } else {
+                                realIncrement = reward.gearExperience;
 
-                            if(screen.footGearIncr != 0 || screen.bodyGearIncr != 0 || screen.headGearIncr != 0) {
+                            }
 
-                                if(!screen.insertedToTable) {
+                            if (reward.gearExperience != 0) {
 
-                                    screen.insertedToTable = true;
-                                    HashMap<GearType, ArrayList<Integer>> ints = new HashMap<>();
-                                    if(screen.headGearIncr != 0) {
+                                reward.gearExperience -= realIncrement;
+                                HeadGear headGear = player.getEquipment().getHeadGear();
+                                BodyGear bodyGear = player.getEquipment().getBodyGear();
+                                FootGear footGear = player.getEquipment().getFootGear();
+                                int headLevel = headGear.getGearData().currentLevel();
+                                int bodyLevel = bodyGear.getGearData().currentLevel();
+                                int footLevel = footGear.getGearData().currentLevel();
 
-                                        ArrayList<Integer> i = new ArrayList<>();
-                                        for(int y = 0; y < screen.headGearIncr; y++) {
+                                boolean finishedHeadBefore = headGear.getGearData().isFullyLevelled();
+                                boolean finishedBodyBefore = bodyGear.getGearData().isFullyLevelled();
+                                boolean finishedFootBefore = footGear.getGearData().isFullyLevelled();
+                                headGear.getGearData().setExperience(headGear.getGearData().getExperience() + realIncrement);
+                                bodyGear.getGearData().setExperience(bodyGear.getGearData().getExperience() + realIncrement);
+                                footGear.getGearData().setExperience(footGear.getGearData().getExperience() + realIncrement);
+                                boolean finishedHeadAfter = headGear.getGearData().isFullyLevelled();
+                                boolean finishedBodyAfter = bodyGear.getGearData().isFullyLevelled();
+                                boolean finishedFootAfter = footGear.getGearData().isFullyLevelled();
 
-                                            i.add((player.getEquipment().getHeadGear().getGearData().firstSubIndex()) + y);
+                                if (headLevel != screen.headGearLevelID
+                                        || (!finishedHeadBefore && finishedHeadAfter)) {
 
-                                        }
-                                        System.out.println("helmet -> " + i.size());
-                                        ints.put(GearType.HELMET, i);
-
-                                    }
-                                    if(screen.bodyGearIncr != 0) {
-
-                                        ArrayList<Integer> i = new ArrayList<>();
-                                        for(int y = 0; y < screen.bodyGearIncr; y++) {
-
-                                            i.add((player.getEquipment().getBodyGear().getGearData().firstSubIndex()) + y);
-
-                                        }
-                                        System.out.println("chest -> " + i.size());
-                                        ints.put(GearType.CHESTPLATE, i);
-
-                                    }
-                                    if(screen.footGearIncr != 0) {
-
-                                        ArrayList<Integer> i = new ArrayList<>();
-                                        for(int y = 0; y < screen.footGearIncr; y++) {
-
-                                            i.add((player.getEquipment().getFootGear().getGearData().firstSubIndex()) + y);
-
-                                        }
-                                        System.out.println("boots -> " + i.size());
-                                        ints.put(GearType.BOOTS, i);
-
-                                    }
-                                    screen.randomIndexes = ints;
+                                    screen.headGearIncr++;
+                                    screen.headGearLevelID = headLevel;
 
                                 }
 
-                                if(screen.ticksToEffectTicker > 0) {
+                                if (bodyLevel != screen.bodyGearLevelID
+                                        || (!finishedBodyBefore && finishedBodyAfter)) {
 
-                                    screen.ticksToEffectTicker--;
+                                    screen.bodyGearIncr++;
+                                    screen.bodyGearLevelID = bodyLevel;
 
-                                } else {
+                                }
 
-                                    if(screen.randomIterationTicker < 10) {
+                                if (footLevel != screen.footGearLevelID
+                                        || (!finishedFootBefore && finishedFootAfter)) {
 
-                                        screen.gearRandomEffectTicker++;
+                                    screen.footGearIncr++;
+                                    screen.footGearLevelID = footLevel;
 
-                                        if (screen.gearRandomEffectTicker > 3) {
 
-                                            screen.gearRandomEffectTicker = 0;
-                                            screen.randomIterationTicker++;
-                                            player.getPlayer().playSound(player.getLocation(),
-                                                    Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 2f);
-                                            screen.updateGear();
+                                }
+
+                                screen.updateGear();
+
+                            } else {
+
+                                if (screen.footGearIncr != 0 || screen.bodyGearIncr != 0 || screen.headGearIncr != 0) {
+
+                                    if (!screen.insertedToTable) {
+
+                                        screen.insertedToTable = true;
+                                        HashMap<GearType, ArrayList<Integer>> ints = new HashMap<>();
+                                        if (screen.headGearIncr != 0) {
+
+                                            ArrayList<Integer> i = new ArrayList<>();
+                                            for (int y = 0; y < screen.headGearIncr; y++) {
+
+                                                i.add((player.getEquipment().getHeadGear().getGearData().firstSubIndex()) + y);
+
+                                            }
+                                            ints.put(GearType.HELMET, i);
 
                                         }
+                                        if (screen.bodyGearIncr != 0) {
+
+                                            ArrayList<Integer> i = new ArrayList<>();
+                                            for (int y = 0; y < screen.bodyGearIncr; y++) {
+
+                                                i.add((player.getEquipment().getBodyGear().getGearData().firstSubIndex()) + y);
+
+                                            }
+                                            ints.put(GearType.CHESTPLATE, i);
+
+                                        }
+                                        if (screen.footGearIncr != 0) {
+
+                                            ArrayList<Integer> i = new ArrayList<>();
+                                            for (int y = 0; y < screen.footGearIncr; y++) {
+
+                                                i.add((player.getEquipment().getFootGear().getGearData().firstSubIndex()) + y);
+
+                                            }
+                                            ints.put(GearType.BOOTS, i);
+
+                                        }
+                                        screen.randomIndexes = ints;
+
+                                    }
+
+                                    if (screen.ticksToEffectTicker > 0) {
+
+                                        screen.ticksToEffectTicker--;
 
                                     } else {
 
-                                        if(!screen.setSubAbilities) {
+                                        if (screen.randomIterationTicker < 10) {
 
-                                            screen.setSubAbilities = true;
-                                            for(int y = 0; y < screen.headGearIncr; y++) {
+                                            screen.gearRandomEffectTicker++;
 
+                                            if (screen.gearRandomEffectTicker > 3) {
+
+                                                screen.gearRandomEffectTicker = 0;
+                                                screen.randomIterationTicker++;
                                                 player.getPlayer().playSound(player.getLocation(),
-                                                        Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
-                                                player.getEquipment().getHeadGear().getGearData().addSubEffect(randomEffect());
-
-                                            }
-                                            for(int y = 0; y < screen.bodyGearIncr; y++) {
-
-                                                player.getPlayer().playSound(player.getLocation(),
-                                                        Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
-                                                player.getEquipment().getBodyGear().getGearData().addSubEffect(randomEffect());
-
-                                            }
-                                            for(int y = 0; y < screen.footGearIncr; y++) {
-
-                                                player.getPlayer().playSound(player.getLocation(),
-                                                        Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
-                                                player.getEquipment().getFootGear().getGearData().addSubEffect(randomEffect());
+                                                        Sound.BLOCK_NOTE_BLOCK_HAT, 1f, 2f);
+                                                screen.updateGear();
 
                                             }
 
-                                            screen.footGearIncr = 0;
-                                            screen.bodyGearIncr = 0;
-                                            screen.headGearIncr = 0;
-                                            screen.randomIndexes.clear();
-                                            screen.updateGear();
+                                        } else {
+
+                                            if (!screen.setSubAbilities) {
+
+                                                screen.setSubAbilities = true;
+                                                for (int y = 0; y < screen.headGearIncr; y++) {
+
+                                                    player.getPlayer().playSound(player.getLocation(),
+                                                            Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
+                                                    player.getEquipment().getHeadGear().getGearData().addSubEffect(randomEffect());
+
+                                                }
+                                                for (int y = 0; y < screen.bodyGearIncr; y++) {
+
+                                                    player.getPlayer().playSound(player.getLocation(),
+                                                            Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
+                                                    player.getEquipment().getBodyGear().getGearData().addSubEffect(randomEffect());
+
+                                                }
+                                                for (int y = 0; y < screen.footGearIncr; y++) {
+
+                                                    player.getPlayer().playSound(player.getLocation(),
+                                                            Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
+                                                    player.getEquipment().getFootGear().getGearData().addSubEffect(randomEffect());
+
+                                                }
+
+                                                screen.footGearIncr = 0;
+                                                screen.bodyGearIncr = 0;
+                                                screen.headGearIncr = 0;
+                                                screen.randomIndexes.clear();
+                                                screen.updateGear();
+
+                                            }
 
                                         }
 
@@ -1278,15 +1541,88 @@ public class OutroManager {
 
                             }
 
+                            if(reward.gearExperience == 0 && reward.coins == 0 && reward.experience == 0) {
+
+                                // Alle Belohnungen wurden dem Spieler gegeben.
+                                reward.finished = true;
+
+                            }
+
                         }
 
-                        /*} else {
+                    }
 
+                }
+                if(allFinished) {
 
+                    rewardsState = false;
+                    endPhase = true;
 
-                        }*/
+                }
+
+            }
+
+        } else if(endPhase) {
+
+            if(endPhaseWaitTicks > 0) {
+
+                endPhaseWaitTicks--;
+                if(endPhaseWaitTicks == 0) {
+
+                    for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
+
+                        createBattleStatistics();
+                        setItemsForBackToLobbyInventory();
+                        player.getPlayer().openInventory(backToLobbyInventory);
 
                     }
+
+                } else {
+
+                    return;
+
+                }
+
+            }
+            secondTicker++;
+            if(secondTicker >= 20) {
+
+                secondTicker = 0;
+                returnToLobbyTicker--;
+                if(returnToLobbyTicker == 15) {
+
+                    match.broadcast("§7Noch §e15 Sekunden §7bis zur nächsten Runde.");
+                    match.broadcast("§7Klicke auf §aIm Raum bleiben §7um beim Ablauf des Timers §7weiterhin §7im §7Raum §7zu §7bleiben.");
+
+                } else if(returnToLobbyTicker < 6 && returnToLobbyTicker > 0) {
+
+                    match.broadcast("§7Noch §e" + returnToLobbyTicker + " " + (returnToLobbyTicker == 1 ? "Sekunde" : "Sekunden") + " §7bis zur nächsten Runde.");
+
+                }
+                if(returnToLobbyTicker < 1) {
+
+                    returnToLobbyCompleted = true;
+
+                }
+
+                if(returnToLobbyTicker < 0) {
+
+                    for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
+
+                        if(stayingPlayers.contains(player)) {
+
+                            player.getPlayer().teleport(SplatoonLobby.getLobbySpawn());
+
+                        } else {
+
+                            player.leaveMatch();
+                            player.getPlayer().sendMessage(Chat.SYSTEM_PREFIX + "Du hast nicht innerhalb des Countdowns gewählt. Daher wirst du in die Lobby teleportiert.");
+                            XenyriaSplatoon.getLobbyManager().addPlayerToLobby(player);
+
+                        }
+
+                    }
+                    match.reset();
 
                 }
 
@@ -1295,6 +1631,10 @@ public class OutroManager {
         }
 
     }
+
+    private int secondTicker = 0;
+    private int endPhaseWaitTicks = 20;
+    private boolean endPhase = false;
 
     private boolean fireworksRemoved = false;
     private ArrayList<EntityFireworks> fireworks = new ArrayList<>();
@@ -1387,6 +1727,16 @@ public class OutroManager {
         for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
             //player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, camera));
+            if(player.isSplatted()) {
+
+                player.forceRespawn();
+
+            }
+            if(player.inSuperJump()) {
+
+                player.endSuperJump();
+
+            }
 
             Player player1 = player.getPlayer();
             player1.setGameMode(GameMode.ADVENTURE);

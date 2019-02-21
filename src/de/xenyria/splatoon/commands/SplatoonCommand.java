@@ -115,7 +115,7 @@ public class SplatoonCommand implements CommandExecutor {
 
         }*/
 
-        EntityNPC npc = new EntityNPC(a, player1.getMatch().getRegisteredTeams().get(1), player1.getMatch());
+        EntityNPC npc = new EntityNPC("test", a, player1.getMatch().getRegisteredTeams().get(1), player1.getMatch());
         npc.disableAI();
         BombProjectile projectile = new BombProjectile(SplatoonHumanPlayer.getPlayer(player), null, npc.getMatch(), 40f, 0, 1, false);
         projectile.spawn(0, player.getLocation());

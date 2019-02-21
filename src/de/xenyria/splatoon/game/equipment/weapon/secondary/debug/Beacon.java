@@ -18,6 +18,11 @@ public class Beacon extends SplatoonSecondaryWeapon {
         super(14, "Sprungboje");
     }
 
+    public void cleanUp() {
+
+        delayPlace = false;
+
+    }
 
     @Override
     public SecondaryWeaponType getSecondaryWeaponType() {

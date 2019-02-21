@@ -6,6 +6,7 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.destroystokyo.paper.Title;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
+import de.xenyria.servercore.spigot.listener.ProtocolListener;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.map.Map;
@@ -101,8 +102,18 @@ public class IntroManager {
                 entity.squid.pitch = entity.spawnPoint.getPitch();
 
                 GameProfile profile = player.getGameProfile();
-                profile.getProperties().put("xenyria", new Property("intro", "true"));
-                entity.player = new EntityPlayer(match.nmsWorld().getMinecraftServer(), (WorldServer) match.nmsWorld(), profile, new PlayerInteractManager(player.getMatch().nmsWorld()));
+
+                GameProfile clone = new GameProfile(profile.getId(), profile.getName());
+                if(profile.getProperties().containsKey("textures")) {
+
+                    Property property = profile.getProperties().get("textures").iterator().next();
+
+                    clone.getProperties().put("textures", new Property("textures", property.getValue(), property.getSignature()));
+
+                }
+                clone.getProperties().put(ProtocolListener.GAMEPROFILE_IGNORE_KEY, new Property("xst","xst", "xst"));
+
+                entity.player = new EntityPlayer(match.nmsWorld().getMinecraftServer(), (WorldServer) match.nmsWorld(), clone, new PlayerInteractManager(player.getMatch().nmsWorld()));
 
                 entity.player.locX = entity.spawnPoint.getX();
                 entity.player.locY = entity.spawnPoint.getY();

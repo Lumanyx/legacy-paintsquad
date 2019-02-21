@@ -1,6 +1,8 @@
 package de.xenyria.splatoon.game.equipment.weapon.special.baller;
 
 import de.xenyria.splatoon.SplatoonServer;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AISpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.viewmodel.BallerModel;
 import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.objects.BallerHitbox;
@@ -10,8 +12,7 @@ import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.util.AABBUtil;
 import net.minecraft.server.v1_13_R2.*;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
+import org.bukkit.*;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -24,10 +25,12 @@ import org.bukkit.util.Vector;
 
 import java.text.DecimalFormat;
 
-public class Baller extends SplatoonSpecialWeapon {
+public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
+
+    public static final int ID = 13;
 
     public Baller() {
-        super(13, "Sepisphäre", "", 0);
+        super(ID, "Sepisphäre", "", 190);
     }
 
     private int ticksToExplosion;
@@ -56,11 +59,20 @@ public class Baller extends SplatoonSpecialWeapon {
     private int fallingTicks = 0;
     private boolean movedInTick = false;
     private int lastUseTicker = 0;
+    private int lastMoveTicker = 0;
 
     public void handleInput(double x, double z, boolean space) {
 
+        lastMoveTicker++;
+        if(lastMoveTicker > 4 && (x!=0||z!=0)) {
+
+            lastMoveTicker = 0;
+            mimic.getBukkitEntity().getLocation().getWorld().playSound(getPlayer().getLocation(), Sound.ENTITY_ARMOR_STAND_HIT, 1f, 2f);
+
+        }
+
         velocity.multiply(0.7);
-        if(velocity.length() < 0.0125) { velocity.setX(0).setY(0).setZ(0); }
+        if(velocity.length() < 0.0125) { velocity = new Vector(); }
 
         movedInTick = true;
         Vector movementVector = new Vector(x, 0, z);
@@ -111,7 +123,7 @@ public class Baller extends SplatoonSpecialWeapon {
 
             if(space) {
 
-                velocity.add(new Vector(0, 0.42, 0));
+                velocity.add(new Vector(0, 0.82, 0));
                 mimic.velocityChanged = true;
 
             }
@@ -155,19 +167,32 @@ public class Baller extends SplatoonSpecialWeapon {
 
     public void explode() {
 
-        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), 5f, 0, 120, false);
+        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), 5f, 0, 150, false);
         projectile.spawn(0, mimic.getBukkitEntity().getLocation());
         getPlayer().getMatch().queueProjectile(projectile);
+        getPlayer().getLocation().getWorld().playSound(getPlayer().getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1f, 2f);
         hasExploded = true;
         explodeHoldTicker = 0;
 
     }
+
+    public void cleanUp() {
+
+        if(model != null) {
+
+            model.removeForcefully();
+
+        }
+
+    }
+
     public void end() {
 
         lastUseTicker=30;
         ticksToExplosion = 0;
         hasExploded = true;
         explodeHoldTicker = 0;
+        getPlayer().addInk(100d);
         if(hitbox != null) {
 
             getPlayer().getMatch().queueObjectRemoval(hitbox);
@@ -179,6 +204,7 @@ public class Baller extends SplatoonSpecialWeapon {
             model.remove();
 
         }
+        getPlayer().getMatch().queueObjectRemoval(hitbox);
 
         if((getPlayer() instanceof SplatoonHumanPlayer)) {
 
@@ -220,6 +246,12 @@ public class Baller extends SplatoonSpecialWeapon {
 
         getPlayer().unlockSquidForm();
 
+        if(getPlayer() instanceof EntityNPC) {
+
+            ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponEnd();
+
+        }
+
     }
 
     private int maxBallerTicks = 230;
@@ -234,6 +266,20 @@ public class Baller extends SplatoonSpecialWeapon {
 
             if(model.isActive()) { model.tick(); }
 
+            if(getPlayer() instanceof EntityNPC) {
+
+                if(mimic != null) {
+
+                    EntityNPC npc = (EntityNPC) getPlayer();
+                    npc.getNMSEntity().onGround = true;
+                    //handleInput(1, 0, false);
+                    npc.getNMSEntity().setPositionRotation(mimic.locX, mimic.locY, mimic.locZ, mimic.yaw, 0);
+                    npc.broadcastPositionUpdate();
+
+                }
+
+            }
+
             if(!getPlayer().isSplatted()) {
 
                 if (!initialized) {
@@ -242,32 +288,41 @@ public class Baller extends SplatoonSpecialWeapon {
 
                         ((SplatoonHumanPlayer) getPlayer()).getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 2, false, false));
 
-                    }
-                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        for (Player player : Bukkit.getOnlinePlayers()) {
 
-                        boolean isSelf = false;
-                        if(getPlayer() instanceof SplatoonHumanPlayer) {
+                            boolean isSelf = false;
+                            if(getPlayer() instanceof SplatoonHumanPlayer) {
 
-                            isSelf = ((SplatoonHumanPlayer)getPlayer()).getPlayer().equals(player);
+                                isSelf = ((SplatoonHumanPlayer)getPlayer()).getPlayer().equals(player);
+
+                            }
+
+                            if (player.getLocation().distance(getPlayer().getLocation()) < 96 && !isSelf) {
+
+                                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                                        getPlayer().getNMSPlayer().getId()
+                                ));
+
+                            }
 
                         }
 
-                        if (player.getLocation().distance(getPlayer().getLocation()) < 96 && !isSelf) {
-
-                            ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
-                                    getPlayer().getNMSPlayer().getId()
-                            ));
-
-                        }
-
                     }
+
+
                     EntityPlayer player = getPlayer().getNMSPlayer();
                     WorldServer server = (WorldServer) getPlayer().getNMSPlayer().world;
                     mimic = new EntityPlayer(server.getMinecraftServer(), server, player.getProfile(), new PlayerInteractManager(server));
                     //mimic.setSneaking(true);
+                    mimic.locX = getPlayer().getLocation().getX();
+                    mimic.locY = getPlayer().getLocation().getY();
+                    mimic.locZ = getPlayer().getLocation().getZ();
                     mimic.setPosition(getPlayer().getLocation().getX(),
                             getPlayer().getLocation().getY(),
                             getPlayer().getLocation().getZ());
+                    mimic.locX = getPlayer().getLocation().getX();
+                    mimic.locY = getPlayer().getLocation().getY();
+                    mimic.locZ = getPlayer().getLocation().getZ();
 
                     if(getPlayer() instanceof SplatoonHumanPlayer) {
 
@@ -275,23 +330,22 @@ public class Baller extends SplatoonSpecialWeapon {
                         cameraStand.setPosition(player.locX, player.locY, player.locZ);
                         cameraStand.getBukkitEntity().addPassenger(getPlayer().getBukkitEntity());
                         cameraStand.setInvisible(true);
+                        for (Player player1 : Bukkit.getOnlinePlayers()) {
 
-                    }
+                            if (player1.getLocation().distance(getPlayer().getLocation()) < 96) {
 
-                    for (Player player1 : Bukkit.getOnlinePlayers()) {
+                                ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(mimic));
+                                ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(mimic.getId(), mimic.getDataWatcher(), mimic.onGround));
 
-                        if (player1.getLocation().distance(getPlayer().getLocation()) < 96) {
-
-                            ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(mimic));
-                            ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(mimic.getId(), mimic.getDataWatcher(), mimic.onGround));
+                            }
 
                         }
+                        player.playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(cameraStand));
+                        player.playerConnection.sendPacket(new PacketPlayOutEntityMetadata(cameraStand.getId(), cameraStand.getDataWatcher(), false));
+                        player.playerConnection.sendPacket(new PacketPlayOutMount(cameraStand));
 
                     }
 
-                    player.playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(cameraStand));
-                    player.playerConnection.sendPacket(new PacketPlayOutEntityMetadata(cameraStand.getId(), cameraStand.getDataWatcher(), false));
-                    player.playerConnection.sendPacket(new PacketPlayOutMount(cameraStand));
                     initialized = true;
 
                     hitbox = new BallerHitbox(getPlayer().getMatch(), getPlayer(), this);
@@ -317,6 +371,8 @@ public class Baller extends SplatoonSpecialWeapon {
 
                 } else {
 
+                    ticksToExplosion-=7;
+                    if(ticksToExplosion < 1) { ticksToExplosion = 0; end = true; }
                     getPlayer().sendActionBar("§eExplosion steht bevor!");
 
                 }
@@ -350,15 +406,7 @@ public class Baller extends SplatoonSpecialWeapon {
 
                 if (ticksToExplosion > 0) {
 
-                    if(getPlayer().isShooting()) {
-
-                        ticksToExplosion-=6;
-
-                    } else {
-
-                        ticksToExplosion--;
-
-                    }
+                    ticksToExplosion--;
 
                     if (ticksToExplosion < 1) {
                         end = true;
@@ -378,6 +426,19 @@ public class Baller extends SplatoonSpecialWeapon {
                 mimic.pitch = 0f;
                 //mimic.setSneaking(true);
 
+                if(ticksToExplosion < 40) {
+
+                    float pitch = 1f-((float)ticksToExplosion/40f);
+                    warnSoundTicks++;
+                    if(warnSoundTicks > 4) {
+
+                        warnSoundTicks = 0;
+                        location().getWorld().playSound(location(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, pitch);
+
+                    }
+
+                }
+
                 if(getPlayer() instanceof SplatoonHumanPlayer) {
 
                     Vector cameraStartPos = mimic.getBukkitEntity().getLocation().toVector();
@@ -389,9 +450,9 @@ public class Baller extends SplatoonSpecialWeapon {
 
                         cameraEndPos = cameraEndPos.add(location.getDirection().clone().multiply(0.5));
                         Block block = getPlayer().getWorld().getBlockAt((int) cameraEndPos.getX(), (int) cameraEndPos.getY(), (int) cameraEndPos.getZ());
-                        if (block.getType() != Material.AIR) {
+                        if (!block.isEmpty() && !block.isPassable()) {
 
-                            cameraEndPos = cameraEndPos.subtract(location.getDirection().clone().multiply(.5));
+                            cameraEndPos = cameraEndPos.subtract(location.getDirection().clone().multiply(d));
                             break;
 
                         }
@@ -420,6 +481,7 @@ public class Baller extends SplatoonSpecialWeapon {
 
     }
 
+    private int warnSoundTicks = 0;
     private boolean initialized = false;
 
     public float usedTimePercentage() {
@@ -436,10 +498,7 @@ public class Baller extends SplatoonSpecialWeapon {
 
             if(getPlayer().getSpecialPoints() >= getRequiredPoints()) {
 
-                initialized = false;
-                hasExploded = false;
-                getPlayer().resetSpecialGauge();
-                ticksToExplosion = maxBallerTicks;
+                activateCall();
 
             }
 
@@ -469,7 +528,23 @@ public class Baller extends SplatoonSpecialWeapon {
 
     }
 
-    public Location location() { return new Location(getPlayer().getLocation().getWorld(), mimic.locX, mimic.locY, mimic.locZ); }
+    private Location lastPos = null;
+    public Location location() {
+
+        if(lastPos == null) { lastPos = getPlayer().getLocation(); }
+
+        if(mimic == null) {
+
+            return lastPos;
+
+        } else {
+
+            lastPos = new Location(getPlayer().getLocation().getWorld(), mimic.locX, mimic.locY, mimic.locZ);
+            return lastPos;
+
+        }
+
+    }
 
     public Vector getVelocity() { return velocity; }
 
@@ -479,5 +554,22 @@ public class Baller extends SplatoonSpecialWeapon {
 
     public void setHitbox(BallerHitbox hitbox) {
         this.hitbox = hitbox;
+    }
+
+    public void activateCall() {
+
+        initialized = false;
+        hasExploded = false;
+        getPlayer().resetSpecialGauge();
+        ticksToExplosion = maxBallerTicks;
+
+    }
+
+    @Override
+    public void activate() {
+
+        activateCall();
+        ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponBegin();
+
     }
 }

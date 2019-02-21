@@ -29,6 +29,16 @@ public abstract class AbstractRoller extends SplatoonPrimaryWeapon implements AI
     public float[] nextSprayPitch() { return nextSprayPitchValues; }
     public float getImpulse() { return impulse; }
 
+    public void cleanUp() {
+
+        if(model != null) {
+
+            model.removeForcefully();
+
+        }
+
+    }
+
     public float peakRollSpeed, minRollSpeed, thickness, rollUsage, splatUsage, impactDamage, splatDamage;
 
     public AbstractRoller(int id, String name, float peakRollSpeed, float minRollSpeed, float thickness, float rollUsage, float splatUsage, float impactDamage, float splatDamage) {
@@ -153,7 +163,7 @@ public abstract class AbstractRoller extends SplatoonPrimaryWeapon implements AI
 
         if(rollTicks > 0) {
 
-            if (getPlayer().isSquid() || getPlayer().isSplatted()) {
+            if (getPlayer().isSquid()) {
 
                 splatTicks = ticksToSplat;
                 splatPhase = false;
@@ -262,7 +272,7 @@ public abstract class AbstractRoller extends SplatoonPrimaryWeapon implements AI
                     Location plyrClone = getPlayer().getLocation().clone();
                     plyrClone.setPitch(0f);
                     Vector dir = plyrClone.getDirection();
-                    frontVector.add(dir);
+                    frontVector.add(dir.multiply(1.25));
 
                     float halfThickness = thickness / 2;
 
@@ -275,20 +285,13 @@ public abstract class AbstractRoller extends SplatoonPrimaryWeapon implements AI
                     for (float i = 0; i < (thickness * 2); i++) {
 
                         //if(edgeVec.distance(startVec) <= thickness) {
+                        if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), (int) edgeVec.getBlockX(), (int) edgeVec.getBlockY()-1, (int) edgeVec.getBlockZ())) {
 
-                        Block block = getPlayer().getWorld().getBlockAt(
-                                (int) edgeVec.getBlockX(), (int) edgeVec.getBlockY(), (int) edgeVec.getBlockZ()
-                        );
+                            getPlayer().getMatch().paint(getPlayer(), new Vector((int) edgeVec.getBlockX(), (int) edgeVec.getBlockY()-1, (int) edgeVec.getBlockZ()), getPlayer().getTeam());
 
-                        Block below = block.getRelative(BlockFace.DOWN);
+                        } else if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), (int) edgeVec.getBlockX(), (int) edgeVec.getBlockY(), (int) edgeVec.getBlockZ())) {
 
-                        if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), below)) {
-
-                            getPlayer().getMatch().paint(getPlayer(), new Vector(below.getX(), below.getY(), below.getZ()), getPlayer().getTeam());
-
-                        } else if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), block)) {
-
-                            getPlayer().getMatch().paint(getPlayer(), new Vector(block.getX(), block.getY(), block.getZ()), getPlayer().getTeam());
+                            getPlayer().getMatch().paint(getPlayer(), new Vector((int) edgeVec.getBlockX(), (int) edgeVec.getBlockY(), (int) edgeVec.getBlockZ()), getPlayer().getTeam());
 
                         }
                         edgeVec.add(plyrClone.getDirection().clone().multiply(-0.35));
@@ -319,7 +322,15 @@ public abstract class AbstractRoller extends SplatoonPrimaryWeapon implements AI
                                     current.setY(0); target.setY(0);
                                     Vector direction = target.subtract(current).normalize();
 
-                                    vector = vector.add(direction.multiply(-1));
+                                    double mod = -.825;
+                                    if(getPlayer().isOnGround()) {
+
+                                        mod = -0.08;
+                                        direction.setY(-.4);
+
+                                    }
+
+                                    vector = vector.add(direction.multiply(mod));
                                     getPlayer().setVelocity(vector);
 
                                 }

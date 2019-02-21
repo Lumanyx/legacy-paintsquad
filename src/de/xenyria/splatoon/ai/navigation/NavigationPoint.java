@@ -34,18 +34,18 @@ public class NavigationPoint {
     private TransitionType transitionType = TransitionType.WALK;
     public TransitionType getTransitionType() { return transitionType; }
 
-    public boolean isReached(Location location) {
+    public boolean isReached(Location location, double horRange, double vertRange) {
 
         Vector vector = new Vector(x, 0, z);
 
         double cenX = x + .5;
         double cenZ = z + .5;
 
-        double minX = Math.min(cenX - .5, cenX + .5);
-        double minZ = Math.min(cenZ - .5, cenZ + .5);
+        double minX = Math.min(cenX - horRange, cenX + horRange);
+        double minZ = Math.min(cenZ - horRange, cenZ + horRange);
 
-        double minY = y-.076;
-        double maxY = y + .076d;
+        double minY = y-vertRange;
+        double maxY = y+vertRange;
         if(getTransitionType() == TransitionType.RIDE_RAIL || getTransitionType() == TransitionType.INK_RAIL) {
 
             //minY-=0.2d;

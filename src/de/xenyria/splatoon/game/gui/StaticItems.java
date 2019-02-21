@@ -11,5 +11,5 @@ public class StaticItems {
     public static final ItemStack CHANGE_WEAPON = new ItemBuilder(Material.CHEST).setDisplayName("§7§lWaffenset wählen").addToNBT("ChangeWeapon", true).create();
     public static final ItemStack RETURN_TO_LOBBY = new ItemBuilder(Material.BARRIER).setDisplayName("§c§lZur Lobby").create();
     public static final ItemStack RETURN_TO_WEAPONSHOP = new ItemBuilder(Material.BARRIER).setDisplayName("§c§lZum Waffenshop").create();
-
+    public static final ItemStack SPECTATE = new ItemBuilder(Material.ENDER_EYE).setDisplayName("§7§lZu Spieler teleportieren").addToNBT("OpenTeleportMenu", true).create();
 }

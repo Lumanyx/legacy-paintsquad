@@ -22,6 +22,11 @@ public class AerosprayMG extends AbstractSplattershot {
     }
 
     @Override
+    public float range() {
+        return 3f;
+    }
+
+    @Override
     public PrimaryWeaponType getPrimaryWeaponType() {
         return PrimaryWeaponType.SPLATTERSHOT;
     }

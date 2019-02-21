@@ -6,11 +6,13 @@ import de.xenyria.schematics.internal.change.BlockChange;
 import de.xenyria.schematics.internal.history.BlockChangeHistory;
 import de.xenyria.schematics.internal.history.SchematicBlockAccess;
 import de.xenyria.schematics.internal.placeholder.StoredPlaceholder;
+import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.arena.ArenaProvider;
 import de.xenyria.splatoon.arena.boundary.ArenaBoundaryConfiguration;
 import de.xenyria.splatoon.arena.placeholder.ArenaPlaceholder;
 import de.xenyria.splatoon.game.color.Color;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.team.Team;
 import net.minecraft.server.v1_13_R2.*;
 import org.apache.commons.io.FileUtils;
@@ -64,18 +66,8 @@ public class TutorialManager {
                     return data;
                 }
             }));
-            world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
-            world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
-            world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
-            world.setGameRule(GameRule.DO_ENTITY_DROPS, false);
-            world.setGameRule(GameRule.RANDOM_TICK_SPEED, 0);
-            world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
-            world.setGameRule(GameRule.MOB_GRIEFING, false);
-            world.setGameRule(GameRule.SPAWN_RADIUS, 0);
-            world.setGameRule(GameRule.DO_FIRE_TICK, false);
-            world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false);
-            world.setGameRule(GameRule.NATURAL_REGENERATION, false);
-            world.setAutoSave(false);
+            SplatoonServer.applyGameRules(world);
+            //world.setAutoSave(false);
 
             XenyriaSplatoon.getXenyriaLogger().log("TutorialManager bereit!");
             createClusters();
@@ -137,8 +129,8 @@ public class TutorialManager {
             XenyriaSplatoon.getXenyriaLogger().log("Cluster #" + i + " generiert. (Dauerte " + ((end - begin) / 1000000f) + " ms)");
 
             TutorialMatch match = new TutorialMatch(getWorld());
-            Team team = new Team(primary);
-            Team enemy = new Team(secondary);
+            Team team = new Team(0, primary);
+            Team enemy = new Team(1, secondary);
             match.registerTeam(team);
             match.registerTeam(enemy);
             for(StoredPlaceholder placeholder : task.getSchematic().getStoredPlaceholders()) {
@@ -157,9 +149,9 @@ public class TutorialManager {
                 for(ArenaBoundaryConfiguration.ArenaBoundaryBlock block : configuration.getPaintableSurfaces()) {
 
                     Vector realPos = offset.clone().add(new Vector(block.x, block.y, block.z));
-                    Block block1 = getWorld().getBlockAt(realPos.getBlockX(), realPos.getBlockY(), realPos.getBlockZ());
-                    block1.setMetadata("Paintable", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), true));
-                    block1.setMetadata("Wall", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), block.wall));
+                    BlockFlagManager.BlockFlag flag = match.getBlockFlagManager().getBlock(offset, realPos.getBlockX(), realPos.getBlockY(), realPos.getBlockZ());
+                    flag.setPaintable(true);
+                    flag.setWall(block.wall);
 
                 }
 

@@ -29,12 +29,11 @@ import net.minecraft.server.v1_13_R2.AxisAlignedBB;
 import net.minecraft.server.v1_13_R2.EntityPlayer;
 import org.bukkit.*;
 import org.bukkit.entity.Entity;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget, PushableEntity {
 
@@ -44,6 +43,12 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public abstract double getHealth();
     public abstract Location getEyeLocation();
     public World getWorld() { return getLocation().getWorld(); }
+
+    public boolean isHighlighted(SplatoonPlayer player) {
+
+        return remainingHighlightTicks.containsKey(player);
+
+    }
 
     public double getInkRechargeValue() {
 
@@ -129,10 +134,10 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
         location.setPitch(location.getPitch() - 90f);
         Vector upwards = location.getDirection().clone();
 
-        double leftValue = .4;
+        double leftValue = .25;
         if(!left) { leftValue*=-1; }
 
-        Vector target = start.clone().add(dir.clone().multiply(leftValue)).add(sideways.clone().multiply(.135)).add(upwards.clone().multiply(-.05));
+        Vector target = start.clone().add(dir.clone().multiply(.35)).add(sideways.clone().multiply(leftValue)).add(upwards.clone().multiply(-.05));
         Location location1 = target.toLocation(getLocation().getWorld());
         location1.setPitch(getLocation().getPitch());
         location1.setYaw(getLocation().getYaw());
@@ -217,6 +222,27 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public abstract boolean hasControl();
     public abstract boolean inSuperJump();
     public abstract void tick();
+
+    public void tickHighlights() {
+
+        Iterator<Map.Entry<TentaMissleTarget, Integer>> iterator = remainingHighlightTicks.entrySet().iterator();
+        while (iterator.hasNext()) {
+
+            Map.Entry<TentaMissleTarget, Integer> entry = iterator.next();
+            int newVal = entry.getValue()-1;
+            if(newVal < 1) {
+
+                iterator.remove();
+
+            } else {
+
+                entry.setValue(newVal);
+
+            }
+
+        }
+
+    }
 
     public void tickInkArmor() {
 
@@ -376,8 +402,35 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public abstract void specialNotReady();
     public abstract void resetSpecialGauge();
     public abstract void resetLastInteraction();
-    public abstract int getSpecialPoints();
-    public abstract void setSpecialPoints(int val);
+    public abstract double getSpecialPoints();
+    public abstract void setSpecialPoints(double val);
+
+    private int debuffTicks = 0;
+    public boolean isDebuffed() { return debuffTicks > 0; }
+    public void setDebuffTicks(int debuffTicks) { this.debuffTicks = debuffTicks; }
+    public void tickDebuff() {
+
+        if(debuffTicks > 0) {
+
+            debuffTicks--;
+            if(getInk() >= 35d) {
+
+                removeInk(0.21d);
+
+            }
+
+            double offsetX = new Random().nextDouble() * .8;
+            double offsetY = new Random().nextDouble() * 2;
+            double offsetZ = new Random().nextDouble() * .8;
+
+            Vector pos = new Vector(getLocation().getX()-.4+offsetX,getLocation().getY()+offsetY, getLocation().getZ()-.4+offsetZ);
+            World world = getLocation().getWorld();
+            world.spawnParticle(Particle.SPELL_MOB_AMBIENT, pos.getX(), pos.getY(), pos.getZ(), 0);
+
+        }
+
+    }
+    public static final double DEBUFF_SPEED_MOD = 0.35d;
 
     public abstract EntityPlayer getNMSPlayer();
     public abstract Entity getBukkitEntity();
@@ -393,20 +446,54 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
     public abstract boolean isOnGround();
 
-    public abstract void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int splatTicks);
+    public void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int splatTicks) {
+
+        int points = (int) getSpecialPoints();
+        if(points != 0) {
+
+            points/=2d;
+            setSpecialPoints(points);
+
+        }
+
+        getStatistic().setDeaths(getStatistic().getDeaths()+1);
+        onSplat(color, splatter, projectile, splatTicks);
+
+    }
+    public abstract void onSplat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int splatTicks);
     public void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile) {
 
         splat(color, splatter, projectile, 100);
 
     }
 
-    public void burst(SplatoonPlayer killer, Color color) {
+    public void burst(@Nullable SplatoonPlayer killer, Color color) {
 
         if(armorHealth != 0d) {
 
             armorHealth = 0d;
             armorApplied = true;
             updateEquipment();
+
+        }
+
+        ArrayList<ItemStack> toDrop = new ArrayList<>();
+        if(getEquipment().getPrimaryWeapon() != null) { toDrop.add(getEquipment().getPrimaryWeapon().asItemStack()); }
+        if(getEquipment().getSecondaryWeapon() != null) { toDrop.add(getEquipment().getSecondaryWeapon().asItemStack()); }
+        if(getEquipment().getSpecialWeapon() != null) { toDrop.add(getEquipment().getSpecialWeapon().asItemStack()); }
+        if(getEquipment().getHeadGear() != null) { toDrop.add(getEquipment().getHeadGear().asItemStack(getColor())); }
+        if(getEquipment().getBodyGear() != null) { toDrop.add(getEquipment().getBodyGear().asItemStack(getColor())); }
+        if(getEquipment().getFootGear() != null) { toDrop.add(getEquipment().getFootGear().asItemStack(getColor())); }
+        if(!toDrop.isEmpty()) {
+
+            for(ItemStack stack : toDrop) {
+
+                DroppedEquipmentProjectile equipmentProjectile = new DroppedEquipmentProjectile(
+                        this, getEquipment().getPrimaryWeapon(), getMatch(), stack, getLocation()
+                        );
+                getMatch().queueProjectile(equipmentProjectile);
+
+            }
 
         }
 
@@ -482,17 +569,9 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
                             if(killer != null) {
 
-                                if (getMatch().isPaintable(killer.getTeam(), getLocation().getWorld().getBlockAt(fX, fY, fZ))) {
+                                if (getMatch().isPaintable(killer.getTeam(), fX, fY, fZ)) {
 
-                                    getMatch().paint(new Vector(fX, fY, fZ), killer);
-
-                                }
-
-                            }  else {
-
-                                if (getMatch().isPaintable(killer.getTeam(), getLocation().getWorld().getBlockAt(fX, fY, fZ))) {
-
-                                    getMatch().paint(new Vector(fX, fY, fZ), null);
+                                    getMatch().paint(killer, new Vector(fX, fY, fZ), killer.getTeam());
 
                                 }
 
@@ -530,6 +609,17 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
     @Override
     public void onProjectileHit(SplatoonProjectile projectile) {
+
+        if (!isSplatted()) {
+
+            if (this instanceof EntityNPC) {
+
+                EntityNPC npc = (EntityNPC) this;
+                npc.handleProjectileHit(projectile);
+
+            }
+
+        }
 
         if(projectile instanceof KnockbackProjectile) {
 
@@ -572,7 +662,7 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
                     health = 0d;
                     setHealth(health);
-                    setLastDamageTicks(4);
+                    setLastDamageTicks(3);
 
                     if(this instanceof SplatoonHumanPlayer) {
 
@@ -582,21 +672,6 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
                     }
                     getMatch().getMatchController().handleSplat(this, shooter, projectile);
                     splat(projectile.getColor(), projectile.getShooter(), projectile);
-                    if(projectile.getColor() != null || projectile.getShooter() != null) {
-
-                        Color color = null;
-                        if(projectile.getColor() != null) {
-
-                            color = projectile.getColor();
-
-                        } else if(projectile.getShooter() != null) {
-
-                            color = projectile.getShooter().getColor();
-
-                        }
-                        burst(projectile.getShooter(), color);
-
-                    }
 
                     if(shooter != null) {
 
@@ -645,17 +720,6 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
                         }
                         setHealth(health);
-
-                        if (!isSplatted()) {
-
-                            if (this instanceof EntityNPC) {
-
-                                EntityNPC npc = (EntityNPC) this;
-                                npc.handleProjectileHit(projectile);
-
-                            }
-
-                        }
 
                     }
 
@@ -741,11 +805,11 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     }
 
     private double points;
-    public int getPoints() { return (int)points; }
+    public double getPoints() { return points; }
     public void incrementPoints(double val) {
 
         points+=val;
-        updateSpecialPoints((int) (getSpecialPoints() + val));
+        updateSpecialPoints((getSpecialPoints() + val));
 
     }
 
@@ -753,7 +817,7 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public int getRequiredSpecialPoints() { return requiredSpecialPoints; }
     public void setRequiredSpecialPoints(int requiredSpecialPoints) { this.requiredSpecialPoints = requiredSpecialPoints; }
 
-    private void updateSpecialPoints(int points) {
+    private void updateSpecialPoints(double points) {
 
         setSpecialPoints(points);
 
@@ -777,6 +841,23 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
         }
 
     }
+
+    private HashMap<TentaMissleTarget, Integer> remainingHighlightTicks = new HashMap<>();
+
+    public void highlight(TentaMissleTarget target, int i) {
+
+        remainingHighlightTicks.put(target, i);
+        handleHighlight(target, i);
+
+    }
+    public abstract void handleHighlight(TentaMissleTarget target, int i);
+
+    public abstract int getVisibleEntityID();
+
+    private int specialUseCounter;
+    public int getSpecialUseCounter() { return specialUseCounter; }
+    public void resetSpecialUseCounter() { specialUseCounter = 0; }
+    public void incrementSpecialUseCounteR() { specialUseCounter++; }
 
     public static class DamageHistory {
 
@@ -823,7 +904,7 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
 
         }
 
-        if(lastDamageTicker() > 0) { return false; }
+        if(lastDamageTicker() != 0) { return false; }
         if(weapon != null && weapon.isActive()) {
 
             if(weapon.isSelected() && weapon instanceof Baller) { return false; }
@@ -874,6 +955,16 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
         private int deaths;
         public int getDeaths() { return deaths; }
         public void setDeaths(int deaths) { this.deaths = deaths; }
+
+    }
+
+    public void resetLastInkModification() { lastInkModification = 0; }
+    private long lastInkModification;
+    public long getLastInkModification() { return lastInkModification; }
+    public void updateLastInkModification() { lastInkModification = System.currentTimeMillis(); }
+    public int elapsedSecondsSinceLastInkModification() {
+
+        return (int) ((System.currentTimeMillis() - (lastInkModification)) / 1000);
 
     }
 

@@ -1,5 +1,6 @@
 package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.CurlingBombProjectile;
@@ -7,7 +8,7 @@ import de.xenyria.splatoon.game.projectile.DamageDealingProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import org.bukkit.Material;
 
-public abstract class AbstractCurlingBomb extends SplatoonSecondaryWeapon {
+public abstract class AbstractCurlingBomb extends SplatoonSecondaryWeapon implements AIThrowableBomb {
 
     private float radius;
 
@@ -77,7 +78,7 @@ public abstract class AbstractCurlingBomb extends SplatoonSecondaryWeapon {
     @Override
     public void calculateNextInkUsage() {
 
-        setNextInkUsage(10d);
+        setNextInkUsage(40d);
 
     }
 

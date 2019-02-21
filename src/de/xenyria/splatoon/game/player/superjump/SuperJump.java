@@ -77,7 +77,6 @@ public class SuperJump {
         for(int x = 0; x < 10; x++) {
 
 
-            System.out.println(x);
         }
 
         TrajectoryCalculation calculation = new TrajectoryCalculation(new Vector3f(
@@ -93,7 +92,6 @@ public class SuperJump {
         calculation.calculate(blocksPerSec);
         if(calculation.found() && calculation.getWorstResult() != null) {
 
-            System.out.println(calculation.getWorstResult().getVectors().size());
 
         }
 

@@ -11,6 +11,7 @@ import de.xenyria.splatoon.game.projectile.DamageDealingProjectile;
 import de.xenyria.splatoon.game.projectile.InstantDamageKnockbackProjectile;
 import de.xenyria.splatoon.game.projectile.RayProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
+import de.xenyria.splatoon.game.team.Team;
 import net.minecraft.server.v1_13_R2.AxisAlignedBB;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -24,6 +25,7 @@ public class BeaconObject extends GameObject implements HitableEntity, Removable
     public BeaconObject(Match match, SplatoonPlayer owner, Block block) {
 
         super(match);
+        this.team = owner.getTeam();
         this.owner = owner;
         this.block = block;
         int placeCounter = 0;
@@ -57,6 +59,8 @@ public class BeaconObject extends GameObject implements HitableEntity, Removable
         location.getWorld().spawnParticle(Particle.SMOKE_LARGE, location, 0);
         location.getWorld().playSound(location, Sound.BLOCK_STONE_BREAK, 0.7f, 2f);
         getOwner().getMatch().queueObjectRemoval(this);
+
+        getMatch().removeBeacon(this);
 
     }
 
@@ -160,5 +164,8 @@ public class BeaconObject extends GameObject implements HitableEntity, Removable
     public void reset() {
         remove();
     }
+
+    private Team team;
+    public Team getTeam() { return team; }
 
 }

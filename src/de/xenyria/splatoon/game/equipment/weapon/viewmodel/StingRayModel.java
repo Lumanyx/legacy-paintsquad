@@ -22,7 +22,7 @@ public class StingRayModel extends WeaponModel {
     private SlowRotation rotation = new SlowRotation();
     private SlowRotation pitchRotation = new SlowRotation();
 
-    private float turningSpeed = 0.85f;
+    public static final float turningSpeed = 1.2f;
 
     @Override
     public void onTick() {

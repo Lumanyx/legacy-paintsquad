@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.objects;
 
 import de.xenyria.api.spigot.ItemBuilder;
+import de.xenyria.servercore.spigot.util.DirectionUtil;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -8,6 +9,7 @@ import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import net.minecraft.server.v1_13_R2.AxisAlignedBB;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -15,6 +17,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
+import org.bukkit.util.EulerAngle;
 
 public class SuctionBomb extends GameObject implements HitableEntity {
 
@@ -35,7 +38,9 @@ public class SuctionBomb extends GameObject implements HitableEntity {
         Location spawnLoc = new Location(player.getLocation().getWorld(), (int)block.getX(), (int)block.getY(), (int)block.getZ());
 
         spawnLoc = spawnLoc.add(.5, .5, .5);
-        spawnLoc = spawnLoc.add(normal.getDirection().clone().multiply(0.625));
+        spawnLoc = spawnLoc.add(normal.getDirection().clone().multiply(0.325));
+        float[] dir = DirectionUtil.directionToYawPitch(normal.getDirection());
+        spawnLoc.setYaw(dir[0]);
         spawnPos = spawnLoc.clone();
         this.radius = radius;
 
@@ -47,7 +52,11 @@ public class SuctionBomb extends GameObject implements HitableEntity {
         stand.setVisible(false);
         stand.setCanMove(false);
         stand.setCanTick(false);
-        stand.setHelmet(new ItemBuilder(owner.getTeam().getColor().getClay()).addEnchantment(Enchantment.DURABILITY, 1).create());
+        stand.setHelmet(new ItemBuilder(Material.SLIME_SPAWN_EGG).addEnchantment(Enchantment.DURABILITY, 1).create());
+        float pitch = 0f;
+        if(normal == BlockFace.UP) { pitch = 0f; } else if(normal == BlockFace.DOWN) { pitch = 180f; } else { pitch = 90f; }
+
+        stand.setHeadPose(new EulerAngle(Math.toRadians(pitch), 0, 0));
 
     }
 

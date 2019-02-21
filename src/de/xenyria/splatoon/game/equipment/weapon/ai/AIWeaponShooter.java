@@ -8,5 +8,6 @@ public interface AIWeaponShooter extends AIWeapon {
     public float nextSprayYaw();
     public float nextSprayPitch();
     public float getImpulse();
+    public float range();
 
 }

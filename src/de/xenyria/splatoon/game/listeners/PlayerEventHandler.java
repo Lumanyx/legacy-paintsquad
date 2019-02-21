@@ -5,12 +5,15 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.EnumWrappers;
 import com.google.common.collect.Sets;
+import com.xxmicloxx.NoteBlockAPI.NoteBlockAPI;
 import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Chat;
 import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.servercore.spigot.events.PlayerLoginFinishedEvent;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.task.paint.PaintableRegion;
+import de.xenyria.splatoon.arena.ArenaProvider;
+import de.xenyria.splatoon.arena.builder.ArenaBuilder;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractBrush;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractDualies;
 import de.xenyria.splatoon.game.equipment.weapon.primary.SplatoonPrimaryWeapon;
@@ -18,6 +21,7 @@ import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
 import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.gui.StaticItems;
+import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.ai.MatchAIManager;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
@@ -53,6 +57,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkPopulateEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -110,6 +115,14 @@ public class PlayerEventHandler implements Listener {
 
     }
 
+
+    @EventHandler
+    public void discover(PlayerRecipeDiscoverEvent event) {
+
+        event.setCancelled(true);
+
+    }
+
     public static CopyOnWriteArrayList<Player> ignoreTeleportMap = new CopyOnWriteArrayList<>();
 
     private static Block currentBlock = null;
@@ -136,13 +149,51 @@ public class PlayerEventHandler implements Listener {
     }
 
     @EventHandler
+    public void antiLoad(ChunkLoadEvent event) {
+
+        World world = event.getWorld();
+        String name = world.getName();
+        if(name.equalsIgnoreCase("sp_arena")) {
+
+            if(!ArenaBuilder.keepLoaded(new ChunkCoordIntPair(
+                    event.getChunk().getX(), event.getChunk().getZ()
+            ))) {
+
+                //event.getChunk().unload(false);
+
+            }
+
+        }
+
+    }
+
+    @EventHandler
+    public void save(WorldSaveEvent event) {
+
+
+    }
+
+    @EventHandler
     public void antiSave(ChunkUnloadEvent event) {
 
         World world = event.getWorld();
         String name = world.getName();
         if(name.equalsIgnoreCase("sp_tutorial") || name.equalsIgnoreCase("sp_arena")) {
 
-            event.setSaveChunk(false);
+            if(name.equalsIgnoreCase("sp_arena")) {
+
+                event.setSaveChunk(false);
+                if(ArenaBuilder.keepLoaded(new ChunkCoordIntPair(event.getChunk().getX(), event.getChunk().getZ()))) {
+
+                    event.setCancelled(true);
+
+                }
+
+            } else {
+
+                event.setSaveChunk(true);
+
+            }
 
         }
 
@@ -169,10 +220,11 @@ public class PlayerEventHandler implements Listener {
     public void autoStair(PlayerMoveEvent event) {
 
         Vector delta = event.getTo().toVector().subtract(event.getFrom().toVector()).multiply(2);
+        Player player = event.getPlayer();
+
         if(delta.getY() >= 0) {
 
             delta.setY(0);
-            Player player = event.getPlayer();
             EntityPlayer entityPlayer = ((CraftPlayer) player).getHandle();
             Vector targetLoc = event.getFrom().toVector().add(delta);
             AxisAlignedBB bb = new AxisAlignedBB(targetLoc.getX() - .3, targetLoc.getY(), targetLoc.getZ() - .3, targetLoc.getX() + .3, targetLoc.getY() + 1.8, targetLoc.getZ() + .3);
@@ -181,46 +233,53 @@ public class PlayerEventHandler implements Listener {
                 Vector wrap = AABBUtil.resolveWrap(event.getPlayer().getWorld(), targetLoc, bb);
                 if (wrap != null) {
 
-                    entityPlayer.setPositionRotation(wrap.getX(), wrap.getY(), wrap.getZ(), entityPlayer.yaw, entityPlayer.pitch);
-                    entityPlayer.yaw = event.getTo().getYaw();
-                    entityPlayer.lastX = wrap.getX();
-                    entityPlayer.lastY = wrap.getY();
-                    entityPlayer.lastZ = wrap.getZ();
+                    double diffY = Math.abs(wrap.getY()-event.getFrom().getY());
+                    if(diffY > 0.5) {
 
-                    Vector vel = player.getVelocity().clone();
-                    Location newLoc = player.getLocation();
-                    newLoc = newLoc.set(wrap.getX(), wrap.getY(), wrap.getZ());
-                    newLoc.setYaw(event.getTo().getYaw());
-                    newLoc.setPitch(event.getTo().getPitch());
-                    event.setTo(newLoc);
+                        entityPlayer.setPositionRotation(wrap.getX(), wrap.getY(), wrap.getZ(), entityPlayer.yaw, entityPlayer.pitch);
+                        entityPlayer.yaw = event.getTo().getYaw();
+                        entityPlayer.lastX = wrap.getX();
+                        entityPlayer.lastY = wrap.getY();
+                        entityPlayer.lastZ = wrap.getZ();
+
+                        Vector vel = player.getVelocity().clone();
+                        Location newLoc = player.getLocation();
+                        newLoc = newLoc.set(wrap.getX(), wrap.getY(), wrap.getZ());
 
 
-                    if (!ignoreTeleportMap.contains(player)) {
+                        newLoc.setYaw(event.getTo().getYaw());
+                        newLoc.setPitch(event.getTo().getPitch());
+                        event.setTo(newLoc);
 
-                        ignoreTeleportMap.add(player);
+
+                        if (!ignoreTeleportMap.contains(player)) {
+
+                            ignoreTeleportMap.add(player);
+
+                        }
+                        Set<PacketPlayOutPosition.EnumPlayerTeleportFlags> flags = new HashSet<>();
+                        flags.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.X_ROT);
+                        flags.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.Y_ROT);
+
+                        PacketPlayOutPosition packet = new PacketPlayOutPosition(
+                                newLoc.getX(), newLoc.getY(), newLoc.getZ(),
+                                0f, 0f, flags, 0
+                        );
+
+                        PacketContainer container = new PacketContainer(PacketType.Play.Server.POSITION, packet);
+                        try {
+
+                            ProtocolLibrary.getProtocolManager().sendServerPacket(player, container, false);
+
+                        } catch (Exception e) {
+
+                            e.printStackTrace();
+
+                        }
+
+                        player.setVelocity(vel);
 
                     }
-                    Set<PacketPlayOutPosition.EnumPlayerTeleportFlags> flags = new HashSet<>();
-                    flags.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.X_ROT);
-                    flags.add(PacketPlayOutPosition.EnumPlayerTeleportFlags.Y_ROT);
-
-                    PacketPlayOutPosition packet = new PacketPlayOutPosition(
-                            newLoc.getX(), newLoc.getY(), newLoc.getZ(),
-                            0f, 0f, flags, 0
-                    );
-
-                    PacketContainer container = new PacketContainer(PacketType.Play.Server.POSITION, packet);
-                    try {
-
-                        ProtocolLibrary.getProtocolManager().sendServerPacket(player, container, false);
-
-                    } catch (Exception e) {
-
-                        e.printStackTrace();
-
-                    }
-
-                    player.setVelocity(vel);
 
                 }
 
@@ -307,6 +366,20 @@ public class PlayerEventHandler implements Listener {
     public void quit(PlayerQuitEvent event) {
 
         SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
+        if(player.getMatch() != null) {
+
+            try {
+
+                player.leaveMatch();
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+            }
+
+        }
+
         SplatoonHumanPlayer.getHumanPlayers().remove(player);
         XenyriaSplatoon.getXenyriaLogger().log("§eSpieler " + event.getPlayer().getName() + " (#?) §7hat den Server verlassen.");
 
@@ -316,14 +389,11 @@ public class PlayerEventHandler implements Listener {
     public void antiKick(PlayerKickEvent event) {
 
         String msg = event.getReason();
-        System.out.println("Msg: " + msg);
         if(msg.contains("Flying is not enabled")) {
 
-            System.out.println("Trigger");
             SplatoonHumanPlayer player = ((SplatoonHumanPlayer.getPlayer(event.getPlayer())));
             if(player.isSquid()) {
 
-                System.out.println("Cancel");
                 event.setCancelled(true);
 
             } else if(player.getEquipment().getSpecialWeapon() != null && player.getEquipment().getSpecialWeapon().isActive()){
@@ -331,7 +401,6 @@ public class PlayerEventHandler implements Listener {
                 SplatoonSpecialWeapon splatoonSpecialWeapon = player.getEquipment().getSpecialWeapon();
                 if(splatoonSpecialWeapon instanceof Baller || splatoonSpecialWeapon instanceof Jetpack) {
 
-                    System.out.println("Cancel");
                     event.setCancelled(true);
 
                 }
@@ -368,7 +437,7 @@ public class PlayerEventHandler implements Listener {
 
     }
 
-    public void handleInteraction(Player player1, ItemStack currentItem, Action action) {
+    public static void handleInteraction(Player player1, ItemStack currentItem, Action action) {
 
         if(action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR) {
 
@@ -433,6 +502,16 @@ public class PlayerEventHandler implements Listener {
                     WeaponShop shop = lobby.getWeaponShop();
                     player1.openInventory(shop.getOverviewInventory());
 
+                } else if(stack.equals(StaticItems.SPECTATE)) {
+
+                    Match match = player.getMatch();
+                    if(match instanceof BattleMatch) {
+
+                        BattleMatch match1 = (BattleMatch) match;
+                        player1.openInventory(match1.createSpectatorMenu());
+
+                    }
+
                 }
 
             }
@@ -458,6 +537,17 @@ public class PlayerEventHandler implements Listener {
 
     @EventHandler
     public void updateInteraction(PlayerInteractEvent event) {
+
+        ItemStack itemStack = event.getItem();
+        if(itemStack != null) {
+
+            if(ItemBuilder.hasValue(itemStack, "SpecialWeapon") || ItemBuilder.hasValue(itemStack, "SecondaryWeapon")) {
+
+                event.setCancelled(true);
+
+            }
+
+        }
 
         handleInteraction(event.getPlayer(), event.getItem(), event.getAction());
 
@@ -517,6 +607,13 @@ public class PlayerEventHandler implements Listener {
     }
 
     @EventHandler
+    public void join1(PlayerJoinEvent event) {
+
+        NoteBlockAPI.setPlayerVolume(event.getPlayer(), (byte)100);
+
+    }
+
+    @EventHandler
     public void join(PlayerLoginFinishedEvent event) {
 
         Player player1 = event.getSpigotPlayer();
@@ -557,6 +654,13 @@ public class PlayerEventHandler implements Listener {
 
     @EventHandler
     public void pickup(EntityPickupItemEvent event) {
+
+        event.setCancelled(true);
+
+    }
+
+    @EventHandler
+    public void drop1(PlayerDropItemEvent event) {
 
         event.setCancelled(true);
 
@@ -620,6 +724,16 @@ public class PlayerEventHandler implements Listener {
 
     @EventHandler
     public void chunkLoad(ChunkLoadEvent event) {
+
+        for(Entity entity : event.getChunk().getEntities()) {
+
+            if(entity.getType() == EntityType.VILLAGER || entity.getType() == EntityType.DROPPED_ITEM || entity.getType() == EntityType.ARMOR_STAND) {
+
+                entity.remove();
+
+            }
+
+        }
 
     }
 

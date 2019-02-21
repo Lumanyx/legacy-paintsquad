@@ -6,6 +6,8 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.MultiBlockChangeInfo;
 import com.comphenix.protocol.wrappers.WrappedBlockData;
 import com.mysql.fabric.xmlrpc.base.Array;
+import de.xenyria.api.spigot.ItemBuilder;
+import de.xenyria.core.array.TwoDimensionalMap;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.core.chat.Chat;
 import de.xenyria.math.trajectory.Vector3f;
@@ -14,12 +16,18 @@ import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.combat.HitableEntity;
+import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSet;
+import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSetRegistry;
+import de.xenyria.splatoon.game.equipment.weapon.util.ResourcePackUtil;
 import de.xenyria.splatoon.game.map.Map;
 import de.xenyria.splatoon.game.match.ai.MatchAIManager;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.match.intro.IntroManager;
 import de.xenyria.splatoon.game.match.outro.OutroManager;
 import de.xenyria.splatoon.game.objects.GameObject;
+import de.xenyria.splatoon.game.objects.RemovableGameObject;
 import de.xenyria.splatoon.game.objects.Sprinkler;
+import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -27,6 +35,7 @@ import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.projectile.TentaMissleRocket;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.RandomUtil;
+import de.xenyria.splatoon.lobby.SplatoonLobby;
 import net.minecraft.server.v1_13_R2.*;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.bukkit.Bukkit;
@@ -34,23 +43,28 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.craftbukkit.v1_13_R2.CraftChunk;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_13_R2.block.CraftBlock;
 import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
+import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
 import org.bukkit.craftbukkit.v1_13_R2.util.CraftMagicNumbers;
+import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Random;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.*;
 
 public abstract class Match {
 
+    private HashMap<UUID, ArrayList<SplatoonHumanPlayer>> spawnedInkTanks = new HashMap<>();
 
     private World world;
     public World getWorld() { return world; }
@@ -60,6 +74,151 @@ public abstract class Match {
     public void setMatchController(MatchControlInterface matchControlInterface) { this.matchController = matchControlInterface; }
 
     private HashMap<BlockPosition, IBlockData> rollbackMap = new HashMap<>();
+
+    private BlockFlagManager blockFlagManager = new BlockFlagManager(this);
+    public BlockFlagManager getBlockFlagManager() { return blockFlagManager; }
+
+    public void handleInkTanks() {
+
+        if(inProgress() && !(this instanceof SplatoonLobby)) {
+
+            Iterator<java.util.Map.Entry<UUID, ArrayList<SplatoonHumanPlayer>>> iterator = spawnedInkTanks.entrySet().iterator();
+            while (iterator.hasNext()) {
+
+                java.util.Map.Entry<UUID, ArrayList<SplatoonHumanPlayer>> entry = iterator.next();
+                Player player = Bukkit.getPlayer(entry.getKey());
+
+                if(player != null) {
+
+                    SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+                    ArrayList<SplatoonHumanPlayer> spawnedPlayers = entry.getValue();
+                    if(!spawnedPlayers.isEmpty()) {
+
+                        Iterator<SplatoonHumanPlayer> iterator1 = spawnedPlayers.iterator();
+                        while (iterator1.hasNext()) {
+
+                            SplatoonHumanPlayer player2 = iterator1.next();
+                            if(inIntro() || inOutro() || player2.isSpecialActive() || player2.isSplatted() || player2.isSquid() || player2.getLocation().toVector().distance(player.getLocation().toVector()) >= 32D) {
+
+                                player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player2.getTank().getId()));
+                                iterator1.remove();
+
+                            } else {
+
+                                byte yaw = (byte) ((player2.getTank().yaw)*0.70333);
+
+                                PacketPlayOutEntityHeadRotation look = new PacketPlayOutEntityHeadRotation(player2.getTank(), yaw);
+                                player1.getNMSPlayer().playerConnection.sendPacket(look);
+
+                            }
+
+                        }
+
+                    }
+
+                } else {
+
+                    iterator.remove();
+
+                }
+
+            }
+
+            if(!inIntro() && !inOutro()) {
+
+                for (SplatoonHumanPlayer player : getHumanPlayers()) {
+
+                    if (ResourcePackUtil.hasCustomResourcePack(player.getPlayer())) {
+
+                        for (SplatoonHumanPlayer otherPlayer : getHumanPlayers()) {
+
+                            //if (player != otherPlayer) {
+                            if (spawnedInkTanks.containsKey(player.getUUID())) {
+
+                                boolean spawned = (spawnedInkTanks.containsKey(player.getUUID()) && spawnedInkTanks.get(player.getUUID()).contains(otherPlayer));
+                                if (!spawned) {
+
+                                    if (!otherPlayer.isSquid() && !otherPlayer.isSpecialActive() && !otherPlayer.isSplatted() && !otherPlayer.isSpectator() && otherPlayer.getLocation().toVector().distance(player.getPlayer().getLocation().toVector()) < 32D) {
+
+                                        otherPlayer.getTank().locX = otherPlayer.getLocation().getX();
+                                        otherPlayer.getTank().locY = otherPlayer.getLocation().getY();
+                                        otherPlayer.getTank().locZ = otherPlayer.getLocation().getZ();
+
+                                        ArrayList<SplatoonHumanPlayer> list = spawnedInkTanks.get(player.getUUID());
+                                        list.add(otherPlayer);
+                                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(otherPlayer.getTank()));
+                                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(otherPlayer.getTank().getId(), otherPlayer.getTank().getDataWatcher(), true));
+
+                                        short tankDurability = otherPlayer.getTeam().getColor().tankDurabilityValue();
+                                        ItemStack stack = new ItemBuilder(Material.GOLDEN_AXE).setUnbreakable(true).setDurability(
+                                                tankDurability
+                                        ).create();
+
+                                        PacketPlayOutEntityEquipment equipment = new PacketPlayOutEntityEquipment(otherPlayer.getTank().getId(), EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(stack));
+                                        player.getNMSPlayer().playerConnection.sendPacket(equipment);
+
+                                        PacketContainer container = new PacketContainer(PacketType.Play.Server.MOUNT);
+                                        container.getIntegers().write(0, otherPlayer.getEntityID());
+                                        container.getIntegerArrays().write(0, new int[]{otherPlayer.getTank().getId()});
+                                        try {
+
+                                            ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container, false);
+
+                                        } catch (Exception e) {
+
+                                            e.printStackTrace();
+
+                                        }
+
+                                    }
+
+                                }
+
+                            } else {
+
+                                if (player.millisSinceMatchSwitch() > 150) {
+
+                                    spawnedInkTanks.put(player.getUUID(), new ArrayList<>());
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+    private HashMap<Team, Integer> teamTurfCounter = new HashMap<>();
+    public void incrementTurfCounter(Team team) {
+
+        if(!teamTurfCounter.containsKey(team)) {
+
+            teamTurfCounter.put(team, 1);
+
+        } else {
+
+            teamTurfCounter.put(team, teamTurfCounter.get(team)+1);
+
+        }
+
+    }
+    public void decrementTurfCounter(Team team) {
+
+        if(teamTurfCounter.containsKey(team)) {
+
+            teamTurfCounter.put(team, teamTurfCounter.get(team)-1);
+
+        }
+
+    }
 
     public void clearQueues() {
 
@@ -79,6 +238,9 @@ public abstract class Match {
 
         net.minecraft.server.v1_13_R2.World world = nmsWorld();
         Bukkit.broadcastMessage(Chat.SYSTEM_PREFIX + "Rollback in §eMatch " + getClass());
+
+        blockFlagManager.reset();
+
         HashMap<ChunkCoordIntPair, ArrayList<BlockPosition>> multiBlockChange = new HashMap<>();
         ArrayList<Player> receivers = new ArrayList<>();
 
@@ -99,28 +261,6 @@ public abstract class Match {
             } else {
 
                 world.setTypeAndData(entry.getKey(), entry.getValue(), 0);
-
-            }
-
-            if(block.hasMetadata("Trail")) {
-
-                block.removeMetadata("Trail", XenyriaSplatoon.getPlugin());
-                Iterator<TrailBlock> trailBlockIterator = blocks.iterator();
-                while (trailBlockIterator.hasNext()) {
-
-                    TrailBlock block1 = trailBlockIterator.next();
-                    if(block1.x == entry.getKey().getX() && block1.y == entry.getKey().getY() && block1.z == entry.getKey().getZ()) {
-
-                        trailBlockIterator.remove();
-
-                    }
-
-                }
-
-            }
-            if(block.hasMetadata("Team")) {
-
-                block.removeMetadata("Team", XenyriaSplatoon.getPlugin());
 
             }
 
@@ -228,14 +368,73 @@ public abstract class Match {
     private MatchWorldInformationProvider worldInformationProvider = new MatchWorldInformationProvider(this);
     public MatchWorldInformationProvider getWorldInformationProvider() { return worldInformationProvider; }
 
+    private static int lastID = 1;
+    private static int nextID() { lastID++; return lastID-1; }
+
+    private int id;
+
     public Match(World world) {
 
+        this.id = nextID();
         this.world = world;
         map = new Map();
         //map.getPaintDefinition().getPaintableMaterials().add(Material.STONE);
+        registeredMatches.add(this);
+        XenyriaSplatoon.getXenyriaLogger().log("§eMatch #" + id + " §7erstellt.");
+
+    }
+
+    public String mapSchematicName = "";
+
+    public void initializeAIManager() {
 
         manager = new MatchAIManager(this);
-        registeredMatches.add(this);
+        File file = new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "arena" + File.separator + mapSchematicName + ".aisf");
+        if(!file.exists()) {
+
+            manager.initSpots(manager.gatherNodesBySpawns());
+            new Thread(() -> {
+
+                byte[] bytes = manager.regionsToBytes();
+                try {
+
+                    FileOutputStream stream = new FileOutputStream(file);
+                    stream.write(bytes);
+                    stream.close();
+                    broadcast("§e" + manager.getPaintableRegions().size() + " Färbregionen §7generiert");
+
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+
+                }
+
+            }).start();
+
+        } else {
+
+            new Thread(() -> {
+
+                try {
+
+                    FileInputStream stream = new FileInputStream(file);
+                    byte[] bytes = new byte[stream.available()];
+                    stream.read(bytes);
+                    stream.close();
+                    manager.fromBytes(bytes);
+                    broadcast("§e" + manager.getPaintableRegions().size() + " Färbregionen §7geladen");
+
+                } catch (Exception e) {
+
+                    e.printStackTrace();
+                    manager.initSpots(getAIController().gatherNodesBySpawns());
+
+                }
+
+            }).start();
+
+        }
+
 
     }
 
@@ -255,8 +454,167 @@ public abstract class Match {
     private ArrayList<HitableEntity> hitableObjects = new ArrayList<>();
     private ArrayList<SplatoonPlayer> registeredPlayers = new ArrayList<>();
 
-    public void addPlayer(SplatoonPlayer player) { hitableObjects.add(player); registeredPlayers.add(player); matchController.playerAdded(player); }
-    public void removePlayer(SplatoonPlayer player) { hitableObjects.remove(player); registeredPlayers.remove(player); matchController.playerRemoved(player); }
+    public ArrayList<EntityNPC> getNPCs() {
+
+        ArrayList<EntityNPC> npcs = new ArrayList<>();
+        for(SplatoonPlayer player : getAllPlayers()) {
+
+            if(player instanceof EntityNPC) {
+
+                npcs.add((EntityNPC)player);
+
+            }
+
+        }
+        return npcs;
+
+    }
+
+    public void addPlayer(SplatoonPlayer player) {
+
+        hitableObjects.add(player); registeredPlayers.add(player); matchController.playerAdded(player);
+        player.resetSpecialUseCounter();
+
+        if(player instanceof SplatoonHumanPlayer) {
+
+            createScoreboardTeams(((SplatoonHumanPlayer)player).getPlayer().getScoreboard());
+            for(EntityNPC npc : getNPCs()) {
+
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(
+                        PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, npc.getNMSPlayer()
+                ));
+
+            }
+
+        }
+        addPlayerToScoreboards(player);
+
+        if(player instanceof EntityNPC) {
+
+            EntityNPC npc = (EntityNPC)player;
+            if(npc.isVisibleInTab()) {
+
+                for(SplatoonHumanPlayer player1 : getHumanPlayers()) {
+
+                    player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, npc.getNMSPlayer()));
+
+                }
+
+            }
+
+        }
+
+    }
+
+    public void removeCreatedTeams(Scoreboard scoreboard) {
+
+        for(Color color : Color.values()) {
+
+            org.bukkit.scoreboard.Team team = scoreboard.getTeam("match-"+color.name());
+            if(team != null) {
+
+                team.unregister();
+
+            }
+
+        }
+
+    }
+
+    public void createScoreboardTeams(Scoreboard scoreboard) {
+
+        for(Team team : getRegisteredTeams()) {
+
+            org.bukkit.scoreboard.Team team1 = scoreboard.getTeam("match-"+team.getColor().getName());
+            if(team1 != null) { team1.unregister(); }
+            team1 = scoreboard.registerNewTeam("match-" + team.getColor().name());
+            team1.setColor(team.getColor().getChatColor());
+            team1.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY, org.bukkit.scoreboard.Team.OptionStatus.ALWAYS);
+            team1.setPrefix("bliblablub");
+
+            for(SplatoonPlayer player : getPlayers(team)) {
+
+                team1.addEntry(player.getUUID().toString());
+
+            }
+
+        }
+
+    }
+    public void addPlayerToScoreboards(SplatoonPlayer toAdd) {
+
+        if(toAdd.getColor() != null) {
+
+            for (SplatoonHumanPlayer player : getHumanPlayers()) {
+
+                Player player1 = player.getPlayer();
+                Scoreboard scoreboard = player1.getScoreboard();
+
+                org.bukkit.scoreboard.Team team = scoreboard.getTeam("match-" + toAdd.getColor().name());
+                if (team != null) {
+
+                    team.addEntry(toAdd.getUUID().toString());
+
+                }
+
+            }
+
+        }
+
+    }
+    public void removePlayerFromScoreboards(SplatoonPlayer toRemove) {
+
+        if(toRemove.getColor() != null) {
+
+            for (SplatoonHumanPlayer player : getHumanPlayers()) {
+
+                Player player1 = player.getPlayer();
+                Scoreboard scoreboard = player1.getScoreboard();
+
+                org.bukkit.scoreboard.Team team = scoreboard.getTeam("match-" + toRemove.getColor().name());
+                if (team != null && team.getEntries().contains(toRemove.getUUID().toString())) {
+
+                    team.removeEntry(toRemove.getUUID().toString());
+
+                }
+
+            }
+
+        }
+
+    }
+
+    public void removePlayer(SplatoonPlayer player) {
+
+        hitableObjects.remove(player); registeredPlayers.remove(player); matchController.playerRemoved(player);
+        if(player instanceof SplatoonHumanPlayer) {
+
+            SplatoonHumanPlayer player1 = (SplatoonHumanPlayer) player;
+            if(spawnedInkTanks.containsKey(player1.getUUID())) {
+
+                ArrayList<SplatoonHumanPlayer> list = spawnedInkTanks.get(player1.getUUID());
+                for(SplatoonHumanPlayer player2 : list) {
+
+                    player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player2.getTank().getId()));
+
+                }
+
+            }
+            spawnedInkTanks.remove(player1.getUUID());
+            removeCreatedTeams(player1.getPlayer().getScoreboard());
+
+        } else {
+
+            for(SplatoonHumanPlayer player1 : getHumanPlayers()) {
+
+                player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, player.getNMSPlayer()));
+
+            }
+
+        }
+        removePlayerFromScoreboards(player);
+
+    }
     public ArrayList<SplatoonPlayer> getAllPlayers() { return registeredPlayers; }
 
     public void addGameObject(GameObject object) {
@@ -300,7 +658,12 @@ public abstract class Match {
 
     public void tick() {
 
-        getAIController().tick();
+        handleInkTanks();
+        if(manager != null) {
+
+            getAIController().tick();
+
+        }
         for(GameObject object : toAdd) {
 
             if(object instanceof HitableEntity) { hitableObjects.add((HitableEntity)object); }
@@ -375,7 +738,7 @@ public abstract class Match {
             if(ink.ticksToPaint < 1) {
 
                 dripIterator.remove();
-                paint(ink.position, ink.player);
+                paint(ink.player, ink.position, ink.player.getTeam());
 
             }
 
@@ -387,6 +750,17 @@ public abstract class Match {
         while (iterator.hasNext()) {
 
             SplatoonProjectile projectile = iterator.next();
+            if(projectile.getShooter() != null) {
+
+                if(!projectile.getShooter().isValid() || (projectile.getShooter().getTeam() == null || projectile.getShooter().getMatch() != this)) {
+
+                    iterator.remove();
+                    continue;
+
+                }
+
+            }
+
             projectile.tick();
             if(projectile.isRemoved()) { iterator.remove(); }
 
@@ -405,18 +779,54 @@ public abstract class Match {
     private ArrayList<SplatoonProjectile> projectiles = new ArrayList<>();
     public ArrayList<SplatoonProjectile> getProjectiles() { return projectiles; }
 
+    public int getPaintedTurf(Team team) {
+
+        return teamTurfCounter.getOrDefault(team, 0);
+
+    }
+
+    public int paintedBlockCount() {
+
+        int c = 0;
+        for(int i : teamTurfCounter.values()) {
+
+            c+=i;
+
+        }
+        return c;
+
+    }
+
+    private TwoDimensionalMap<org.bukkit.Chunk> chunkCache = new TwoDimensionalMap<>();
+    public org.bukkit.Chunk getOrLoad(int x, int z) {
+
+        org.bukkit.Chunk chunk = chunkCache.get(x,z);
+        if(chunk == null) {
+
+            chunk = world.getChunkAt(x,z);
+            chunkCache.set(x,z, chunk);
+
+        }
+        return chunk;
+
+    }
+
     public void paint(SplatoonPlayer player, Vector vector, Team team) {
 
-        Block block = world.getBlockAt(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
-        if(isPaintable(team, block)) {
+        final int x = (int)vector.getX();
+        final int y = (int)vector.getY();
+        final int z = (int)vector.getZ();
 
-            if(block.hasMetadata("Trail")) {
+        if(isPaintable(team, x, y, z)) {
+
+            BlockFlagManager.BlockFlag flag = blockFlagManager.getBlock(getOffset(), x, y, z);
+            if(flag.isTrail()) {
 
                 Iterator<TrailBlock> iterator = blocks.iterator();
                 while (iterator.hasNext()) {
 
                     TrailBlock block1 = iterator.next();
-                    if(block1.x == block.getX() && block1.y == block.getY() && block1.z == block.getZ()) {
+                    if(block1.x == x && block1.y == y && block1.z == z) {
 
                         iterator.remove();
                         break;
@@ -424,30 +834,68 @@ public abstract class Match {
                     }
 
                 }
-                block.removeMetadata("Trail", XenyriaSplatoon.getPlugin());
+                flag.setTrail(false);
+
+            }
+
+            if(flag.hasSetTeam()) {
+
+                Team team1 = colorFromTeamID(flag.getTeamID());
+                if(team1 != null) {
+
+                    decrementTurfCounter(team1);
+
+                }
 
             }
 
             if(rollbackEnabled) {
 
-                if(!rollbackMap.containsKey(new BlockPosition(block.getX(), block.getY(), block.getZ()))) {
+                if(!rollbackMap.containsKey(new BlockPosition(x,y,z))) {
 
-                    rollbackMap.put(new BlockPosition(block.getX(), block.getY(), block.getZ()), nmsWorld().getType(new BlockPosition(
-                            block.getX(), block.getY(), block.getZ()
-                    )));
+                    rollbackMap.put(new BlockPosition(x,y,z), nmsWorld().getType(new BlockPosition(x,y,z)));
 
                 }
 
             }
-            block.setType(team.getColor().getWool());
-            block.setMetadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(),  team.getColor().name()));
+
+            org.bukkit.Chunk chunk = getOrLoad(x>>4,z>>4);
+            Chunk chunk1 = ((CraftChunk)chunk).getHandle();
+            ChunkSection section = chunk1.getSections()[y>>4];
+
+            if(section != null) {
+
+                // Verhindert Lichtupdates
+                section.setType(x&15,y&15,z&15,team.getColor().getWoolData());
+                PacketContainer container = new PacketContainer(PacketType.Play.Server.BLOCK_CHANGE);
+                container.getBlockPositionModifier().write(0, new com.comphenix.protocol.wrappers.BlockPosition(x,y,z));
+                container.getBlockData().write(0, WrappedBlockData.fromHandle(team.getColor().getWoolData()));
+
+                for(SplatoonHumanPlayer player1 : getHumanPlayers()) {
+
+                    try {
+
+                        ProtocolLibrary.getProtocolManager().sendServerPacket(player1.getPlayer(), container);
+
+                    } catch (Exception e) {
+
+                        e.printStackTrace();
+
+                    }
+
+                }
+
+            }
+
+            flag.setTeamID(team.getID());
+            incrementTurfCounter(team);
 
             if(player != null) {
 
-                boolean isWall = block.hasMetadata("Wall") && block.getMetadata("Wall").get(0).asBoolean();
+                boolean isWall = flag.isWall();
                 if(!isWall) {
 
-                    player.incrementPoints(1d);
+                    player.incrementPoints(BLOCK_POINT_RATIO);
 
                 }
 
@@ -457,13 +905,45 @@ public abstract class Match {
 
     }
 
+    private Team colorFromTeamID(byte teamID) {
+
+        for(Team team : getRegisteredTeams()) {
+
+            if(team.getID() == teamID) { return team; }
+
+        }
+        return null;
+
+    }
+
+    public static final double BLOCK_POINT_RATIO = 0.5238125D;
+
     public net.minecraft.server.v1_13_R2.World nmsWorld() { return ((CraftWorld)world).getHandle(); }
 
-    private boolean rollbackEnabled = true;
+    public Team getTeam(Color color) {
+
+        for(Team team : getRegisteredTeams()) {
+
+            if(team.getColor() == color) {
+
+                return team;
+
+            }
+
+        }
+        return null;
+
+    }
+
+    private boolean rollbackEnabled = false;
+    public void enableRollback() { rollbackEnabled = true; }
     public boolean isRollbackEnabled() { return rollbackEnabled; }
 
-    public void paint(Vector vector, SplatoonPlayer player) {
+    /*public void paint(Vector vector, SplatoonPlayer player) {
 
+        paint(player, vector, player.getTeam());
+
+        /*
         Block block = world.getBlockAt(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
         if(isPaintable(player.getTeam(), block)) {
 
@@ -500,55 +980,39 @@ public abstract class Match {
             block.setType(player.getTeam().getColor().getWool());
             block.setMetadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), player.getTeam().getColor().name()));
 
-        }
+        }*/
 
-    }
+    //}
 
     private Map map = null;
     public Map getMap() { return map; }
 
-    public boolean isPaintable(Team team, Block block) {
+    public boolean isPaintable(Team team, int x, int y, int z) {
 
-        if(block.hasMetadata("Trail")) {
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(x, y, z);
+        if(flag != null) {
 
-            Color color = Color.valueOf(block.getMetadata("Trail").get(0).asString());
-            Team team1 = colorToTeamMap.get(color);
-            if(!team1.equals(team)) { return true; }
+            if(flag.hasSetTeam()) {
 
-        }
-        if(block.hasMetadata("Team")) {
+                return flag.getTeamID() != team.getID();
 
-            if(block.getType().name().contains("CONCRETE")) { return false; }
+            } else {
 
-            Color color = Color.valueOf(block.getMetadata("Team").get(0).asString());
-            if(color == team.getColor()) { return false; } else {
-
-                return true;
+                return flag.isPaintable();
 
             }
 
         }
-        return block.hasMetadata("Paintable");
+        return false;
 
     }
 
     public boolean isEnemyTurf(Block block, Team team) {
 
-        if(block.hasMetadata("Trail")) {
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        if(flag != null) {
 
-            Color color = Color.valueOf(block.getMetadata("Trail").get(0).asString());
-            Team team1 = colorToTeamMap.get(color);
-            if(!team1.equals(team)) { return true; }
-
-        }
-        if(block.hasMetadata("Team")) {
-
-            Color color = Color.valueOf(block.getMetadata("Team").get(0).asString());
-            if(color == team.getColor()) { return false; } else {
-
-                return true;
-
-            }
+            return flag.hasSetTeam() && flag.getTeamID() != team.getID();
 
         }
         return false;
@@ -572,7 +1036,8 @@ public abstract class Match {
 
     public boolean isPaintable(Block block) {
 
-        return block.hasMetadata("Paintable");
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        return flag != null && flag.isPaintable();
 
     }
 
@@ -645,6 +1110,12 @@ public abstract class Match {
     public void initOutroManager() {
 
         outroManager = new OutroManager(this);
+
+    }
+
+    public int indexOfPlayer(SplatoonPlayer player) {
+
+        return registeredPlayers.indexOf(player);
 
     }
 
@@ -740,6 +1211,138 @@ public abstract class Match {
 
     }
 
+    public void clearAllObjects() {
+
+        for(GameObject object : getGameObjects()) {
+
+            object.reset();
+            if(object instanceof RemovableGameObject) {
+
+                ((RemovableGameObject) object).remove();
+
+            }
+
+        }
+        getGameObjects().clear();
+        for(SplatoonProjectile projectile : getProjectiles()) {
+
+            projectile.remove();
+
+        }
+        getProjectiles().clear();
+        manager = null;
+
+        clearQueues();
+
+    }
+
+    public void handleMatchEnd() {
+
+        XenyriaSplatoon.getXenyriaLogger().log("Es werden §e" + forceLoadedChunks.size() + " Chunks §7für §eMatch #" + id + " §7entladen.");
+        for(ChunkCoordIntPair pair : forceLoadedChunks) {
+
+            org.bukkit.Chunk chunk = world.getChunkAt(pair.x, pair.z);
+            chunk.unload(false);
+
+        }
+
+    }
+
+    private ArrayList<ChunkCoordIntPair> forceLoadedChunks = new ArrayList<>();
+    public ArrayList<ChunkCoordIntPair> getForceLoadedChunks() { return forceLoadedChunks; }
+
+    private HashMap<SplatoonPlayer, WeaponSet> usedWeaponSets = new HashMap<>();
+    public void setUsedWeaponSet(SplatoonPlayer player, WeaponSet set) { usedWeaponSets.put(player, set); }
+    public WeaponSet getUsedWeaponSet(SplatoonPlayer player1) { return usedWeaponSets.getOrDefault(player1, WeaponSetRegistry.getSet(1)); }
+
+    public Vector getOffset() { return new Vector(); }
+
+    public boolean isWall(Block block) {
+
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        return flag != null && flag.isWall();
+
+    }
+
+    public SplatoonPlayer getPlayerFromID(int id) {
+
+        if(id <= (registeredPlayers.size()-1)) {
+
+            return registeredPlayers.get(id);
+
+        }
+        return null;
+
+    }
+
+    public boolean inProgress() { return true; }
+
+    public boolean hasAIController() { return manager != null; }
+
+    public boolean belongsToTeam(Block block, Team team) {
+
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        return flag != null && flag.hasSetTeam() && flag.getTeamID() == team.getID();
+
+    }
+
+    public void reset() {
+
+        // Turf zurücksetzen
+        teamTurfCounter.clear();
+        introManager = null;
+        outroManager = null;
+        usedWeaponSets.clear();
+        blockFlagManager = new BlockFlagManager(this);
+        blocks.clear();
+        manager = null;
+        jumpMenuMap.clear();
+        jumpPointSlotMap.clear();
+        map.getSpawns().clear();
+        this.spawnedInkTanks.clear();
+        this.drippingInk.clear();
+        this.getRegisteredTeams().clear();
+        Iterator<SplatoonPlayer> iterator = registeredPlayers.iterator();
+        ArrayList<EntityNPC> remove = new ArrayList<>();
+        while (iterator.hasNext()) {
+
+            SplatoonPlayer player = iterator.next();
+            if(player instanceof EntityNPC) {
+
+                remove.add((EntityNPC) player);
+
+            }
+
+        }
+        for(EntityNPC player : remove) {
+
+            player.remove();
+
+        }
+
+        for(SplatoonHumanPlayer player : getHumanPlayers()) {
+
+            player.setTeam(null);
+
+        }
+
+    }
+
+    public Team getTeam(Block block) {
+
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        if(flag != null && flag.hasSetTeam()) {
+
+            return colorFromTeamID(flag.getTeamID());
+
+        }
+        return null;
+
+    }
+
+    public boolean inLobbyPhase() { return false; }
+
+    public abstract void removeBeacon(BeaconObject object);
 
 
     //public ArrayList<JumpPoint> getJumpPoints(SplatoonPlayer player) {
@@ -796,7 +1399,7 @@ public abstract class Match {
                     double percentage = ((size-dist) / ((float)size)) * 100d;
                     if(RandomUtil.random((int) percentage)) {
 
-                        player.getMatch().paint(vector, player);
+                        player.getMatch().paint(player, vector, team);
 
                     }
 
@@ -810,20 +1413,10 @@ public abstract class Match {
 
     public boolean isOwnedByTeam(Block block, Team team) {
 
-        if(block.getType().equals(team.getColor().getWool()) || block.getType().equals(team.getColor().getSponge())) {
+        BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
+        if(flag != null) {
 
-            return true;
-
-        } else {
-
-            if(block.hasMetadata("Trail")) {
-
-                Color color = Color.valueOf(block.getMetadata("Trail").get(0).asString());
-                System.out.println("Col: " + color);
-                Team foundTeam = colorToTeamMap.get(color);
-                return foundTeam.equals(team);
-
-            }
+            return flag.hasSetTeam() && flag.getTeamID() == team.getID();
 
         }
         return false;
@@ -835,7 +1428,7 @@ public abstract class Match {
         ArrayList<SplatoonPlayer> players = new ArrayList<>();
         for(SplatoonPlayer player : registeredPlayers) {
 
-            if(player.getTeam().equals(team1)) {
+            if(player.getTeam() == team1) {
 
                 players.add(player);
 
@@ -941,8 +1534,9 @@ public abstract class Match {
         relative.setType(team.getColor().getClay());
         if(!blocks.contains(block)) {
 
+            BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(relative.getX(), relative.getY(), relative.getZ());
+            flag.setTrail(true);
             blocks.add(block);
-            relative.setMetadata("Trail", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), team.getColor().name()));
 
         }
 
@@ -963,8 +1557,14 @@ public abstract class Match {
                     WorldServer server = ((CraftWorld)world).getHandle();
                     server.setTypeUpdate(new BlockPosition(block.x, block.y, block.z), block.dataBefore);
                     Block block1 = world.getBlockAt(block.x, block.y, block.z);
+                    BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block1.getX(), block1.getY(), block1.getZ());
+                    if(flag != null) {
 
-                    if(block1.hasMetadata("Trail")) { block1.removeMetadata("Trail", XenyriaSplatoon.getPlugin()); }
+                        flag.setTrail(false);
+
+                    }
+
+                    //if(block1.hasMetadata("Trail")) { block1.removeMetadata("Trail", XenyriaSplatoon.getPlugin()); }
 
                 }
 

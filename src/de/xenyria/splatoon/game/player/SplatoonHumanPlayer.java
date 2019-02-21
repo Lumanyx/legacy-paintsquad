@@ -10,6 +10,7 @@ import de.xenyria.core.chat.Characters;
 import de.xenyria.core.chat.Chat;
 import de.xenyria.math.trajectory.Vector3f;
 import de.xenyria.servercore.spigot.player.XenyriaSpigotPlayer;
+import de.xenyria.servercore.spigot.util.DirectionUtil;
 import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.AISkin;
@@ -41,15 +42,13 @@ import de.xenyria.splatoon.game.projectile.*;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.NMSUtil;
+import de.xenyria.splatoon.game.util.VectorUtil;
 import de.xenyria.splatoon.lobby.SplatoonLobby;
 import de.xenyria.splatoon.lobby.npc.RecentPlayer;
 import net.minecraft.server.v1_13_R2.*;
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
+import org.bukkit.*;
 import org.bukkit.Material;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
@@ -85,6 +84,15 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
     public void disableWalkSpeedOverride() { walkSpeedOverrideActive = false; }
     public boolean doOverrideWalkspeed() { return walkSpeedOverrideActive; }
 
+    private EntityArmorStand tank;
+    public EntityArmorStand getTank() { return tank; }
+
+    public boolean isTankVisible() {
+
+        return getMatch() != null && !(getMatch() instanceof SplatoonLobby);
+
+    }
+
     private float overrideWalkSpeed;
     public void setOverrideWalkSpeed(float speed) { this.overrideWalkSpeed = speed; }
 
@@ -104,21 +112,12 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
         GearItem.createItem(this, 3, GearItem.StoredGearData.fromBase(3), true);
 
         this.player = resolve;
-        if(!flag) {
-
-            flag = true;
-
-        } else {
-
-            team = Team.DEBUG_TEAM_2;
-
-        }
-        team = Team.DEBUG_TEAM_1;
-
         spawnPoint = resolve.getLocation().clone();
         equipment = new Equipment(this);
 
         refillRecentPlayerPool();
+        tank = new EntityArmorStand(((CraftWorld)getWorld()).getHandle());
+        tank.setInvisible(true);
 
     }
 
@@ -166,7 +165,17 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     }
 
-    public void setTeam(Team team) { this.team = team; }
+    public void setTeam(Team team) {
+
+        Team oldTeam = this.team;
+        this.team = team;
+        if(match.getMatchController() != null) {
+
+            match.getMatchController().teamChanged(this, oldTeam, team);
+
+        }
+
+    }
 
     @Override
     public DataWatcher getDataWatcher() {
@@ -292,17 +301,21 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     }
 
+    private long lastMatchSwitch = 0;
+    public long millisSinceMatchSwitch() { return System.currentTimeMillis()-lastMatchSwitch; }
     private Match match;
     public Match getMatch() { return match; }
     public void joinMatch(Match match) {
 
         this.match = match;
         match.addPlayer(this);
+        lastMatchSwitch = System.currentTimeMillis();
 
     }
     public void leaveMatch() {
 
         this.match.removePlayer(this);
+        setTeam(null);
         match = null;
 
     }
@@ -341,287 +354,273 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     public void tick() {
 
+        tank.yaw = player.getLocation().getYaw();
         if(getMatch() != null) {
 
-            inventory.tick();
+            if(!isSpectator()) {
 
-            scoreboardManager.tick();
-            if (!isSplatted()) {
+                inventory.tick();
 
-                if(!isSquid() && player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
+                tickHighlights();
+                scoreboardManager.tick();
+                if (!isSplatted()) {
 
-                    player.removePotionEffect(PotionEffectType.INVISIBILITY);
+                    tickDebuff();
+                    if (!isSquid() && player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
 
-                }
-
-                updateLastSafe();
-                tickInkArmor();
-
-            }
-
-            lastTrailTicks++;
-            if (lastDamageTicker > 0) {
-                lastDamageTicker--;
-            }
-            if (lastEnemyTurfDamageTicker > 0) {
-                lastEnemyTurfDamageTicker--;
-            }
-
-            Iterator<DamageHistory> iterator = lastDamageList.iterator();
-            while (iterator.hasNext()) {
-
-                DamageHistory history = iterator.next();
-                history.remainingTicks--;
-                if (history.remainingTicks < 1) {
-
-                    iterator.remove();
-
-                }
-
-            }
-
-            processRegeneration();
-            if (!lastPosSet) {
-
-                lastPosition = getPlayer().getLocation().toVector();
-                lastPosSet = true;
-
-            } else {
-
-                lastDelta = getPlayer().getLocation().toVector().subtract(lastPosition);
-                lastPosition = getPlayer().getLocation().toVector();
-
-            }
-
-            if (isSquid()) {
-                getPlayer().setVelocity(new Vector());
-            }
-
-            if (doOverrideWalkspeed()) {
-
-                if (inEnemyTurf) {
-
-                    player.setWalkSpeed((float) (overrideWalkSpeed * .5));
-
-                } else {
-
-                    player.setWalkSpeed(overrideWalkSpeed);
-
-                }
-
-            } else {
-
-                if (inEnemyTurf) {
-
-                    player.setWalkSpeed((float) (WALK_SPEED_DEFAULT * .5));
-
-                } else {
-
-                    float speed = WALK_SPEED_DEFAULT;
-                    if(getEquipment().getPrimaryWeapon() != null && isShooting() && getEquipment().getPrimaryWeapon().isSelected()) {
-
-                        SplatoonPrimaryWeapon weapon = getEquipment().getPrimaryWeapon();
-                        float offset = weapon.getMovementSpeedOffset();
-                        if(offset != 0f) {
-
-                            speed+=offset;
-
-                        }
+                        player.removePotionEffect(PotionEffectType.INVISIBILITY);
 
                     }
 
-                    player.setWalkSpeed(speed);
+                    updateLastSafe();
+                    tickInkArmor();
 
                 }
 
-            }
-
-            Vector loc = locationVector();
-            if (loc.getY() < 0) {
-
-                if (getMatch() != null && !isSplatted()) {
-
-                    splat(getTeam().getColor(), null, null);
-
+                lastTrailTicks++;
+                if (lastDamageTicker > 0) {
+                    lastDamageTicker--;
+                }
+                if (lastEnemyTurfDamageTicker > 0) {
+                    lastEnemyTurfDamageTicker--;
                 }
 
-            }
+                Iterator<DamageHistory> iterator = lastDamageList.iterator();
+                while (iterator.hasNext()) {
 
-            if (getHighlightController() != null) {
+                    DamageHistory history = iterator.next();
+                    history.remainingTicks--;
+                    if (history.remainingTicks < 1) {
 
-                getHighlightController().tick();
-
-            }
-
-            boolean isRiding = isRidingOnInkRail() || isRidingOnRideRail();
-
-            if (isSquid()) {
-
-                floorInkCheck();
-
-            } else {
-
-                Block block = locationVector().toLocation(getPlayer().getWorld()).getBlock().getRelative(BlockFace.DOWN);
-                if (getMatch().isEnemyTurf(block, team)) {
-
-                    inEnemyTurf = true;
-                    if (health > 50 && lastEnemyTurfDamageTicker < 1) {
-
-                        health -= 3d;
-
-                        double ratio = (health / 100d);
-                        if (ratio > 1) {
-                            ratio = 1;
-                        }
-                        double hp = 0.1 + (19.9 * ratio);
-                        getPlayer().setHealth(hp);
-                        lastDamage = System.currentTimeMillis();
-                        lastEnemyTurfDamageTicker = 6;
+                        iterator.remove();
 
                     }
 
-                } else {
-
-                    inEnemyTurf = false;
-
                 }
 
-            }
+                processRegeneration();
+                if (!lastPosSet) {
 
-
-            if (visualSquid != null) {
-
-                boolean remove = false;
-                if ((lastInkContactTicks < 2 || !isSquid() || isRiding) && (!inSuperJump() && !isBeingDragged())) {
-
-                    remove = true;
-
-                }
-                if (remove) {
-
-                    removeVisualSquid();
+                    lastPosition = getPlayer().getLocation().toVector();
+                    lastPosSet = true;
 
                 } else {
 
-                    Vector vector = locationVector();
-                    if (inSuperJump()) {
+                    lastDelta = getPlayer().getLocation().toVector().subtract(lastPosition);
+                    lastPosition = getPlayer().getLocation().toVector();
 
-                        vector = vector.clone().add(new Vector(0, ARMORSTAND_SQUID_Y_OFFSET, 0));
+                }
 
-                    }
+                if (isSquid()) {
+                    getPlayer().setVelocity(new Vector());
+                }
 
-                    Location location = new Location(getPlayer().getWorld(), vector.getX(), vector.getY(), vector.getZ());
-                    location.setPitch(0f);
-                    if (inSuperJump()) {
+                double val = 0d;
+                double mod = 1d;
+                if (isDebuffed()) {
+                    mod = SplatoonPlayer.DEBUFF_SPEED_MOD;
+                }
+                if (doOverrideWalkspeed()) {
 
-                        location.setYaw(currentJump.yaw(player.getWorld()));
+                    if (inEnemyTurf) {
+
+                        val = (float) (overrideWalkSpeed * .5);
 
                     } else {
 
-                        location.setYaw(player.getLocation().getYaw());
+                        val = (overrideWalkSpeed);
 
                     }
 
-                    visualSquid.teleport(location);
-                    visualSquid.setVelocity(new Vector());
+                } else {
+
+                    if (inEnemyTurf) {
+
+                        val = (float) (WALK_SPEED_DEFAULT * .5);
+
+                    } else {
+
+                        float speed = WALK_SPEED_DEFAULT;
+                        if (getEquipment().getPrimaryWeapon() != null && isShooting() && getEquipment().getPrimaryWeapon().isSelected()) {
+
+                            SplatoonPrimaryWeapon weapon = getEquipment().getPrimaryWeapon();
+                            float offset = weapon.getMovementSpeedOffset();
+                            if (offset != 0f) {
+
+                                speed += offset;
+
+                            }
+
+                        }
+                        val = (speed);
+
+                    }
 
                 }
+                player.setWalkSpeed((float) (val * mod));
 
-            } else {
+                Vector loc = locationVector();
+                if (loc.getY() < 0) {
 
-                if (isSquid() && !isRiding) {
+                    if (getMatch() != null && !isSplatted()) {
 
-                    if (lastInkContactTicks > 2 || inSuperJump() || isBeingDragged()) {
-
-                        spawnVisualSquid();
+                        splat(getTeam().getColor(), null, null);
 
                     }
 
                 }
 
-            }
+                if (getHighlightController() != null) {
 
-            if (!isSplatted()) {
+                    getHighlightController().tick();
 
-                // Display
-                double inkToDisplay = ink;
-                if (inkToDisplay < 0) {
-                    inkToDisplay = 0d;
                 }
-                if (inkToDisplay > 100) {
-                    inkToDisplay = 100d;
+
+                boolean isRiding = isRidingOnInkRail() || isRidingOnRideRail();
+
+                if (isSquid()) {
+
+                    floorInkCheck();
+
+                } else {
+
+                    Block block = locationVector().toLocation(getPlayer().getWorld()).getBlock().getRelative(BlockFace.DOWN);
+                    if (getMatch().isEnemyTurf(block, team)) {
+
+                        inEnemyTurf = true;
+                        if (health > 50 && lastEnemyTurfDamageTicker < 1) {
+
+                            health -= 3d;
+
+                            double ratio = (health / 100d);
+                            if (ratio > 1) {
+                                ratio = 1;
+                            }
+                            double hp = 0.1 + (19.9 * ratio);
+                            getPlayer().setHealth(hp);
+                            lastDamage = System.currentTimeMillis();
+                            lastEnemyTurfDamageTicker = 6;
+
+                        }
+
+                    } else {
+
+                        inEnemyTurf = false;
+
+                    }
+
                 }
-                player.setExp((float) (inkToDisplay / 100f));
 
-                if (currentJump != null) {
 
-                    if (superJumpStartDelay < 1) {
+                if (visualSquid != null) {
 
-                        player.sendActionBar("§7Supersprung in Vorgang...");
+                    boolean remove = false;
+                    if ((lastInkContactTicks < 2 || !isSquid() || isRiding) && (!inSuperJump() && !isBeingDragged())) {
 
-                        if ((superJumpIndex + 1) < currentJump.getTrajectory().getVectors().size()) {
+                        remove = true;
 
-                            superJumpIndex++;
-                            Vector3f vec3f = currentJump.getTrajectory().getVectors().get(superJumpIndex);
-                            Vector targetVec = new Vector(vec3f.x, vec3f.y, vec3f.z);
+                    }
+                    if (remove) {
 
-                            EntityArmorStand as = ((CraftArmorStand) superJumpRidingStand).getHandle();
-                            Vector beginVec = new Vector(as.locX, as.locY, as.locZ);
-                            Vector trueDelta = beginVec.subtract(targetVec).multiply(-1);
-                            lastSuperJumpDelta = trueDelta.clone();
-                            as.move(EnumMoveType.SELF, trueDelta.getX(), trueDelta.getY(), trueDelta.getZ());
+                        removeVisualSquid();
 
-                            //superJumpRidingStand.teleport(new Location(getPlayer().getWorld(), targetVec.getX(), targetVec.getY(), targetVec.getZ()));
+                    } else {
+
+                        Vector vector = locationVector();
+                        if (inSuperJump()) {
+
+                            vector = vector.clone().add(new Vector(0, ARMORSTAND_SQUID_Y_OFFSET, 0));
+
+                        }
+
+                        Location location = new Location(getPlayer().getWorld(), vector.getX(), vector.getY(), vector.getZ());
+                        location.setPitch(0f);
+                        if (inSuperJump()) {
+
+                            location.setYaw(currentJump.yaw(player.getWorld()));
 
                         } else {
 
-
-                            postJumpCall();
+                            location.setYaw(player.getLocation().getYaw());
 
                         }
 
-                    } else {
+                        visualSquid.teleport(location);
+                        visualSquid.setVelocity(new Vector());
 
-                        superJumpStartDelay--;
+                    }
+
+                } else {
+
+                    if (isSquid() && !isRiding) {
+
+                        if (lastInkContactTicks > 2 || inSuperJump() || isBeingDragged()) {
+
+                            spawnVisualSquid();
+
+                        }
+
+                    }
+
+                }
+
+                if (!isSplatted()) {
+
+                    // Display
+                    double inkToDisplay = ink;
+                    if (inkToDisplay < 0) {
+                        inkToDisplay = 0d;
+                    }
+                    if (inkToDisplay > 100) {
+                        inkToDisplay = 100d;
+                    }
+                    player.setExp((float) (inkToDisplay / 100f));
+
+                    if (currentJump != null) {
+
                         if (superJumpStartDelay < 1) {
 
-                            // Launch
-                            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1f, 0.65f);
-                            for (int i = 0; i < 10; i++) {
+                            player.sendActionBar("§7Supersprung in Vorgang...");
 
-                                double offX = new Random().nextDouble() * .5;
-                                double offY = new Random().nextDouble() * .5;
-                                double offZ = new Random().nextDouble() * .5;
+                            if ((superJumpIndex + 1) < currentJump.getTrajectory().getVectors().size()) {
 
-                                SplatoonServer.broadcastColorParticleExplosion(player.getWorld(), player.getLocation().getX() + offX,
-                                        player.getLocation().getY() + offY,
-                                        player.getLocation().getZ() + offZ, team.getColor());
+                                superJumpIndex++;
+                                Vector3f vec3f = currentJump.getTrajectory().getVectors().get(superJumpIndex);
+                                Vector targetVec = new Vector(vec3f.x, vec3f.y, vec3f.z);
 
-                            }
+                                EntityArmorStand as = ((CraftArmorStand) superJumpRidingStand).getHandle();
+                                Vector beginVec = new Vector(as.locX, as.locY, as.locZ);
+                                Vector trueDelta = beginVec.subtract(targetVec).multiply(-1);
+                                lastSuperJumpDelta = trueDelta.clone();
+                                as.move(EnumMoveType.SELF, trueDelta.getX(), trueDelta.getY(), trueDelta.getZ());
 
-                        }
+                                //superJumpRidingStand.teleport(new Location(getPlayer().getWorld(), targetVec.getX(), targetVec.getY(), targetVec.getZ()));
 
-                    }
+                            } else {
 
-                }
 
-                if(player.getGameMode() == GameMode.ADVENTURE) {
-
-                    if (!squidFormLocked) {
-
-                        if (player.getInventory().getHeldItemSlot() == 2) {
-
-                            if (!isSquid()) {
-
-                                enterSquidForm();
+                                postJumpCall();
 
                             }
 
                         } else {
 
-                            if (isSquid()) {
+                            superJumpStartDelay--;
+                            if (superJumpStartDelay < 1) {
 
-                                leaveSquidForm();
+                                // Launch
+                                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1f, 0.65f);
+                                for (int i = 0; i < 10; i++) {
+
+                                    double offX = new Random().nextDouble() * .5;
+                                    double offY = new Random().nextDouble() * .5;
+                                    double offZ = new Random().nextDouble() * .5;
+
+                                    SplatoonServer.broadcastColorParticleExplosion(player.getWorld(), player.getLocation().getX() + offX,
+                                            player.getLocation().getY() + offY,
+                                            player.getLocation().getZ() + offZ, team.getColor());
+
+                                }
 
                             }
 
@@ -629,68 +628,92 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                     }
 
-                }
+                    if (player.getGameMode() == GameMode.ADVENTURE) {
 
-                if (rideRailPunishTicks > 0) {
-                    rideRailPunishTicks--;
-                }
-                if (inkRailPunishTicks > 0) {
-                    inkRailPunishTicks--;
-                }
+                        if (!squidFormLocked) {
 
-                if (isRidingOnRideRail()) {
+                            if (player.getInventory().getHeldItemSlot() == 2) {
 
-                    boolean invalid = false;
-                    if (currentRideRail.getOwningTeam() == null || currentRideRail.getOwningTeam() != team) {
-                        invalid = true;
-                    }
+                                if (!isSquid()) {
 
-                    if (player.isSneaking() || invalid) {
+                                    enterSquidForm();
 
-                        ejectFromRideRail();
+                                }
 
-                    } else {
+                            } else {
 
-                        rideRailSoundTicker++;
-                        if (rideRailSoundTicker > 30) {
+                                if (isSquid()) {
 
-                            rideRailSoundTicker = 0;
-                            player.playSound(player.getLocation(), Sound.ENTITY_MINECART_RIDING, 0.2f, 2f);
+                                    leaveSquidForm();
+
+                                }
+
+                            }
 
                         }
 
-                        SplatoonServer.broadcastColorizedBreakParticle(player.getWorld(), locationVector().getX(),
-                                locationVector().getY(),
-                                locationVector().getZ(),
-                                team.getColor());
-                        ridingVectorIndex++;
-                        Vector nextPosition = currentRideRail.vectorFor(ridingVectorIndex);
+                    }
 
-                        if (nextPosition == null) {
+                    if (rideRailPunishTicks > 0) {
+                        rideRailPunishTicks--;
+                    }
+                    if (inkRailPunishTicks > 0) {
+                        inkRailPunishTicks--;
+                    }
+
+                    if (isRidingOnRideRail()) {
+
+                        boolean invalid = false;
+                        if (currentRideRail.getOwningTeam() == null || currentRideRail.getOwningTeam() != team) {
+                            invalid = true;
+                        }
+
+                        if (player.isSneaking() || invalid) {
 
                             ejectFromRideRail();
 
                         } else {
 
-                            if (nextPosition.distance(locationVector()) >= 0.5) {
+                            rideRailSoundTicker++;
+                            if (rideRailSoundTicker > 30) {
 
-                                ridingVectorIndex--;
+                                rideRailSoundTicker = 0;
+                                player.playSound(player.getLocation(), Sound.ENTITY_MINECART_RIDING, 0.2f, 2f);
 
                             }
 
-                            if (!isSquid()) {
+                            SplatoonServer.broadcastColorizedBreakParticle(player.getWorld(), locationVector().getX(),
+                                    locationVector().getY(),
+                                    locationVector().getZ(),
+                                    team.getColor());
+                            ridingVectorIndex++;
+                            Vector nextPosition = currentRideRail.vectorFor(ridingVectorIndex);
 
-                                Vector delta = locationVector().subtract(nextPosition).normalize().multiply(-0.26);
-                                player.setVelocity(delta);
+                            if (nextPosition == null) {
+
+                                ejectFromRideRail();
 
                             } else {
 
-                                //((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutMount(squidCameraPosition));
-                                this.forceSquidMovement(nextPosition.getX(), nextPosition.getY(), nextPosition.getZ(), false);
-                                squidPositionStand.setNoGravity(true);
-                                squidCameraPosition.setNoGravity(true);
+                                if (nextPosition.distance(locationVector()) >= 0.5) {
 
-                                EntityPlayer player = ((CraftPlayer) getPlayer()).getHandle();
+                                    ridingVectorIndex--;
+
+                                }
+
+                                if (!isSquid()) {
+
+                                    Vector delta = locationVector().subtract(nextPosition).normalize().multiply(-0.26);
+                                    player.setVelocity(delta);
+
+                                } else {
+
+                                    //((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutMount(squidCameraPosition));
+                                    this.forceSquidMovement(nextPosition.getX(), nextPosition.getY(), nextPosition.getZ(), false);
+                                    squidPositionStand.setNoGravity(true);
+                                    squidCameraPosition.setNoGravity(true);
+
+                                    EntityPlayer player = ((CraftPlayer) getPlayer()).getHandle();
 
                             /*try {
 
@@ -704,134 +727,299 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                             }*/
 
-                                squidVelocityY = 0d;
+                                    squidVelocityY = 0d;
+
+                                }
 
                             }
 
                         }
 
-                    }
+                    } else if (isRidingOnInkRail()) {
 
-                } else if (isRidingOnInkRail()) {
+                        boolean invalid = false;
+                        if (currentInkRail.getOwningTeam() == null || currentInkRail.getOwningTeam() != team) {
+                            invalid = true;
+                        }
 
-                    boolean invalid = false;
-                    if (currentInkRail.getOwningTeam() == null || currentInkRail.getOwningTeam() != team) {
-                        invalid = true;
-                    }
-
-                    if (!isSquid() || invalid) {
-
-                        ejectFromInkRail(false);
-
-                    } else {
-
-                        Vector targetVector = currentInkRail.vectorFor(inkRailVectorIndex);
-                        if (targetVector != null) {
-
-                            Vector delta = new Vector(
-                                    targetVector.getX() - squidPositionStand.locX,
-                                    targetVector.getY() - squidPositionStand.locY,
-                                    targetVector.getZ() - squidPositionStand.locZ
-                            );
-                            moveSquidPositionStand(delta.getX(), delta.getY(), delta.getZ());
-
-                        } else {
+                        if (!isSquid() || invalid) {
 
                             ejectFromInkRail(false);
 
-                        }
-
-                    }
-
-                } else if (isBeingDragged()) {
-
-                    Vector current = locationVector();
-                    Vector delta = targetHook.delta(locationVector()).multiply(-0.34);
-                    forceSquidAbsMovement(current.getX() + delta.getX(), current.getY() + delta.getY(), current.getZ() + delta.getZ(), true);
-
-                    if (targetHook.distance(locationVector()) < 0.3) {
-
-                        targetHook = null;
-                        player.getInventory().setHeldItemSlot(0);
-                        leaveSquidForm();
-                        squidFormLocked = false;
-
-                    }
-
-                }
-
-                if (isSquid()) {
-
-                    if (hasControl()) {
-
-                        if (!movedInThisTick) {
-
-                            handleSquidFalling();
-                            moveSquidPositionStand(0, squidVelocityY, 0);
-
                         } else {
 
-                            movedInThisTick = false;
+                            Vector targetVector = currentInkRail.vectorFor(inkRailVectorIndex);
+                            if (targetVector != null) {
+
+                                Vector delta = new Vector(
+                                        targetVector.getX() - squidPositionStand.locX,
+                                        targetVector.getY() - squidPositionStand.locY,
+                                        targetVector.getZ() - squidPositionStand.locZ
+                                );
+                                moveSquidPositionStand(delta.getX(), delta.getY(), delta.getZ());
+
+                            } else {
+
+                                ejectFromInkRail(false);
+
+                            }
+
+                        }
+
+                    } else if (isBeingDragged()) {
+
+                        Vector current = locationVector();
+                        Vector delta = targetHook.delta(locationVector()).multiply(-0.34);
+                        forceSquidAbsMovement(current.getX() + delta.getX(), current.getY() + delta.getY(), current.getZ() + delta.getZ(), true);
+
+                        if (targetHook.distance(locationVector()) < 0.3) {
+
+                            targetHook = null;
+                            player.getInventory().setHeldItemSlot(0);
+                            leaveSquidForm();
+                            squidFormLocked = false;
 
                         }
 
                     }
 
-                    Location location = new Location(player.getWorld(), locationVector().getX(), locationVector().getY(), locationVector().getZ());
+                    if (isSquid()) {
 
-                    if (lastInkContactTicks < 2) {
+                        if (hasControl()) {
 
-                        addInk(BASE_INK_CHARGE_VALUE);
+                            if (!movedInThisTick) {
+
+                                handleSquidFalling();
+                                moveSquidPositionStand(0, squidVelocityY, 0);
+
+                            } else {
+
+                                movedInThisTick = false;
+
+                            }
+
+                        }
+
+                        Location location = new Location(player.getWorld(), locationVector().getX(), locationVector().getY(), locationVector().getZ());
+
+                        if (lastInkContactTicks < 2) {
+
+                            addInk(BASE_INK_CHARGE_VALUE);
+
+                        }
+
+                        // Positionupdate
+                        squidCameraPosition.locX = squidPositionStand.locX;
+                        squidCameraPosition.locY = squidPositionStand.locY - ARMORSTAND_SQUID_Y_OFFSET;
+                        squidCameraPosition.locZ = squidPositionStand.locZ;
+                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(squidCameraPosition));
+
+                    } else {
+
+                        if (elapsedSecondsSinceLastInkModification() > 2) {
+
+                            addInk(HUMAN_INK_CHARGE_VALUE);
+                            resetLastInkModification();
+
+                        }
 
                     }
-
-                    // Positionupdate
-                    squidCameraPosition.locX = squidPositionStand.locX;
-                    squidCameraPosition.locY = squidPositionStand.locY - ARMORSTAND_SQUID_Y_OFFSET;
-                    squidCameraPosition.locZ = squidPositionStand.locZ;
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(squidCameraPosition));
 
                 } else {
 
-                    addInk(HUMAN_INK_CHARGE_VALUE);
+                    if (splatRespawnTicker > 0) {
+
+                        splatRespawnTicker--;
+                        splatFocusYaw += .8f;
+                        updatePositionForSplatCamera();
+                        PacketPlayOutEntityTeleport teleport = new PacketPlayOutEntityTeleport(fakeCamera);
+                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(teleport);
+                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(fakeCamera,
+                                (byte) ((fakeCamera.yaw * (0.70333F)))));
+
+                        DecimalFormat format = new DecimalFormat("#.#");
+                        String str = format.format(splatRespawnTicker / 20d);
+                        if (!str.contains(",")) {
+                            str += ",0";
+                        }
+
+                        player.sendActionBar("§e" + str + " Sek. §7zum Wiedereinstieg");
+
+                    } else {
+
+                        splatted = false;
+
+                        respawnCall();
+
+                    }
 
                 }
 
             } else {
 
-                if (splatRespawnTicker > 0) {
+                if(spectatorEntity != null && spectatedPlayer != null && spectatorCameraReady) {
 
-                    splatRespawnTicker--;
-                    splatFocusYaw += .8f;
-                    updatePositionForSplatCamera();
-                    PacketPlayOutEntityTeleport teleport = new PacketPlayOutEntityTeleport(fakeCamera);
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(teleport);
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(fakeCamera,
-                            (byte) ((fakeCamera.yaw * (0.70333F)))));
+                    if(spectatorCameraMode == SpectatorCameraMode.ROTATE) {
 
-                    DecimalFormat format = new DecimalFormat("#.#");
-                    String str = format.format(splatRespawnTicker / 20d);
-                    if (!str.contains(",")) {
-                        str += ",0";
+                        player.sendActionBar("§eAnsicht: Rotierend §8| §7Zum verlassen §eSHIFT §7drücken.");
+                        if(player.isSneaking()) {
+
+                            Location location = spectatedPlayer.getLocation();
+                            spectatorCameraMode = null;
+                            spectatedPlayer = null;
+                            getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(spectatorEntity.getId()));
+                            spectatorCameraId = -1;
+                            spectatorEntity = null;
+                            spectateInProgress = false;
+                            spectatorCameraReady = false;
+                            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutCamera(getNMSEntity()));
+                                player.teleport(location);
+
+                            }, 2l);
+                            return;
+
+                        }
+
+                        spectatorCameraYaw+=1f;
+                        Vector target = spectatedPlayer.centeredHeightVector();
+                        Vector direction = DirectionUtil.yawAndPitchToDirection(spectatorCameraYaw, -20f);
+                        Vector cursor = target.clone();
+                        for(double cameraDistance = 0.5d; cameraDistance < 5d; cameraDistance+=.25d) {
+
+                            Vector start = cursor.clone();
+
+                            if(getMatch().getWorldInformationProvider().rayTraceBlocks(start, direction, .25d, true) == null) {
+
+                                cursor.add(direction.normalize().multiply(.25d));
+
+                            } else {
+
+                                break;
+
+                            }
+
+                        }
+
+                        Vector cameraPos = cursor.clone();
+                        Vector cameraDir = target.clone().subtract(cursor).normalize();
+                        if(VectorUtil.isValid(cameraDir)) {
+
+                            float[] floats = DirectionUtil.directionToYawPitch(cameraDir);
+                            spectatorEntity.yaw = floats[0];
+                            spectatorEntity.pitch = floats[1];
+
+                        }
+                        spectatorEntity.locX = cameraPos.getX();
+                        spectatorEntity.locY = cameraPos.getY();
+                        spectatorEntity.locZ = cameraPos.getZ();
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(spectatorEntity,
+                                ((byte)(spectatorEntity.yaw*0.70333))));
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(spectatorEntity));
+
+                    } else if(spectatorCameraMode == SpectatorCameraMode.FIRST_PERSON) {
+
+                        player.sendActionBar("§eAnsicht: Erste Person §8| §7Zum verlassen §eSHIFT §7drücken.");
+                        if(player.isSneaking() || spectatedPlayer.isSplatted()) {
+
+                            if(spectatedPlayer.isSplatted()) {
+
+                                player.sendMessage(Chat.SYSTEM_PREFIX + "Beobachtungsmodus für " + spectatedPlayer.coloredName() + " deaktiviert: Der Spieler ist tot.");
+
+                            }
+
+                            Location location = spectatedPlayer.getLocation();
+                            spectatorCameraMode = null;
+                            spectatedPlayer = null;
+                            getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(spectatorEntity.getId()));
+                            spectatorCameraId = -1;
+                            spectatorEntity = null;
+                            spectateInProgress = false;
+                            spectatorCameraReady = false;
+                            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutCamera(getNMSEntity()));
+                                player.teleport(location);
+
+                            }, 2l);
+                            return;
+
+                        }
+                        int cameraIDForPlayer = spectatedPlayer.getVisibleEntityID();
+
+                        PacketContainer container = new PacketContainer(PacketType.Play.Server.CAMERA);
+                        container.getIntegers().write(0, cameraIDForPlayer);
+                        try {
+
+                            ProtocolLibrary.getProtocolManager().sendServerPacket(player, container, false);
+
+                        } catch (Exception e) {
+
+                            e.printStackTrace();
+
+                        }
+                        spectatorCameraId = cameraIDForPlayer;
+
+                    } else if(spectatorCameraMode == SpectatorCameraMode.FIXED) {
+
+                        player.sendActionBar("§eAnsicht: Fixiert §8| §7Zum verlassen §eSHIFT §7drücken.");
+                        if(player.isSneaking()) {
+
+                            Location location = spectatedPlayer.getLocation();
+                            spectatorCameraMode = null;
+                            spectatedPlayer = null;
+                            getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(spectatorEntity.getId()));
+                            spectatorCameraId = -1;
+                            spectatorEntity = null;
+                            spectateInProgress = false;
+                            spectatorCameraReady = false;
+                            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutCamera(getNMSEntity()));
+                                player.teleport(location);
+
+                            }, 2l);
+                            return;
+
+                        }
+
+                        Vector target = spectatedPlayer.centeredHeightVector().add(new Vector(0, .4, 0));
+                        Vector direction = DirectionUtil.yawAndPitchToDirection(spectatedPlayer.yaw()-180f, -5f);
+                        Vector cursor = target.clone();
+                        for(double cameraDistance = 0.5d; cameraDistance < 5d; cameraDistance+=.25d) {
+
+                            Vector start = cursor.clone();
+
+                            if(getMatch().getWorldInformationProvider().rayTraceBlocks(start, direction, .25d, true) == null) {
+
+                                cursor.add(direction.normalize().multiply(.25d));
+
+                            } else {
+
+                                break;
+
+                            }
+
+                        }
+
+                        Vector cameraPos = cursor.clone();
+                        Vector cameraDir = target.clone().subtract(cursor).normalize();
+                        if(VectorUtil.isValid(cameraDir)) {
+
+                            float[] floats = DirectionUtil.directionToYawPitch(cameraDir);
+                            spectatorEntity.yaw = floats[0];
+                            spectatorEntity.pitch = floats[1];
+
+                        }
+                        spectatorEntity.locX = cameraPos.getX();
+                        spectatorEntity.locY = cameraPos.getY();
+                        spectatorEntity.locZ = cameraPos.getZ();
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(spectatorEntity,
+                                ((byte)(spectatorEntity.yaw*0.70333))));
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(spectatorEntity));
+
                     }
-
-                    player.sendActionBar("§e" + str + " Sek. §7zum Wiedereinstieg");
-
-                } else {
-
-                    splatted = false;
-
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutCamera(((CraftPlayer) player).getHandle()));
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(fakeCamera.getId()));
-                    player.removePotionEffect(PotionEffectType.INVISIBILITY);
-                    fakeCamera = null;
-                    updateInventory();
-                    player.setGameMode(GameMode.ADVENTURE);
-                    player.teleport(spawnPoint);
-                    player.setAllowFlight(false);
-                    player.setFlying(false);
-                    player.setWalkSpeed(0.2f);
-                    player.setFlySpeed(0.1f);
 
                 }
 
@@ -841,10 +1029,48 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     }
 
+    public int getVisibleEntityID() {
+
+        if(visualSquid != null && !visualSquid.isDead()) {
+
+            return visualSquid.getEntityId();
+
+        } else {
+
+            return player.getEntityId();
+
+        }
+
+    }
+
+    private float spectatorCameraYaw = 0f;
+    private int spectatorCameraId = 0;
+
+    private SpectatorCameraMode spectatorCameraMode = SpectatorCameraMode.FIXED;
+
     @Override
     public void updateEquipment() {
 
         updateInventory();
+
+    }
+
+    public void respawnCall() {
+
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutCamera(((CraftPlayer) player).getHandle()));
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(fakeCamera.getId()));
+        player.removePotionEffect(PotionEffectType.INVISIBILITY);
+        fakeCamera = null;
+        updateInventory();
+        player.setGameMode(GameMode.ADVENTURE);
+        player.teleport(spawnPoint);
+        player.setAllowFlight(false);
+        player.setFlying(false);
+        player.setWalkSpeed(0.2f);
+        player.setFlySpeed(0.1f);
+        health = 100d;
+        player.setHealth(20d);
+        addInk(100d);
 
     }
 
@@ -1052,17 +1278,22 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     public void updatePositionForSplatCamera() {
 
-        Vector targetLoc = splatCameraFocusPosition().toVector();
-        Vector current = splatCameraAirPosition().toVector();
+        if(fakeCamera != null) {
 
-        Vector directional = current.clone().subtract(targetLoc).multiply(-1).normalize();
-        Location location = new Location(player.getWorld(), 0, 0, 0);
-        location.setDirection(directional);
-        fakeCamera.locX = current.getX();
-        fakeCamera.locY = current.getY();
-        fakeCamera.locZ = current.getZ();
-        fakeCamera.yaw = location.getYaw();
-        fakeCamera.pitch = location.getPitch();
+            Vector targetLoc = splatCameraFocusPosition().toVector();
+            Vector current = splatCameraAirPosition().toVector();
+
+            Vector directional = current.clone().subtract(targetLoc).multiply(-1).normalize();
+            Location location = new Location(player.getWorld(), 0, 0, 0);
+            location.setDirection(directional);
+
+            fakeCamera.locX = current.getX();
+            fakeCamera.locY = current.getY();
+            fakeCamera.locZ = current.getZ();
+            fakeCamera.yaw = location.getYaw();
+            fakeCamera.pitch = location.getPitch();
+
+        }
 
     }
 
@@ -1077,7 +1308,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
         Vector direction = dir.getDirection();
 
-        double dist = 6d;
+        double dist = 3.5d;
         double cursor = 0d;
         boolean hit = false;
         while (cursor < dist && !hit) {
@@ -1086,7 +1317,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
             Vector targetLoc = startPos.clone().add(direction.clone().multiply(cursor));
             Block block = player.getWorld().getBlockAt(targetLoc.getBlockX(), targetLoc.getBlockY(), targetLoc.getBlockZ());
-            if(!block.isEmpty()) {
+            if(!block.isEmpty() && !block.isPassable()) {
 
                 cursor-=0.5d;
                 hit = true;
@@ -1147,7 +1378,8 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
         if(equipment != null) {
 
-            if(equipment.getPrimaryWeapon() != null) {
+
+            if (equipment.getPrimaryWeapon() != null) {
 
                 player.getInventory().setItem(0, equipment.getPrimaryWeapon().asItemStack());
 
@@ -1156,7 +1388,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
                 player.getInventory().setItem(0, null);
 
             }
-            if(equipment.getSecondaryWeapon() != null) {
+            if (equipment.getSecondaryWeapon() != null) {
 
                 player.getInventory().setItem(1, equipment.getSecondaryWeapon().asItemStack());
 
@@ -1165,7 +1397,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
                 player.getInventory().setItem(1, null);
 
             }
-            if(equipment.getSpecialWeapon() != null) {
+            if (equipment.getSpecialWeapon() != null) {
 
                 player.getInventory().setItem(3, equipment.getSpecialWeapon().asItemStack());
 
@@ -1182,52 +1414,73 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
             }
 
-            if(equipment.getHeadGear() != null) {
+            if(!isSquid()) {
 
-                ItemStack helmet = equipment.getHeadGear().asItemStack(color);
-                if(getArmorHealth() != 0d) {
+                if (equipment.getHeadGear() != null) {
 
-                    helmet.addEnchantment(Enchantment.DURABILITY, 1);
+                    ItemStack helmet = equipment.getHeadGear().asItemStack(color);
+                    if (getArmorHealth() != 0d) {
 
-                }
+                        helmet.addEnchantment(Enchantment.DURABILITY, 1);
 
-                player.getInventory().setHelmet(helmet);
+                    }
 
-            }
-            if(equipment.getHeadGear() != null) {
-
-                ItemStack chest = equipment.getBodyGear().asItemStack(color);
-                if(getArmorHealth() != 0d) {
-
-                    chest.addEnchantment(Enchantment.DURABILITY, 1);
+                    player.getInventory().setHelmet(helmet);
 
                 }
+                if (equipment.getHeadGear() != null) {
 
-                player.getInventory().setChestplate(chest);
+                    ItemStack chest = equipment.getBodyGear().asItemStack(color);
+                    if (getArmorHealth() != 0d) {
 
-            }
-            if(equipment.getHeadGear() != null) {
+                        chest.addEnchantment(Enchantment.DURABILITY, 1);
 
-                ItemStack boots = equipment.getFootGear().asItemStack(color);
-                if(getArmorHealth() != 0d) {
+                    }
 
-                    boots.addEnchantment(Enchantment.DURABILITY, 1);
+                    player.getInventory().setChestplate(chest);
 
                 }
+                if (equipment.getHeadGear() != null) {
 
-                player.getInventory().setBoots(boots);
+                    ItemStack boots = equipment.getFootGear().asItemStack(color);
+                    if (getArmorHealth() != 0d) {
+
+                        boots.addEnchantment(Enchantment.DURABILITY, 1);
+
+                    }
+
+                    player.getInventory().setBoots(boots);
+
+                }
 
             }
 
         }
 
-        player.getInventory().setItem(2, TRANSFORM_TO_SQUID);
+        if(!isSquid()) {
+
+            player.getInventory().setItem(2, TRANSFORM_TO_SQUID);
+
+        } else {
+
+            player.getInventory().setItem(2, null);
+
+        }
 
     }
 
     private int tempTaskID = 0;
-    public void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int ticks) {
+    public void onSplat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int ticks) {
         getLocation().getWorld().playSound(getLocation(), Sound.ENTITY_SQUID_DEATH, 1.4f, 1.4f);
+
+        if(color != null) {
+
+            SplatoonPlayer shooter = null;
+            if(projectile != null && projectile.getShooter() != null) { shooter = projectile.getShooter(); }
+
+            burst(shooter, color);
+
+        }
 
         if(!isSplatted()) {
 
@@ -1404,8 +1657,47 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
     }
 
     @Override
+    public void handleHighlight(TentaMissleTarget target, int i) {
+
+        EntityHighlightController.TeamEntry entry = getHighlightController().getEntry(target.getEntityID());
+        if (entry != null) {
+
+            if (entry.ticks < 20) {
+
+                entry.ticks += 20;
+
+            }
+
+        } else {
+
+            ChatColor chatColor = ChatColor.DARK_GRAY;
+            if (target.getTeam() != null) {
+
+                chatColor = ChatColor.getByChar(target.getTeam().getColor().getColor());
+
+            }
+            if(!getHighlightController().isHighlighted(target.getEntityID())) {
+
+                getHighlightController().addEntry(new EntityHighlightController.TeamEntry(target.getName(),
+                        chatColor, target.getNMSEntity(), i));
+
+            }
+
+        }
+
+    }
+
+    @Override
     public boolean isSpectator() {
+
+        if(getMatch() != null && getMatch() instanceof BattleMatch) {
+
+            BattleMatch match = (BattleMatch)getMatch();
+            return (match.getSpectators().contains(this));
+
+        }
         return false;
+
     }
 
     @Override
@@ -1425,7 +1717,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
         visualSquid.setCustomNameVisible(true);
         visualSquid.setCollidable(false);
         // TODO Nick
-        visualSquid.setCustomName(team.getColor().prefix() + getPlayer().getName());
+        visualSquid.setCustomName((team != null ? team.getColor().prefix() : "§8") + getPlayer().getName());
 
     }
     public void removeVisualSquid() {
@@ -1481,6 +1773,12 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             player.setFlying(false);
             player.setAllowFlight(false);
 
+            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                player.sendActionBar("§7Du bist nun ein Mensch!");
+
+            }, 1l);
+
             // Floating too long fix
             EntityPlayer player = ((CraftPlayer)getPlayer()).getHandle();
             try {
@@ -1496,6 +1794,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             }
 
         }
+        updateInventory();
 
     }
 
@@ -1512,13 +1811,17 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             squidCameraPosition.setPosition(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ());
             squidCameraPosition.getBukkitEntity().addPassenger(player);
 
-            squidCameraPosition.setInvisible(false);
-            //squidPositionStand.setInvisible(false);
+            squidCameraPosition.setInvisible(true);
             squidPositionStand.setNoGravity(false);
 
             player.setGameMode(GameMode.ADVENTURE);
             player.setAllowFlight(true);
             player.setFlySpeed(0f);
+            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                player.sendActionBar("§7Du bist nun ein Tintenfisch!");
+
+            }, 1l);
             //System.out.println(((CraftPlayer)player).getHandle().a(squidCameraPosition, false));
             //System.out.println(((CraftPlayer)player).getHandle().getVehicle());
             ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(squidCameraPosition));
@@ -1527,6 +1830,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 999999, 5, false, false));
 
         }
+        updateInventory();
 
     }
 
@@ -1614,7 +1918,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                     if (!shift) {
 
-                        speedMod = 0.4d;
+                        speedMod = 0.37d;
                         if(moved) {
 
                             lastTrailTicks = 0;
@@ -1642,7 +1946,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
                 }
                 if(fallingTicks > 10 || (!inInk && lastInkContactTicks < 10)) {
 
-                    speedMod*=3.5d;
+                    speedMod*=2.7d;
 
                 }
 
@@ -1678,7 +1982,7 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                         if(inInk) {
 
-                            squidVelocityY += 0.62d;
+                            squidVelocityY += 0.5d;
 
                         } else {
 
@@ -1729,10 +2033,13 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
                     fallingTicks = 0;
                     double y = player.getLocation().getDirection().getY();
-                    squidVelocityY=y;
-                    lastInkContactTicks = 0;
-                    targetPositionY+=(y*0.21);
-                    System.out.println("OK");
+                    if(y >= 0.1) {
+
+                        squidVelocityY = y;
+                        lastInkContactTicks = 0;
+                        targetPositionY += (y * 0.21);
+
+                    }
 
                 }
 
@@ -1899,6 +2206,11 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
             public Location getLocation() {
                 return locationVector().toLocation(getPlayer().getWorld());
             }
+
+            @Override
+            public Vector getLastDelta() {
+                return lastDelta;
+            }
         };
     }
 
@@ -1971,13 +2283,17 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
         this.ink-=amount;
         if(ink < 0) { ink = 0d; }
+        updateLastInkModification();
 
     }
 
     public void addInk(double amount) {
 
+        if(isDebuffed()) { return; }
+
         this.ink+=amount;
         if(ink > 100d) { ink = 100d; }
+        updateLastInkModification();
 
     }
 
@@ -2058,20 +2374,20 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     }
 
-    private int specialPoints;
+    private double specialPoints;
     public void resetSpecialGauge() {
 
         setSpecialPoints(0);
 
     }
-    public int getSpecialPoints() {
+    public double getSpecialPoints() {
 
         return specialPoints;
 
     }
 
     @Override
-    public void setSpecialPoints(int val) {
+    public void setSpecialPoints(double val) {
 
         boolean before = isSpecialReady();
         this.specialPoints = val;
@@ -2231,5 +2547,105 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
 
     public long millisSinceLastInteraction() { return System.currentTimeMillis() - lastInteraction; }
 
+
+    public void forceRespawn() {
+
+        respawnCall();
+
+    }
+
+    private EntityPlayer spectatorEntity;
+    private SplatoonPlayer spectatedPlayer = null;
+    private boolean spectatorCameraReady = false;
+    public void leaveSpectatorMode() {
+
+        spectatorCameraReady = false;
+        spectatedPlayer = null;
+        spectatorEntity = null;
+        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutCamera(getNMSEntity()));
+
+    }
+
+    public void spectatePlayer(SplatoonPlayer player) {
+
+        if(!spectateInProgress) {
+
+            spectatedPlayer = player;
+            spectateInProgress = true;
+
+            GameProfile profile = new GameProfile(UUID.randomUUID(), "Kamera");
+
+            spectatorEntity = new EntityPlayer(
+                    getMatch().nmsWorld().getMinecraftServer(), ((WorldServer)getMatch().nmsWorld()), profile, new PlayerInteractManager(getMatch().nmsWorld())
+            );
+            spectatorEntity.locX = getLocation().getX();
+            spectatorEntity.locY = getLocation().getY();
+            spectatorEntity.locZ = getLocation().getZ();
+            PacketPlayOutPlayerInfo packet = new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, spectatorEntity);
+            getNMSPlayer().playerConnection.sendPacket(packet);
+            Match prevMatch = getMatch();
+            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                Match newMatch = getMatch();
+                if(isValid()) {
+
+                    if(newMatch == prevMatch && !newMatch.inOutro() && !newMatch.inIntro()) {
+
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(
+                                spectatorEntity
+                        ));
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(spectatorEntity.getId(), spectatorEntity.getDataWatcher(), false));
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutCamera(spectatorEntity));
+                        getPlayer().sendMessage(Chat.SYSTEM_PREFIX + "Du schaust nun " + player.coloredName() + " §7zu!");
+                        spectatorCameraReady = true;
+                        spectatorCameraId = spectatorEntity.getId();
+                        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                            getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, spectatorEntity));
+
+                        },4l);
+
+                    } else {
+
+                        spectatedPlayer = null;
+                        spectateInProgress = false;
+                        getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, spectatorEntity));
+                        spectatorCameraReady = false;
+
+                    }
+
+                } else {
+
+                    spectatedPlayer = null;
+                    spectateInProgress = false;
+
+                }
+
+            }, 2l);
+
+        }
+
+    }
+
+    public static enum SpectatorCameraMode {
+
+        ROTATE("Drehend", 0),
+        FIRST_PERSON("1. Person", 1),
+        FIXED("Fixiert", 2);
+
+        private String name;
+        private int slot;
+
+        SpectatorCameraMode(String name, int slot) {
+
+            this.name = name;
+            this.slot = slot;
+
+        }
+
+    }
+
+    private boolean spectateInfoPacket = false;
+    private boolean spectateInProgress = false;
 
 }

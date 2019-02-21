@@ -1,6 +1,8 @@
 package de.xenyria.splatoon.ai.task;
 
 import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.ai.navigation.NavigationPoint;
+import de.xenyria.splatoon.ai.navigation.TransitionType;
 import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.ai.projectile.ProjectileExaminer;
 import de.xenyria.splatoon.ai.target.TargetManager;
@@ -21,6 +23,7 @@ import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.util.RandomUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -114,171 +117,222 @@ public class AITaskController {
 
         if(task == null || task.isDone()) {
 
-            if(task != null) { task.onExit(); }
+            if (task != null) {
+                task.onExit();
+            }
             task = null;
 
-            if(npc.getMatch().getMatchType() == MatchType.TUTORIAL) {
+            if (!paused) {
 
-                if(task == null) {
+                // Vorliegende Navigationspunkte einfärben
+                ArrayList<NavigationPoint> nodes = npc.getNavigationManager().readNextPointChain(TransitionType.WALK_ENEMY, 2);
+                if ((
+                        npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.SHOOTER ||
+                        npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER) && !nodes.isEmpty()) {
 
-                    if(npc.isOnOwnInk()) {
+                    for (NavigationPoint point : nodes) {
 
-                        npc.getNavigationManager().setSquidOnNavigationFinish(true);
+                        Block block = npc.getWorld().getBlockAt(
+                                point.x, (int) (point.y - 1), point.z
+                        );
+                        if (npc.getMatch().isOwnedByTeam(block, npc.getTeam())) {
 
-                    } else {
-
-                        npc.getNavigationManager().setSquidOnNavigationFinish(false);
-
-                    }
-
-                    npc.getNavigationManager().setSquidOnNavigationFinish(false);
-                    if(npc.getTargetManager().hasPotentialTarget()) {
-
-                        boolean exec = true;
-                        for(SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
-
-                            if(!player.isHuman()) {
-
-                                EntityNPC npc = (EntityNPC)player;
-                                AITaskController cntrl = npc.getTaskController();
-                                if(cntrl.task != null && npc.getTargetManager().hasTarget()) {
-
-                                    exec = false;
-                                    break;
-
-                                }
-
-                            }
+                            point.updateTransitionType(TransitionType.WALK);
 
                         }
 
-                        if(exec) {
+                        if (npc.getWeaponManager().canHitBlock(npc.getShootingLocation(npc.getWeaponManager().getCurrentHandBoolean()), block.getLocation().toVector().add(new Vector(.5, .5, .5)), block)) {
 
-                            TargetManager.PotentialTarget target = npc.getTargetManager().getPossibleTargets().get(0);
-                            npc.getTargetManager().target(target.target);
-                            task = new AttackTask(npc, npc.getTargetManager().getTarget(), target.path);
-                            task.onInit();
+                            npc.getWeaponManager().aim(block);
+                            npc.getWeaponManager().fire(20);
 
                         }
+
 
                     }
 
                 }
 
-            } else if(npc.getMatch().getMatchType() == MatchType.TURF_WAR) {
+                if (npc.getMatch().getMatchType() == MatchType.TUTORIAL) {
 
-                if (!paused && !npc.inSuperJump()) {
+                    if (task == null) {
 
-                    if (lastSuperJumpCheckTicks > 20) {
+                        if (npc.isOnOwnInk()) {
 
-                        boolean doSuperJump = RandomUtil.random(3);
+                            npc.getNavigationManager().setSquidOnNavigationFinish(true);
 
-                        lastSuperJumpCheckTicks = 0;
-                        if (doSuperJump) {
+                            if(!npc.isSquid()) {
 
-                            if (npc.getSignalManager().isActive(SignalType.NO_ENEMIES_AROUND)) {
+                                npc.enterSquidForm();
 
-                                if (npc.getHealth() >= 50D) {
+                            }
 
-                                    lastSuperJumpCheckTicks = 0;
-                                    // Einen Spieler unterstützen
-                                    ArrayList<SplatoonPlayer> team = new ArrayList<>();
-                                    for (SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
+                        } else {
 
-                                        if (player != npc && !player.isSplatted()) {
+                            npc.getNavigationManager().setSquidOnNavigationFinish(false);
+                            if(npc.isSquid()) {
 
-                                            team.add(player);
+                                npc.leaveSquidForm();
 
-                                        }
+                            }
 
-                                    }
+                        }
 
-                                    int maxEnemies = npc.getMatch().getMaxEnemies(npc);
-                                    if (!team.isEmpty()) {
+                        npc.getNavigationManager().setSquidOnNavigationFinish(false);
+                        if (npc.getTargetManager().hasPotentialTarget()) {
 
-                                        ArrayList<WeightedLocation> locations = new ArrayList<>();
-                                        for (SplatoonPlayer player : team) {
+                            boolean exec = true;
+                            for (SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
 
-                                            JumpPoint point = npc.getMatch().getJumpPointFor(player);
-                                            if (point != null) {
+                                if (!player.isHuman()) {
 
-                                                int weight = maxEnemies - npc.getTargetManager().nearbyThreats(player.getLocation().toVector(), 12d).size();
-                                                weight *= 4;
-                                                weight += (player.getLocation().distance(npc.getLocation()) * 2);
-                                                WeightedLocation location = new WeightedLocation(point, weight);
-                                                locations.add(location);
+                                    EntityNPC npc = (EntityNPC) player;
+                                    AITaskController cntrl = npc.getTaskController();
+                                    if (cntrl.task != null && npc.getTargetManager().hasTarget()) {
 
-                                            }
-
-                                        }
-                                        Collections.sort(locations);
-                                        if (!locations.isEmpty()) {
-
-                                            WeightedLocation location = locations.get(0);
-                                            JumpPoint point = (JumpPoint) location.location;
-
-                                            if (npc.superJump(point.getLocation(), 26)) {
-
-                                                point.onJumpBegin();
-
-                                            }
-                                            npc.getSignalManager().dismiss(SignalType.NO_ENEMIES_AROUND);
-                                            return;
-
-                                        }
+                                        exec = false;
+                                        break;
 
                                     }
 
                                 }
 
-                            } else if (npc.getSignalManager().isActive(SignalType.NO_PAINTABLE_SPOTS_AROUND)) {
+                            }
 
-                                if (npc.getInk() >= 30D) {
+                            if (exec) {
 
-                                    lastSuperJumpCheckTicks = 0;
-                                    // Einen Spieler unterstützen
-                                    ArrayList<SplatoonPlayer> team = new ArrayList<>();
-                                    for (SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
+                                TargetManager.PotentialTarget target = npc.getTargetManager().getPossibleTargets().get(0);
+                                npc.getTargetManager().target(target.target);
+                                task = new AttackTask(npc, npc.getTargetManager().getTarget(), target.path);
+                                task.onInit();
 
-                                        if (player != npc && !player.isSplatted()) {
+                            }
 
-                                            team.add(player);
+                        }
+
+                    }
+
+                } else if (npc.getMatch().getMatchType() == MatchType.TURF_WAR) {
+
+                    if (!paused && !npc.inSuperJump()) {
+
+                        if (lastSuperJumpCheckTicks > 20) {
+
+                            int ticksSinceRespawn = npc.getTicksSinceRespawn();
+
+                            boolean doSuperJump = RandomUtil.random(3 + ((ticksSinceRespawn<100&&ticksSinceRespawn>10) ? 4 : 0));
+
+                            lastSuperJumpCheckTicks = 0;
+                            if (doSuperJump) {
+
+                                if (npc.getSignalManager().isActive(SignalType.NO_ENEMIES_AROUND)) {
+
+                                    if (npc.getHealth() >= 50D) {
+
+                                        lastSuperJumpCheckTicks = 0;
+                                        // Einen Spieler unterstützen
+                                        ArrayList<SplatoonPlayer> team = new ArrayList<>();
+                                        for (SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
+
+                                            if (player != npc && !player.isSplatted()) {
+
+                                                team.add(player);
+
+                                            }
+
+                                        }
+
+                                        int maxEnemies = npc.getMatch().getMaxEnemies(npc);
+                                        if (!team.isEmpty()) {
+
+                                            ArrayList<WeightedLocation> locations = new ArrayList<>();
+                                            for (SplatoonPlayer player : team) {
+
+                                                JumpPoint point = npc.getMatch().getJumpPointFor(player);
+                                                if (point != null && player.getLocation().distance(npc.getLocation()) > 24) {
+
+                                                    int nearbyEnemies = npc.getTargetManager().nearbyThreats(player.getLocation().toVector(), 12d).size();
+                                                    if (nearbyEnemies > 0) {
+
+                                                        int weight = maxEnemies - nearbyEnemies;
+                                                        weight *= 4;
+                                                        WeightedLocation location = new WeightedLocation(point, weight);
+                                                        locations.add(location);
+
+                                                    }
+
+                                                }
+
+                                            }
+                                            Collections.sort(locations);
+                                            if (!locations.isEmpty()) {
+
+                                                WeightedLocation location = locations.get(0);
+                                                JumpPoint point = (JumpPoint) location.location;
+
+                                                if (npc.superJump(point.getLocation(), 26)) {
+
+                                                    point.onJumpBegin();
+
+                                                }
+                                                npc.getSignalManager().dismiss(SignalType.NO_ENEMIES_AROUND);
+                                                return;
+
+                                            }
 
                                         }
 
                                     }
 
-                                    if (!team.isEmpty()) {
+                                } else if (npc.getSignalManager().isActive(SignalType.NO_PAINTABLE_SPOTS_AROUND)) {
 
-                                        ArrayList<WeightedLocation> locations = new ArrayList<>();
-                                        for (SplatoonPlayer player : team) {
+                                    if (npc.getInk() >= 30D) {
 
-                                            JumpPoint point = npc.getMatch().getJumpPointFor(player);
-                                            if (point != null) {
+                                        lastSuperJumpCheckTicks = 0;
+                                        // Einen Spieler unterstützen
+                                        ArrayList<SplatoonPlayer> team = new ArrayList<>();
+                                        for (SplatoonPlayer player : npc.getMatch().getPlayers(npc.getTeam())) {
 
-                                                int weight = npc.getTargetManager().nearbyThreats(player.getLocation().toVector(), 12d).size();
-                                                weight *= 10;
-                                                weight += (npc.getMatch().getAIController().coverageInArea(player.getLocation(), player.getTeam(), 30d) * .1);
-                                                weight += (player.getLocation().distance(npc.getLocation()) * 2);
-                                                WeightedLocation location = new WeightedLocation(point, weight);
-                                                locations.add(location);
+                                            if (player != npc && !player.isSplatted()) {
+
+                                                team.add(player);
 
                                             }
 
                                         }
-                                        Collections.sort(locations);
-                                        if (!locations.isEmpty()) {
 
-                                            WeightedLocation location = locations.get(0);
-                                            JumpPoint point = (JumpPoint) location.location;
+                                        if (!team.isEmpty()) {
 
-                                            if (npc.superJump(point.getLocation(), 26)) {
+                                            ArrayList<WeightedLocation> locations = new ArrayList<>();
+                                            for (SplatoonPlayer player : team) {
 
-                                                point.onJumpBegin();
+                                                JumpPoint point = npc.getMatch().getJumpPointFor(player);
+                                                if (point != null && point.getLocation().distance(npc.getLocation()) >= 24) {
+
+                                                    int weight = npc.getTargetManager().nearbyThreats(player.getLocation().toVector(), 12d).size();
+                                                    weight *= 10;
+                                                    weight += (npc.getMatch().getAIController().coverageInArea(player.getLocation(), player.getTeam(), 12d));
+                                                    WeightedLocation location = new WeightedLocation(point, weight);
+                                                    locations.add(location);
+
+                                                }
 
                                             }
-                                            npc.getSignalManager().dismiss(SignalType.NO_PAINTABLE_SPOTS_AROUND);
-                                            return;
+                                            Collections.sort(locations);
+                                            if (!locations.isEmpty()) {
+
+                                                WeightedLocation location = locations.get(0);
+                                                JumpPoint point = (JumpPoint) location.location;
+
+                                                if (npc.superJump(point.getLocation(), 26)) {
+
+                                                    point.onJumpBegin();
+
+                                                }
+                                                npc.getSignalManager().dismiss(SignalType.NO_PAINTABLE_SPOTS_AROUND);
+                                                return;
+
+                                            }
 
                                         }
 
@@ -290,67 +344,68 @@ public class AITaskController {
 
                         }
 
-                    }
+                        if (!npc.getTargetManager().getPossibleTargets().isEmpty()) {
 
-                    if (!npc.getTargetManager().getPossibleTargets().isEmpty()) {
+                            if (npc.getInk() >= INK_TO_ATTACK) {
 
-                        if (npc.getInk() >= INK_TO_ATTACK) {
+                                TargetManager.PotentialTarget player = npc.getTargetManager().getMostImportantThreat();
+                                npc.getTargetManager().target(player.target);
+                                task = new AttackTask(npc, npc.getTargetManager().getTarget(), player.path);
+                                task.onInit();
 
-                            TargetManager.PotentialTarget player = npc.getTargetManager().getMostImportantThreat();
-                            npc.getTargetManager().target(player.target);
-                            task = new AttackTask(npc, npc.getTargetManager().getTarget(), player.path);
-                            task.onInit();
+                            } else {
+
+                                task = new RegenerateTask(npc);
+                                task.onInit();
+
+                            }
 
                         } else {
 
-                            task = new RegenerateTask(npc);
-                            task.onInit();
+                            if (npc.getInk() >= INK_TO_ATTACK) {
+
+                                //if (RandomUtil.random(((int) npc.getProperties().getAggressiveness() / 2))) {
+
+                                if (npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.SHOOTER ||
+                                npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                                    task = new PaintAreaTask(npc);
+                                    task.onInit();
+
+                                } else if (npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
+
+                                    task = new RollAreaTask(npc);
+                                    task.onInit();
+
+                                }
+
+                                //} else {
+
+                                //task = new ApproachEnemiesTask(npc);
+                                //task.onInit();
+
+                                //}
+
+                            } else {
+
+                                task = new RegenerateTask(npc);
+                                task.onInit();
+
+                            }
+
+                            //task = new FleeTask(npc);
+                            //task.onInit();
 
                         }
 
                     } else {
 
-                        if (npc.getInk() >= INK_TO_ATTACK) {
+                        if (task != null) {
 
-                            //if (RandomUtil.random(((int) npc.getProperties().getAggressiveness() / 2))) {
-
-                            if (npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
-
-                                task = new PaintAreaTask(npc);
-                                task.onInit();
-
-                            } else if (npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
-
-                                task = new RollAreaTask(npc);
-                                task.onInit();
-
-                            }
-
-                            //} else {
-
-                            //task = new ApproachEnemiesTask(npc);
-                            //task.onInit();
-
-                            //}
-
-                        } else {
-
-                            task = new RegenerateTask(npc);
-                            task.onInit();
+                            task.onExit();
+                            task = null;
 
                         }
-
-                        //task = new FleeTask(npc);
-                        //task.onInit();
-
-                    }
-
-                } else {
-
-                    if (task != null) {
-
-                        task.onExit();
-                        task = null;
 
                     }
 
@@ -360,9 +415,13 @@ public class AITaskController {
 
         } else {
 
-            task.tick();
+            if (!paused) {
 
-            if(npc.inSuperJump()) {
+                task.tick();
+
+            }
+
+            if (npc.inSuperJump()) {
 
                 task.onExit();
                 task = null;
@@ -373,11 +432,11 @@ public class AITaskController {
 
         if(task != null) {
 
-            String className = task.getClass().getName();
+            /*String className = task.getClass().getName();
             className = className.split("\\.")[className.split("\\.").length - 1];
 
             dbg+="§c"+ className + " (" + task.getID() + " | " + npc.getNavigationManager().getTarget() + " | " + npc.getLocation().getBlockX() + ", " + npc.getLocation().getBlockY() + ", " + npc.getLocation().getBlockZ() + " | " + npc.getInk();
-            npc.diagnosticStand2.setCustomName(dbg);
+            npc.diagnosticStand2.setCustomName(dbg);*/
 
         }
 

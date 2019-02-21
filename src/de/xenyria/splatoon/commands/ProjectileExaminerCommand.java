@@ -73,7 +73,7 @@ public class ProjectileExaminerCommand implements CommandExecutor {
                     } else if(args[0].equalsIgnoreCase("fire")) {
 
                         ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(a, b.clone().add(.5, .5, .5), 0.91, SplatoonHumanPlayer.getPlayer(player).getMatch(),
-                                SplatoonHumanPlayer.getPlayer(player).getTeam(), b.getBlock(), SplatoonHumanPlayer.getPlayer(player));
+                                SplatoonHumanPlayer.getPlayer(player).getTeam(), b.getBlock(), SplatoonHumanPlayer.getPlayer(player), 1);
 
                         if(result.isTargetReached()) {
 

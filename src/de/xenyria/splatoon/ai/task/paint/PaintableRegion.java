@@ -7,9 +7,11 @@ import de.xenyria.splatoon.ai.navigation.TransitionType;
 import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.match.ai.MatchAIManager;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.VectorUtil;
+import net.minecraft.server.v1_13_R2.BlockPosition;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -23,6 +25,19 @@ import java.util.*;
 
 public class PaintableRegion {
 
+    public PaintableRegion(World world, MatchAIManager manager, double centerX, double centerY, double centerZ) {
+
+        minX = (int) Math.min(centerX-2.5,centerX+2.5);
+        minY = (int) Math.min(centerY-2.5,centerY+2.5);
+        minZ = (int) Math.min(centerZ-2.5,centerZ+2.5);
+        maxX = (int) Math.max(centerX-2.5,centerX+2.5);
+        maxY = (int) Math.max(centerY-2.5,centerY+2.5);
+        maxZ = (int) Math.max(centerZ-2.5,centerZ+2.5);
+        this.manager = manager;
+        center = new Vector(centerX, centerY, centerZ);
+
+    }
+
     public static void main(String[] args) {
 
         Coordinate coordinate = Coordinate.fromWorldCoordinates(-6, -1, 0);
@@ -31,6 +46,7 @@ public class PaintableRegion {
     }
 
     public int foundBlocks() { return paintableBlocks.size(); }
+    public ArrayList<Block> getPaintableBlocks() { return paintableBlocks; }
 
     public Vector getMax() { return new Vector(maxX, maxY, maxZ); }
     public Vector getMin() { return new Vector(minX, minY, minZ); }
@@ -112,14 +128,19 @@ public class PaintableRegion {
         ArrayList<Block> unpainted = new ArrayList<>();
         for(Block block : paintableBlocks) {
 
-            if(!block.hasMetadata("Team")) {
+            BlockFlagManager.BlockFlag flag = manager.getMatch().getBlockFlagManager().getBlockIfExist(block.getX(), block.getY(), block.getZ());
+            if(!flag.hasSetTeam()) {
 
-                unpainted.add(block);
+                if(flag.isPaintable()) {
+
+                    unpainted.add(block);
+
+                }
 
             } else {
 
-                String team = block.getMetadata("Team").get(0).asString();
-                if(!teamName.equalsIgnoreCase(team)) {
+                Team team = manager.getMatch().getTeam(block);
+                if(!teamName.equalsIgnoreCase(team.getColor().name())) {
 
                     enemy.add(block);
 
@@ -135,24 +156,6 @@ public class PaintableRegion {
         return paintableBlocks;
 
     }
-    public int getEnemyColoredBlocks(Team team) {
-
-        Color targetColor = team.getColor();
-        String colorName = targetColor.name();
-
-        int amount = 0;
-        for(Block block : paintableBlocks) {
-
-            if(block.hasMetadata("Team") && !block.getMetadata("Team").get(0).asString().equalsIgnoreCase(colorName)) {
-
-                amount++;
-
-            }
-
-        }
-        return amount;
-
-    }
 
     private Vector center = new Vector();
     public Vector getCenter() { return center; }
@@ -163,12 +166,13 @@ public class PaintableRegion {
 
         this.start = start;
         this.end = end;
-        minX = (int) Math.min(start.getX(), end.getX()) - 2;
-        minY = (int) Math.min(start.getY(), end.getY()) - 2;
-        minZ = (int) Math.min(start.getZ(), end.getZ()) - 2;
-        maxX = (int) Math.max(start.getX(), end.getX()) + 2;
-        maxY = (int) Math.max(start.getY(), end.getY()) + 2;
-        maxZ = (int) Math.max(start.getZ(), end.getZ()) + 2;
+        this.manager = manager;
+        minX = (int) Math.min(start.getX() - 2, end.getX()) - 2;
+        minY = (int) Math.min(start.getY() - 2, end.getY()) - 2;
+        minZ = (int) Math.min(start.getZ() - 2, end.getZ()) - 2;
+        maxX = (int) Math.max(start.getX() - 2, end.getX()) + 2;
+        maxY = (int) Math.max(start.getY() - 2, end.getY()) + 2;
+        maxZ = (int) Math.max(start.getZ() - 2, end.getZ()) + 2;
         double w1 = maxX - minX;
         double w2 = maxY - minY;
         double w3 = maxZ - minZ;
@@ -220,41 +224,46 @@ public class PaintableRegion {
         int possibleNodes = possiblePositions.size();
         HashMap<Block, Integer> blockVisibilityScore = new HashMap<>();
         int hits = 0;
+        ArrayList<BlockPosition> iteratedPositions = new ArrayList<>();
         for(Block block : paintableBlocks) {
 
             for(Node node : possiblePositions) {
 
-                if(node.getType() == TransitionType.WALK) {
+                if(node.x >= minX && node.y >= minY && node.z >= minZ && node.x <= maxX && node.y <= maxY && node.z <= maxZ) {
 
-                    floorCoordinates.add(node);
+                    if(!iteratedPositions.contains(new BlockPosition(node.x, node.y, node.z))) {
 
-                }
+                        iteratedPositions.add(new BlockPosition(node.x, node.y, node.z));
+                        if (node.getType() == TransitionType.WALK) {
 
-                Vector vector = node.toVector().clone().add(new Vector(0, 1.62, 0));
-                if(hasLineOfSight(manager.getMatch().getWorld(), vector, block)) {
+                            floorCoordinates.add(node);
 
-                    Coordinate coordinate = Coordinate.fromWorldCoordinates(node.x, node.y, node.z);
-                    block.setMetadata("CoordinateX", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), coordinate.x));
-                    block.setMetadata("CoordinateY", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), coordinate.y));
-                    block.setMetadata("CoordinateZ", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), coordinate.z));
+                        }
 
-                    hits++;
-                    if(visibleFrom.containsKey(block)) {
+                        Vector vector = node.toVector().clone().add(new Vector(0, 1.62, 0));
+                        if (hasLineOfSight(manager.getMatch().getWorld(), vector, block)) {
 
-                        visibleFrom.get(block).add(vector);
+                            hits++;
+                            if (visibleFrom.containsKey(block)) {
 
-                    } else {
+                                visibleFrom.get(block).add(vector);
 
-                        ArrayList<Vector> vectors = new ArrayList<>();
-                        vectors.add(vector);
-                        visibleFrom.put(block, vectors);
+                            } else {
+
+                                ArrayList<Vector> vectors = new ArrayList<>();
+                                vectors.add(vector);
+                                visibleFrom.put(block, vectors);
+
+                            }
+
+                        }
+                        blockVisibilityScore.put(block, hits);
 
                     }
 
                 }
 
             }
-            blockVisibilityScore.put(block, hits);
 
         }
 
@@ -358,16 +367,30 @@ public class PaintableRegion {
 
     }
 
+    private HashMap<Byte, Integer> teamToTurfCounter = new HashMap<>();
+    public void incrementTurfCounter(byte team) {
+
+        if(!teamToTurfCounter.containsKey((team))) {
+
+            teamToTurfCounter.put(team, 1);
+
+        } else {
+
+            teamToTurfCounter.put(team, teamToTurfCounter.get(team)+1);
+
+        }
+
+    }
+
     public int getCoveredBlockCount(Team team) {
 
         int counter = 0;
         String colorName = team.getColor().name();
         for(Block block : paintableBlocks) {
 
-            if(block.hasMetadata("Team")) {
+            if(!manager.getMatch().isWall(block)) {
 
-                String color = block.getMetadata("Team").get(0).asString();
-                if(color.equalsIgnoreCase(colorName)) {
+                if (manager.getMatch().belongsToTeam(block, team)) {
 
                     counter++;
 

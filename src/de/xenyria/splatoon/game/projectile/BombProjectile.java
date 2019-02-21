@@ -222,6 +222,12 @@ public class BombProjectile extends SplatoonProjectile {
     @Override
     public void tick() {
 
+        if(item != null && !item.isDead()) {
+
+            ((CraftItem)item).getHandle().getBoundingBox().setFilter(NMSUtil.filter);
+
+        }
+
         if(item.getLocation().getY() < 0) {
 
             item.remove();
@@ -265,22 +271,7 @@ public class BombProjectile extends SplatoonProjectile {
         Vector end = start.clone().add(item.getVelocity());
         Vector dir = end.clone().subtract(start);
 
-        RayProjectile projectile1 = new RayProjectile(getShooter(), getWeapon(), getMatch(), item.getLocation(), dir, maxDamage);
-        HitableEntity entity1 = projectile1.getHitEntity(item.getVelocity().length() + .2, new Predicate<HitableEntity>() {
-            @Override
-            public boolean test(HitableEntity hitableEntity) {
 
-                boolean friendlyFire = (hitableEntity instanceof SplatoonPlayer && ((SplatoonPlayer) hitableEntity).getTeam() == getTeam());
-
-                return hitableEntity != getShooter() && !friendlyFire;
-
-            }
-        });
-        if(entity1 != null) {
-
-            forceExplosion = true;
-
-        }
 
         if(useTrajectory() && !item.isOnGround()) {
 
@@ -414,9 +405,9 @@ public class BombProjectile extends SplatoonProjectile {
 
                             Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
-                                if(getMatch().isPaintable(getShooter().getTeam(), item.getWorld().getBlockAt(fX,fY,fZ))) {
+                                if(getMatch().isPaintable(getShooter().getTeam(), fX,fY,fZ)) {
 
-                                    getMatch().paint(new Vector(fX,fY,fZ), getShooter());
+                                    getMatch().paint(getShooter(), new Vector(fX,fY,fZ), getShooter().getTeam());
 
                                 }
 
@@ -439,7 +430,7 @@ public class BombProjectile extends SplatoonProjectile {
 
                     if(player.getWorld().equals(getLocation().getWorld())) {
 
-                        if(player.getLocation().distance(getLocation()) <= 64) {
+                        if(player.getLocation().distance(getLocation()) <= 256) {
 
                             ((CraftPlayer)player).getHandle().playerConnection.sendPacket(
                                     new PacketPlayOutEntityDestroy(item.getEntityId())
@@ -468,8 +459,8 @@ public class BombProjectile extends SplatoonProjectile {
                     Vector targetVec = entity.centeredHeightVector();
                     Vector direction = targetVec.clone().subtract(lastItemLoc.toVector()).normalize();
 
-                    RayProjectile projectile = new RayProjectile(getShooter(), getWeapon(), getMatch(), lastItemLoc, direction, 0f);
-                    if (projectile.rayTraceWithoutObstruction(entity.aabb(), radius, direction)) {
+                    RayProjectile projectile = new RayProjectile(getShooter(), getWeapon(), getMatch(), lastItemLoc.clone().add(0, 0.125, 0), direction, 0f);
+                    if (projectile.rayTraceWithoutObstruction(entity.aabb(), radius, direction, true)) {
 
                         if(entity.isHit(projectile)) {
 

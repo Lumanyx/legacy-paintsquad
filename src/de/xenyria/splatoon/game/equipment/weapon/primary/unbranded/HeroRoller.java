@@ -1,4 +1,4 @@
-package de.xenyria.splatoon.game.equipment.weapon.primary.debug;
+package de.xenyria.splatoon.game.equipment.weapon.primary.unbranded;
 
 import de.xenyria.splatoon.game.equipment.Brand;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractRoller;
@@ -6,17 +6,19 @@ import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 
-public class DebugRoller extends AbstractRoller {
+public class HeroRoller extends AbstractRoller {
 
-    public DebugRoller() {
+    public static final int ID = 41;
 
-        super(4, "Protoroller", 0.025f, 0.25f, 2.5f, 0.2f, 17, 120, 50f);
+    public HeroRoller() {
+
+        super(ID, "Heldenroller Replik", 0.025f, 0.25f, 2.65f, 0.2f, 17, 120, 50f);
 
     }
 
     @Override
     public Brand getBrand() {
-        return Brand.PROTO;
+        return Brand.NOT_BRANDED;
     }
 
     @Override

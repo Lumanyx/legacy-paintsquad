@@ -9,6 +9,7 @@ import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.math.BitUtil;
 import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractBlaster;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractCharger;
@@ -28,6 +29,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
@@ -43,7 +45,7 @@ public class ProtocolListener extends PacketAdapter {
                 PacketType.Play.Client.USE_ITEM, PacketType.Play.Client.USE_ENTITY, PacketType.Play.Server.SPAWN_ENTITY_LIVING,
                 PacketType.Play.Server.SPAWN_ENTITY, PacketType.Play.Client.STEER_VEHICLE, PacketType.Play.Server.ENTITY_METADATA, PacketType.Play.Server.ENTITY_DESTROY,
                 PacketType.Play.Server.ABILITIES, PacketType.Play.Server.NAMED_SOUND_EFFECT, PacketType.Play.Server.POSITION,
-                PacketType.Play.Server.ENTITY_TELEPORT, PacketType.Play.Server.PLAYER_INFO,
+                PacketType.Play.Server.ENTITY_TELEPORT, PacketType.Play.Server.PLAYER_INFO, PacketType.Play.Client.SPECTATE,
                 PacketType.Play.Server.ENTITY_EQUIPMENT, PacketType.Play.Server.SPAWN_ENTITY, PacketType.Play.Client.USE_ENTITY, PacketType.Play.Client.USE_ITEM, PacketType.Play.Server.WINDOW_ITEMS, PacketType.Play.Server.SET_SLOT);
 
     }
@@ -155,8 +157,29 @@ public class ProtocolListener extends PacketAdapter {
 
             }
 
+
+
         } else if(event.getPacketType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING) {
 
+            SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
+            if(player != null) {
+
+                int i = event.getPacket().getIntegers().read(0);
+                for (EntityNPC npc : EntityNPC.getNPCs()) {
+
+                    if (npc.tagEntityID() == i) {
+
+                        if(player.getTeam() != null && !player.getTeam().equals(npc.getTeam())) {
+
+                            event.setCancelled(true);
+
+                        }
+
+                    }
+
+                }
+
+            }
 
         } else if(event.getPacketType() == PacketType.Play.Server.ABILITIES) {
 
@@ -285,7 +308,10 @@ public class ProtocolListener extends PacketAdapter {
     @Override
     public void onPacketReceiving(PacketEvent event) {
 
-        if(event.getPacketType() == PacketType.Play.Client.STEER_VEHICLE) {
+        if(event.getPacketType() == PacketType.Play.Client.SPECTATE) {
+
+
+        } else if(event.getPacketType() == PacketType.Play.Client.STEER_VEHICLE) {
 
             Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
 
@@ -386,20 +412,41 @@ public class ProtocolListener extends PacketAdapter {
 
         } else if(event.getPacketType() == PacketType.Play.Client.USE_ENTITY) {
 
+
             int entityID = event.getPacket().getIntegers().read(0);
+
+            // "Cannot interact with self" Kick prevention
+            if(entityID == event.getPlayer().getEntityId()) { event.setCancelled(true); return; }
+
             EnumWrappers.EntityUseAction action = event.getPacket().getEntityUseActions().read(0);
 
             SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
-            player.updateLastInteraction();
+            if(player != null) {
 
-            EnumWrappers.EntityUseAction action1 = event.getPacket().getEntityUseActions().read(0);
-            if(action1 == EnumWrappers.EntityUseAction.ATTACK) {
+                player.updateLastInteraction();
 
-                Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
+                EnumWrappers.EntityUseAction action1 = event.getPacket().getEntityUseActions().read(0);
+                if (action1 == EnumWrappers.EntityUseAction.ATTACK) {
 
-                    player.handleLeftClick();
+                    Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
 
-                });
+                        player.handleLeftClick();
+
+                    });
+
+                } else {
+
+                    if(entityID == player.getTank().getId()) {
+
+                        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                            PlayerEventHandler.handleInteraction(event.getPlayer(), player.getPlayer().getInventory().getItemInMainHand(), Action.RIGHT_CLICK_AIR);
+
+                        }, 1l);
+
+                    }
+
+                }
 
             }
 

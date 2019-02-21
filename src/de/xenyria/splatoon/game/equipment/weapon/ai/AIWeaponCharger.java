@@ -4,7 +4,7 @@ public interface AIWeaponCharger extends AIWeapon {
 
     public float nextSprayYaw();
     public float nextSprayPitch();
-    public double maxChargeDistance();
-    public long estimatedChargeTimeForTargetDistance();
+    public double getRange();
+    public long estimatedChargeTimeForTargetDistance(double dist);
 
 }

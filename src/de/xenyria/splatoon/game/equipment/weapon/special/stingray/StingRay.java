@@ -1,7 +1,9 @@
 package de.xenyria.splatoon.game.equipment.weapon.special.stingray;
 
 import de.xenyria.splatoon.SplatoonServer;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.combat.HitableEntity;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AISpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.viewmodel.StingRayModel;
 import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.TentaMissleTarget;
@@ -22,13 +24,17 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.function.Predicate;
 
-public class StingRay extends SplatoonSpecialWeapon {
+public class StingRay extends SplatoonSpecialWeapon implements AISpecialWeapon {
+
+    public static final int ID = 9;
 
     public StingRay() {
 
-        super(9, "Hochdruckverunreiniger", "Steuere einen Tintenstrahl welcher Gegner\ndurch mehrere Wände hinweg ausschaltet.", 0);
+        super(ID, "Hochdruckverunreiniger", "Steuere einen Tintenstrahl welcher Gegner\ndurch mehrere Wände hinweg ausschaltet.", 200);
 
     }
+
+    public boolean modelVisible() { return model.isActive(); }
 
     private int firingTicks = 0;
     private StingRayModel model;
@@ -107,42 +113,17 @@ public class StingRay extends SplatoonSpecialWeapon {
                 World world = getPlayer().getWorld();
                 Location location = model.noozleLocation();
                 float highlightDistance = 96;
+                Location hitPosition = location.clone().add(getPlayer().getEyeLocation().getDirection().clone().multiply(highlightDistance));
 
                 if(getPlayer().isShooting()) {
 
-                    RayTraceResult result = world.rayTraceEntities(location, location.getDirection(), highlightDistance, new Predicate<Entity>() {
+                    //if (result != null && result.getHitEntity() != null) {
 
-                        @Override
-                        public boolean test(org.bukkit.entity.Entity entity) {
-
-                            if (entity instanceof CraftArmorStand) {
-
-                                for (HitableEntity entity1 : getPlayer().getMatch().getHitableEntities()) {
-
-                                    if (entity.getEntityId() == entity1.getEntityID()) {
-
-                                        return true;
-
-                                    }
-
-                                }
-
-                                ArmorStand stand = (ArmorStand) entity;
-                                return stand.isVisible();
-
-                            }
-
-                            return true;
-                        }
-
-                    });
-                    if (result != null && result.getHitEntity() != null) {
-
-                        highlightDistance = (float) location.toVector().distance(result.getHitPosition());
+                        //highlightDistance = (float) location.toVector().distance(result.getHitPosition());
 
                         RayProjectile projectile = new RayProjectile(getPlayer(), this, getPlayer().getMatch(),
-                                new Location(getPlayer().getWorld(), result.getHitPosition().getX(),
-                                        result.getHitPosition().getY(), result.getHitPosition().getZ()), location.getDirection(), 12f);
+                                new Location(getPlayer().getWorld(), location.getX(),
+                                        location.getY(), location.getZ()), location.getDirection(), 12f);
 
                         HitableEntity entity = projectile.getHitEntity(96d, new Predicate<HitableEntity>() {
                             @Override
@@ -152,7 +133,7 @@ public class StingRay extends SplatoonSpecialWeapon {
                                 return !friendlyFire;
 
                             }
-                        });
+                        }, false, false);
                         if(entity != null) {
 
                             entity.onProjectileHit(projectile);
@@ -189,7 +170,7 @@ public class StingRay extends SplatoonSpecialWeapon {
 
                         }
 
-                    }
+                    //}
 
                     Vector dir = location.getDirection();
                     Location start = location.clone();
@@ -199,9 +180,9 @@ public class StingRay extends SplatoonSpecialWeapon {
                         SplatoonServer.broadcastColorParticle(getPlayer().getWorld(),
                                 start.getX(), start.getY(), start.getZ(), getPlayer().getTeam().getColor(), 0.5f);
 
-                        if (RandomUtil.random(4) && getPlayer().getMatch().isPaintable(getPlayer().getTeam(), start.getBlock())) {
+                        if (RandomUtil.random(4) && getPlayer().getMatch().isPaintable(getPlayer().getTeam(), (int)start.getX(), (int)start.getY(), (int)start.getZ())) {
 
-                            getPlayer().getMatch().paint(start.toVector(), getPlayer());
+                            getPlayer().getMatch().paint(getPlayer(), start.toVector(), getPlayer().getTeam());
 
                         }
 
@@ -212,6 +193,12 @@ public class StingRay extends SplatoonSpecialWeapon {
             } else {
 
                 if(model.isActive()) { model.remove(); }
+                if(setWalkSpeedOverride) {
+
+                    getPlayer().disableWalkSpeedOverride();
+                    setWalkSpeedOverride = false;
+
+                }
 
             }
 
@@ -219,9 +206,23 @@ public class StingRay extends SplatoonSpecialWeapon {
 
                 firingTicks = 0;
                 if(model.isActive()) { model.remove(); }
-                getPlayer().disableWalkSpeedOverride();
+                if(setWalkSpeedOverride) {
+
+                    getPlayer().disableWalkSpeedOverride();
+                    setWalkSpeedOverride = false;
+
+                }
+                if(getPlayer() instanceof EntityNPC) {
+
+                    ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponEnd();
+
+                }
 
             }
+
+        } else {
+
+            if(model.isActive()) { model.remove(); }
 
         }
 
@@ -234,10 +235,7 @@ public class StingRay extends SplatoonSpecialWeapon {
 
             if (getPlayer().getSpecialPoints() >= getRequiredPoints()) {
 
-                getPlayer().enableWalkSpeedOverride();
-                getPlayer().setOverrideWalkSpeed(0.1f);
-                getPlayer().resetSpecialGauge();
-                firingTicks = 300;
+                activateCall();
 
             }
 
@@ -264,4 +262,38 @@ public class StingRay extends SplatoonSpecialWeapon {
     public void shoot() {
 
     }
+
+    public void cleanUp() {
+
+        if(model != null) {
+
+            model.removeForcefully();
+
+        }
+        firingTicks = 0;
+
+    }
+
+    public void activateCall() {
+
+        getPlayer().enableWalkSpeedOverride();
+        setWalkSpeedOverride = true;
+        getPlayer().setOverrideWalkSpeed(0.1f);
+        getPlayer().resetSpecialGauge();
+        firingTicks = 170;
+        getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7aktiviert den §eHochdruckverunreiniger§7!");
+
+    }
+    private boolean setWalkSpeedOverride = false;
+
+    @Override
+    public void activate() {
+
+        activateCall();
+        ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponBegin();
+
+    }
+
+    public Location noozleLocation() { return model.noozleLocation(); }
+
 }

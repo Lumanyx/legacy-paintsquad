@@ -9,6 +9,11 @@ import de.xenyria.splatoon.game.equipment.weapon.primary.unbranded.*;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.*;
 import de.xenyria.splatoon.game.equipment.weapon.special.armor.InkArmor;
 import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
+import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.BurstBombRush;
+import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.CurlingBombRush;
+import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.SplatBombRush;
+import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.SuctionBombRush;
+import de.xenyria.splatoon.game.equipment.weapon.special.inkstorm.InkStorm;
 import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.equipment.weapon.special.splashdown.Splashdown;
 import de.xenyria.splatoon.game.equipment.weapon.special.stingray.StingRay;
@@ -61,15 +66,15 @@ public class SplatoonWeaponRegistry {
         registerWeapon(1, Splattershot.class);
         registerWeapon(2, SplatBomb.class);
         registerWeapon(3, TentaMissles.class);
-        registerWeapon(4, DebugRoller.class);
-        registerWeapon(5, DebugCurlingBomb.class);
+        registerWeapon(4, SplatRoller.class);
+        registerWeapon(5, CurlingBomb.class);
         registerWeapon(6, Jetpack.class);
         registerWeapon(7, Charger.class);
         registerWeapon(8, SprinklerSecondary.class);
         registerWeapon(9, StingRay.class);
         registerWeapon(10, Splashdown.class);
         registerWeapon(11, DebugDualies.class);
-        registerWeapon(12, DebugSuctionBomb.class);
+        registerWeapon(12, SuctionBomb.class);
         registerWeapon(13, Baller.class);
         registerWeapon(14, Beacon.class);
         registerWeapon(15, DebugSlosher.class);
@@ -91,6 +96,13 @@ public class SplatoonWeaponRegistry {
         registerWeapon(31, AerosprayRG.class);
         registerWeapon(32, CarbonRoller.class);
         registerWeapon(33, MiniSplatling.class);
+        registerWeapon(34, InkStorm.class);
+        registerWeapon(35, Detector.class);
+        registerWeapon(36, ToxicMist.class);
+        registerWeapon(37, SplatBombRush.class);
+        registerWeapon(38, CurlingBombRush.class);
+        registerWeapon(39, SuctionBombRush.class);
+        registerWeapon(40, BurstBombRush.class);
 
         for(int id : weaponClassMap.keySet()) {
 

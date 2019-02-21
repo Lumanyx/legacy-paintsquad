@@ -9,6 +9,7 @@ import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.ai.pathfinding.path.NodePath;
 import de.xenyria.splatoon.ai.pathfinding.worker.PathfindingManager;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
+import de.xenyria.splatoon.game.equipment.weapon.special.stingray.StingRay;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.util.VectorUtil;
 import org.bukkit.Location;
@@ -170,6 +171,9 @@ public class TargetManager {
         public boolean needsUpdate(Vector vector) { return false; }
         public boolean isReached(SquidAStar pathfinder, Node node, Vector vector) {
 
+            boolean usingStingray = npc.getEquipment().getSpecialWeapon() != null && npc.getEquipment().getSpecialWeapon() instanceof StingRay && npc.getEquipment().getSpecialWeapon().isActive();
+            if(usingStingray) { return npc.hasLineOfSight(target); }
+
             if(weaponType == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
 
                 return node.toVector().distance(target.getLocation().toVector()) <= (npc.getWeaponManager().maxWeaponDistance() * 1.5) &&
@@ -178,7 +182,11 @@ public class TargetManager {
 
             } else if (weaponType == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
-                return node.toVector().distance(target.getLocation().toVector()) <= 4d && lineOfSight(vector, target);
+                return node.toVector().distance(target.getLocation().toVector()) <= 0.5d && lineOfSight(vector, target);
+
+            } else if (weaponType == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                return npc.hasLineOfSight(target) && node.toVector().distance(target.getLocation().toVector()) < (npc.getWeaponManager().maxWeaponDistance()-1.8);
 
             }
             return false;
@@ -292,19 +300,20 @@ public class TargetManager {
 
         }
 
+
         boolean processingFinished = isProcessingFinished();
         if(target == null || processingFinished) {
 
             if(!processingEnemyQueries && enemyQuery.isEmpty()) {
 
                 targetFindTicker++;
-                if (targetFindTicker > 12) {
+                if (targetFindTicker > 7) {
 
                     ArrayList<SplatoonPlayer> nearbyPlayers = new ArrayList<>();
                     targetFindTicker = 0;
                     for (SplatoonPlayer player : npc.getMatch().getAllPlayers()) {
 
-                        if (!player.isSplatted() && player != npc && player.getTeam() != npc.getTeam()) {
+                        if (!player.isSpectator() && !player.isSplatted() && player != npc && player.getTeam() != npc.getTeam()) {
 
                             if(pathNotFoundPunishTicks.containsKey(player)) {
 
@@ -319,12 +328,13 @@ public class TargetManager {
                             }
 
                             double distance = npc.getLocation().distance(player.getLocation());
-                            if (distance < MAX_ENEMY_DETECTION_DISTANCE) {
+                            boolean highlighted = npc.isHighlighted(player);
+                            if (distance < MAX_ENEMY_DETECTION_DISTANCE || highlighted) {
 
                                 // "Frustum" Viewcheck
                                 float npcYaw = npc.yaw();
                                 Vector directional = player.centeredHeightVector().subtract(npc.getEyeLocation().toVector()).normalize();
-                                if (VectorUtil.isValid(directional)) {
+                                if (highlighted || VectorUtil.isValid(directional)) {
 
                                     Location location = new Location(npc.getWorld(), 0, 0, 0);
                                     location.setDirection(directional);
@@ -332,7 +342,7 @@ public class TargetManager {
                                     float differenceYaw = Math.abs(AngleUtil.distance(npcYaw, location.getYaw()));
                                     float differencePitch = Math.abs(90f + npc.pitch()) - (location.getPitch() + 90f);
 
-                                    if (differenceYaw < MAX_YAW_DIFFERENCE && differencePitch < MAX_PITCH_DIFFERENCE) {
+                                    if (highlighted || (differenceYaw < MAX_YAW_DIFFERENCE && differencePitch < MAX_PITCH_DIFFERENCE)) {
 
                                         // Der Spieler liegt im Sichtfeld - vor einem Raytrace prüfen ob der Spieler sich versteckt
                                         boolean visible = true;
@@ -352,6 +362,8 @@ public class TargetManager {
 
                                         }
 
+                                        if(highlighted) { visible = true; }
+
                                         if (visible) {
 
                                             // Raytrace
@@ -359,7 +371,7 @@ public class TargetManager {
                                             double dist = player.getLocation().distance(npc.getLocation());
 
                                             RayTraceResult result = world.rayTraceBlocks(npc.getEyeLocation(), directional, dist);
-                                            if (result == null || (result.getHitPosition() != null && result.getHitPosition().distance(npc.getEyeLocation().toVector()) <= dist)) {
+                                            if (highlighted || (result == null || (result.getHitPosition() != null && result.getHitPosition().distance(npc.getEyeLocation().toVector()) <= dist))) {
 
                                                 nearbyPlayers.add(player);
 
@@ -399,7 +411,6 @@ public class TargetManager {
                 ArrayList<SplatoonPlayer> players = new ArrayList<>();
                 for(Map.Entry<SplatoonPlayer, SquidAStar> entry : enemyQuery.entrySet()) {
 
-                    System.out.println(entry.getValue().getRequestResult());
                     if(entry.getValue().getRequestResult() == SquidAStar.RequestResult.FOUND) {
 
                         players.add(entry.getKey());
@@ -407,7 +418,7 @@ public class TargetManager {
                     } else if(entry.getValue().getRequestResult() == SquidAStar.RequestResult.NOT_FOUND) {
 
                         // TODO Punish ticks
-                        pathNotFoundPunishTicks.put(entry.getKey(), 20);
+                        pathNotFoundPunishTicks.put(entry.getKey(), 10);
 
                     }
 
@@ -419,7 +430,7 @@ public class TargetManager {
                     Collections.sort(players, new Comparator<SplatoonPlayer>() {
                         @Override
                         public int compare(SplatoonPlayer o1, SplatoonPlayer o2) {
-                            return -Double.compare(
+                            return Double.compare(
                                     o1.getLocation().distance(npc.getLocation()),
                                     o2.getLocation().distance(npc.getLocation()));
                         }
@@ -480,8 +491,14 @@ public class TargetManager {
                                 if(lineOfSight(target.enemy)) {
 
                                     target.lastKnownLocation = target.enemy.centeredHeightVector().toLocation(npc.getWorld());
-                                    target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+                                    if(npc.estimateEnemyPosition()) {
+
+                                        target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                                    }
+
                                     target.visible = true;
+
 
                                 }
 
@@ -492,7 +509,13 @@ public class TargetManager {
                             if(lineOfSight(target.enemy)) {
 
                                 target.lastKnownLocation = target.enemy.centeredHeightVector().toLocation(npc.getWorld());
-                                target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                                if(npc.estimateEnemyPosition()) {
+
+                                    target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                                }
+
                                 target.visible = true;
 
                             }
@@ -508,7 +531,12 @@ public class TargetManager {
                         if (lineOfSight(target.enemy)) {
 
                             target.lastKnownLocation = target.enemy.centeredHeightVector().toLocation(npc.getWorld());
-                            target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                            if(npc.estimateEnemyPosition()) {
+
+                                target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                            }
 
                         } else {
 
@@ -521,7 +549,11 @@ public class TargetManager {
                         if(!target.enemy.isSubmergedInInk() || target.enemy.isVisibleByTrail()) {
 
                             target.lastKnownLocation = target.enemy.centeredHeightVector().toLocation(npc.getWorld());
-                            target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+                            if(npc.estimateEnemyPosition()) {
+
+                                target.lastKnownLocation = target.lastKnownLocation.add(target.enemy.getLastDelta());
+
+                            }
 
                         } else {
 

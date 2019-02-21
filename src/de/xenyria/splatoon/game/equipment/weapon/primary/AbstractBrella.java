@@ -22,6 +22,17 @@ public abstract class AbstractBrella extends SplatoonPrimaryWeapon {
 
     public boolean attached = true;
 
+    public void cleanUp() {
+
+        if(brellaObject != null) {
+
+            brellaObject.remove();
+            getPlayer().getMatch().queueObjectRemoval(brellaObject);
+
+        }
+
+    }
+
     public AbstractBrella(int id, String name, long holdTime, double brellaHP, long shotDelay, int projectiles, double damage, double impulse, double maxSpray) {
 
         super(id, name);

@@ -70,7 +70,7 @@ public class AttackTask extends AITask {
 
             if(!getNPC().getNavigationManager().doLookInDirection()) {
 
-                if(type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
+                if(type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER || type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
 
                     getNPC().getNavigationManager().enableLookInDirection();
 
@@ -221,6 +221,17 @@ public class AttackTask extends AITask {
                     getNPC().getWeaponManager().aim(target.getEnemy());
                     getNPC().getWeaponManager().fire(30);
 
+                } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                    getNPC().getWeaponManager().aim(target.getEnemy());
+                    if(getNPC().getWeaponManager().getShootingTicks() == 0) {
+
+                        getNPC().getWeaponManager().fire(
+                                getNPC().getWeaponManager().requiredTicksForDistance(target.getEnemy().getLocation().distance(getNPC().getLocation())+1.5d)
+                        );
+
+                    }
+
                 }
 
             } else {
@@ -333,13 +344,17 @@ public class AttackTask extends AITask {
             if(weaponType == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
 
                 double horDist = VectorUtil.horDistance(vector, target.getLastKnownLocation().toVector());
-                double maxDist = (npc.getWeaponManager().maxWeaponDistance());
+                double maxDist = (npc.getWeaponManager().maxWeaponDistance())*.33;
 
                 return vector.distance(beforeRequest) >= 2.5 && horDist >= 2.5 && horDist <= maxDist && hitable(vector);
 
             } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
                 return vector.distance(beforeRequest) >= 1 && vector.distance(target.getLastKnownLocation().toVector()) <= 0.5d;
+
+            } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                return hitable(vector) && vector.distance(beforeRequest) >= 2.5 && vector.distance(target.getLastKnownLocation().toVector()) <= (npc.getWeaponManager().maxWeaponDistance()*.66);
 
             }
 
@@ -383,6 +398,13 @@ public class AttackTask extends AITask {
                     capabilities.canRoll = true;
 
                 }
+                return capabilities;
+
+            } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                SquidAStar.MovementCapabilities capabilities = new SquidAStar.MovementCapabilities();
+                capabilities.squidFormUsable = false;
+                capabilities.exitAsHuman = true;
                 return capabilities;
 
             }
@@ -484,14 +506,16 @@ public class AttackTask extends AITask {
 
                 Location shootLoc = npc.getShootingLocation(vector, npc.getWeaponManager().getCurrentHandBoolean());
                 World world = npc.getLocation().getWorld();
-                world.spawnParticle(Particle.END_ROD, vector.getX(), vector.getY(), vector.getZ(), 0);
-                world.spawnParticle(Particle.VILLAGER_HAPPY, target.getLastKnownLocation().getX(), target.getLastKnownLocation().getY(), target.getLastKnownLocation().getZ(), 0);
-                world.spawnParticle(Particle.VILLAGER_ANGRY, shootLoc.getX(), shootLoc.getY(), shootLoc.getZ(), 0);
                 return npc.getWeaponManager().canHitEntity(npc.getShootingLocation(vector, npc.getWeaponManager().getCurrentHandBoolean()), target.getLastKnownLocation(), target.getEnemy());
 
             } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
                 return vector.distance(target.getLastKnownLocation().toVector()) <= 1d;
+
+            } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                return npc.getWeaponManager().canHitEntity(vector.clone().add(new Vector(0, 1.62, 0)).toLocation(npc.getWorld()), target.getLastKnownLocation(), target.getEnemy());
+
 
             }
             return true;
@@ -509,9 +533,11 @@ public class AttackTask extends AITask {
         @Override
         public boolean isReached(SquidAStar pathfinder, Node node, Vector vector) {
 
+            double distToLast = node.toVector().distance(before);
+
             if(weaponType == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
 
-                return VectorUtil.horDistance(vector, target.getLastKnownLocation().toVector()) <= 3.5 && hitable(vector);
+                return distToLast>=1.5&&VectorUtil.horDistance(vector, target.getLastKnownLocation().toVector()) <= 3.5 && hitable(vector);
 
             } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
@@ -559,8 +585,11 @@ public class AttackTask extends AITask {
 
         }
 
+        Vector before = null;
         @Override
         public void beginPathfinding() {
+
+            before = npc.getLocation().toVector();
 
         }
 
@@ -663,6 +692,7 @@ public class AttackTask extends AITask {
     @Override
     public void onInit() {
 
+        getNPC().getNavigationManager().setSquidOnNavigationFinish(false);
         setOptimalTarget();
 
     }

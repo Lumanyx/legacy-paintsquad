@@ -16,8 +16,9 @@ public class ArenaRegistry {
         GamemodeSchematicMap shootingRangeMap = new GamemodeSchematicMap();
         shootingRangeMap.put(MatchType.TURF_WAR, "shootingrange");
 
-        ArenaData shootingRangeData = new ArenaData(-1, "SP_SHOOTINGRANGE", ArenaCategory.INTERNAL, shootingRangeMap);
+        ArenaData shootingRangeData = new ArenaData(-1, Material.AIR,"SP_SHOOTINGRANGE", ArenaCategory.INTERNAL, shootingRangeMap);
         shootingRangeData.addPaintableMaterial(Material.SMOOTH_QUARTZ);
+        shootingRangeData.addPaintableMaterial(Material.QUARTZ_BLOCK);
         shootingRangeData.addPaintableMaterial(Material.GRAY_CONCRETE);
         shootingRangeData.addPaintableMaterial(Material.WHITE_CONCRETE);
         shootingRangeData.addPaintableMaterial(Material.QUARTZ_PILLAR);
@@ -29,7 +30,7 @@ public class ArenaRegistry {
         GamemodeSchematicMap map = new GamemodeSchematicMap();
         map.put(MatchType.TURF_WAR, "tutorial_map");
 
-        ArenaData tutorialData = new ArenaData(0, "SP_TUTORIAL", ArenaCategory.INTERNAL, map);
+        ArenaData tutorialData = new ArenaData(0, Material.AIR,"SP_TUTORIAL", ArenaCategory.INTERNAL, map);
         tutorialData.setMaxPlayersPerTeam(1);
         tutorialData.setMaxTeams(1);
         tutorialData.addPaintableMaterial(Material.STONE_BRICKS);
@@ -48,7 +49,7 @@ public class ArenaRegistry {
         GamemodeSchematicMap tw_uu = new GamemodeSchematicMap();
         tw_uu.put(MatchType.TURF_WAR, "turfwar_urchinunderpass");
 
-        ArenaData urchinUnderpass = new ArenaData(1, "Dekabahnstation", ArenaCategory.REPLICA, tw_uu);
+        ArenaData urchinUnderpass = new ArenaData(1, Material.RAIL,"Dekabahnstation", ArenaCategory.REPLICA, tw_uu);
         urchinUnderpass.setMaxTeams(2);
         urchinUnderpass.setMaxPlayersPerTeam(4);
         urchinUnderpass.getPlaceholders().add(new StoredTeamPlaceholder(Material.BLUE_WOOL, StoredTeamPlaceholder.ReplacementType.WOOL, 0));
@@ -58,6 +59,7 @@ public class ArenaRegistry {
         urchinUnderpass.getPlaceholders().add(new StoredTeamPlaceholder(Material.ORANGE_CARPET, StoredTeamPlaceholder.ReplacementType.CARPET, 1));
         urchinUnderpass.getPlaceholders().add(new StoredTeamPlaceholder(Material.ORANGE_TERRACOTTA, StoredTeamPlaceholder.ReplacementType.STAINED_CLAY, 1));
         urchinUnderpass.addPaintableMaterial(Material.SMOOTH_QUARTZ);
+        urchinUnderpass.addPaintableMaterial(Material.GOLD_BLOCK);
         urchinUnderpass.addPaintableMaterial(Material.GRAY_CONCRETE);
         urchinUnderpass.addPaintableMaterial(Material.LIGHT_GRAY_TERRACOTTA);
         urchinUnderpass.addPaintableMaterial(Material.YELLOW_CONCRETE);

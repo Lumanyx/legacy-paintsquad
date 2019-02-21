@@ -178,7 +178,7 @@ public class BlastProjectile extends SplatoonProjectile implements DamageDealing
                 RayProjectile projectile = new RayProjectile(getShooter(), getShooter().getEquipment().getPrimaryWeapon(),
                         getMatch(), location, dir, dmg);
 
-                if(projectile.rayTraceWithoutObstruction(entity.aabb(), explosionRadius, dir) && entity.isHit(projectile)) {
+                if(projectile.rayTraceWithoutObstruction(entity.aabb(), explosionRadius, dir, true) && entity.isHit(projectile)) {
 
                     if(entity instanceof GroupedObject) {
 
@@ -247,11 +247,11 @@ public class BlastProjectile extends SplatoonProjectile implements DamageDealing
                         if(block.getType() == Material.AIR) {
 
                             Block grounded = BlockUtil.ground(block.getLocation(), 7);
-                            getMatch().paint(grounded.getLocation().toVector(), getShooter());
+                            getMatch().paint(getShooter(), grounded.getLocation().toVector(), getTeam());
 
                         } else {
 
-                            getMatch().paint(block.getLocation().toVector(), getShooter());
+                            getMatch().paint(getShooter(), block.getLocation().toVector(), getTeam());
 
                         }
 

@@ -1,15 +1,31 @@
 package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
+import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.game.equipment.Brand;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SuctionBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.projectile.SprinklerProjectile;
 import de.xenyria.splatoon.game.projectile.SuctionBombProjectile;
+import org.bukkit.Location;
 import org.bukkit.Material;
 
-public abstract class AbstractSuctionBomb extends SplatoonSecondaryWeapon {
+public abstract class AbstractSuctionBomb extends SplatoonSecondaryWeapon implements AIThrowableBomb {
 
     private float radius;
+
+    @Override
+    public double getImpulse() { return SuctionBomb.IMPULSE; }
+
+    @Override
+    public void throwBomb(Location target, Trajectory trajectory) {
+
+        SuctionBombProjectile projectile = new SuctionBombProjectile(getPlayer(), this, getPlayer().getMatch());
+        projectile.spawn(trajectory, getPlayer().getShootingLocation(false), target);
+        getPlayer().getMatch().queueProjectile(projectile);
+
+    }
 
     public AbstractSuctionBomb(int id, String name, float radius) {
 
@@ -35,7 +51,7 @@ public abstract class AbstractSuctionBomb extends SplatoonSecondaryWeapon {
         for (int i = 0; i < copy; i++) {
 
             SuctionBombProjectile projectile = new SuctionBombProjectile(getPlayer(), this, getPlayer().getMatch());
-            projectile.spawn(.8d, getPlayer().getShootingLocation(true), getPlayer().getLocation().getDirection());
+            projectile.spawn(SuctionBomb.IMPULSE, getPlayer().getShootingLocation(true), getPlayer().getLocation().getDirection());
             getPlayer().getMatch().queueProjectile(projectile);
 
         }

@@ -9,6 +9,6 @@ public enum ObjectType {
     SPRINKLER,
     SUCTION_BOMB,
     BEACON,
-    HITBOX, SPONGE, GUSHER;
+    HITBOX, SPONGE, GUSHER, SPECIAL, SECONDARY;
 
 }

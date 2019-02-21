@@ -1,17 +1,30 @@
 package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
+import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.equipment.Brand;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.BurstBomb;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.BurstBombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
+import org.bukkit.Location;
 import org.bukkit.Material;
 
-public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon {
+public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon implements AIThrowableBomb {
 
     private float radius, damage;
+
+    @Override
+    public void throwBomb(Location target, Trajectory trajectory) {
+
+        BurstBombProjectile projectile = new BurstBombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, damage);
+        projectile.spawn(trajectory, getPlayer().getShootingLocation(false), target);
+        getPlayer().getMatch().queueProjectile(projectile);
+
+    }
 
     public AbstractBurstBomb(int id, String name, float radius, float damage) {
 
@@ -36,7 +49,7 @@ public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon {
         for (int i = 0; i < copy; i++) {
 
             BurstBombProjectile projectile = new BurstBombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, damage);
-            projectile.spawn(0.6d, getPlayer().getShootingLocation(true).clone().add(0, -0.6, 0));
+            projectile.spawn(BurstBomb.IMPULSE, getPlayer().getShootingLocation(false));
             getPlayer().getMatch().queueProjectile(projectile);
 
         }

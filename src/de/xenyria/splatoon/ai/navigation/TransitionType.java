@@ -6,7 +6,7 @@ public enum TransitionType {
     ROLL_UNPAINTED(3d),
     ROLL_COVERED(7d),
     WALK(4d),
-    WALK_ENEMY(25d),
+    WALK_ENEMY(75d),
     CLIMB(14d),
     JUMP_TO(20d),
     SWIM(1d),

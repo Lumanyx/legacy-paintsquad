@@ -37,6 +37,7 @@ public class SecondaryWeaponManager {
                 lastSecondaryCheck = 0;
                 AIWeaponManager.AISecondaryWeaponType type = npc.getWeaponManager().getAISecondaryWeaponType();
                 boolean secondaryUseChance = RandomUtil.random(7);
+                AIThrowableBomb bomb = (AIThrowableBomb) npc.getEquipment().getSecondaryWeapon();
 
                 // Genug Tinte?
                 double inkUsage = npc.getEquipment().getSecondaryWeapon().getNextInkUsage();
@@ -45,7 +46,6 @@ public class SecondaryWeaponManager {
                     if (type == AIWeaponManager.AISecondaryWeaponType.DAMAGEBOMB) {
 
                         // Bombe in die Nähe eines Gegners werfen
-                        AIThrowableBomb bomb = (AIThrowableBomb) npc.getEquipment().getSecondaryWeapon();
                         if (npc.getTargetManager().getTarget() != null) {
 
                             TargetManager.Target target = npc.getTargetManager().getTarget();
@@ -61,7 +61,7 @@ public class SecondaryWeaponManager {
 
                                             bomb.throwBomb(result.getHitLocation(), result.getTrajectory());
                                             npc.removeInk(npc.getEquipment().getSecondaryWeapon().getNextInkUsage());
-                                            Bukkit.broadcastMessage("Bomb thrown to kill.");
+                                            //Bukkit.broadcastMessage("Bomb thrown to kill.");
 
                                         }
 
@@ -107,7 +107,7 @@ public class SecondaryWeaponManager {
 
                                             bomb.throwBomb(result.getHitLocation(), result.getTrajectory());
                                             npc.removeInk(npc.getEquipment().getSecondaryWeapon().getNextInkUsage());
-                                            Bukkit.broadcastMessage("Bomb thrown to paint.");
+                                            //Bukkit.broadcastMessage("Bomb thrown to paint.");
                                             tries = 0;
                                             break;
 
@@ -118,6 +118,56 @@ public class SecondaryWeaponManager {
                                     tries--;
 
                                 }
+
+                            }
+
+                        }
+
+                    } else if(type == AIWeaponManager.AISecondaryWeaponType.PAINTBOMB) {
+
+                        // Bombe auf eine einfärbbare Fläche werfen
+                        ArrayList<PaintableRegion> nearby = npc.getMatch().getAIController().nearbyRegions(npc.getLocation().toVector(), 7.5d);
+                        ArrayList<PaintableRegion> potentialRegions = new ArrayList<>();
+                        for (PaintableRegion region : nearby) {
+
+                            if (region.coverage(npc.getTeam()) <= 10d && region.getFloorCoordinates().size() >= 5) {
+
+                                potentialRegions.add(region);
+
+                            }
+
+                        }
+                        Collections.sort(potentialRegions, new Comparator<PaintableRegion>() {
+                            @Override
+                            public int compare(PaintableRegion o1, PaintableRegion o2) {
+                                return -Double.compare(o1.coverage(npc.getTeam()), o2.coverage(npc.getTeam()));
+                            }
+                        });
+                        if (!potentialRegions.isEmpty()) {
+
+                            PaintableRegion region = potentialRegions.get(0);
+                            int tries = 3;
+                            while (tries > 0) {
+
+                                Node node = region.getFloorCoordinates().get(new Random().nextInt(region.getFloorCoordinates().size() - 1));
+                                Vector target = node.toVector();
+
+                                ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(npc.getEyeLocation(), target.toLocation(npc.getWorld()), bomb.getImpulse(), npc.getMatch(), npc.getTeam(), npc);
+                                if (result.isTargetReached() && result.getHitLocation() != null && result.getTrajectory() != null) {
+
+                                    if (secondaryUseChance) {
+
+                                        bomb.throwBomb(result.getHitLocation(), result.getTrajectory());
+                                        npc.removeInk(npc.getEquipment().getSecondaryWeapon().getNextInkUsage());
+                                        //Bukkit.broadcastMessage("Bomb thrown to paint.");
+                                        tries = 0;
+                                        break;
+
+                                    }
+
+                                }
+
+                                tries--;
 
                             }
 

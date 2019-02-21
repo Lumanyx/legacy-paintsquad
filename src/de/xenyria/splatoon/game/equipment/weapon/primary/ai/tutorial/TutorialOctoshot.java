@@ -57,4 +57,9 @@ public class TutorialOctoshot extends AbstractSplattershot {
     public void shoot() {
 
     }
+
+    @Override
+    public float range() {
+        return 3.2f;
+    }
 }

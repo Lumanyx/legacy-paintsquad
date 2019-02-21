@@ -1,7 +1,6 @@
 package de.xenyria.splatoon.game.color;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Random;
 
@@ -11,9 +10,18 @@ public class ColorCombination {
     static {
 
         combinations.add(new ColorCombination(Color.ORANGE, Color.BLUE));
+        combinations.add(new ColorCombination(Color.ORANGE, Color.PURPLE));
+        combinations.add(new ColorCombination(Color.GREEN, Color.PURPLE));
         combinations.add(new ColorCombination(Color.BLUE, Color.GREEN));
-        combinations.add(new ColorCombination(Color.Pink, Color.GREEN));
-        combinations.add(new ColorCombination(Color.Pink, Color.BLUE));
+        combinations.add(new ColorCombination(Color.PINK, Color.GREEN));
+        combinations.add(new ColorCombination(Color.PINK, Color.BLUE));
+        combinations.add(new ColorCombination(Color.PINK, Color.ORANGE));
+        combinations.add(new ColorCombination(Color.PINK, Color.PURPLE));
+        combinations.add(new ColorCombination(Color.PINK, Color.LIGHT_BLUE));
+        combinations.add(new ColorCombination(Color.RED, Color.LIGHT_BLUE));
+        combinations.add(new ColorCombination(Color.MINT, Color.RED));
+        combinations.add(new ColorCombination(Color.CYAN, Color.BLUE));
+        combinations.add(new ColorCombination(Color.BLUE, Color.YELLOW));
 
     }
 

@@ -1,7 +1,9 @@
 package de.xenyria.splatoon;
 
 import com.comphenix.protocol.ProtocolLibrary;
+import com.destroystokyo.paper.PaperConfig;
 import com.mojang.brigadier.Message;
+import com.xxmicloxx.NoteBlockAPI.NoteBlockAPI;
 import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.servercore.spigot.logger.XenyriaSpigotLogger;
 import de.xenyria.servercore.spigot.util.WorldUtil;
@@ -24,6 +26,7 @@ import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.player.userdata.level.Level;
 import de.xenyria.splatoon.game.player.userdata.level.LevelTree;
+import de.xenyria.splatoon.game.sound.MusicManager;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.lobby.PlazaLobbyManager;
 import de.xenyria.splatoon.lobby.shop.AbstractShopkeeper;
@@ -96,6 +99,9 @@ public class XenyriaSplatoon extends JavaPlugin {
     private static ShootingRangeManager shootingRangeManager;
     public static ShootingRangeManager getShootingRangeManager() { return shootingRangeManager; }
 
+    private static MusicManager musicManager;
+    public static MusicManager getMusicManager() { return musicManager; }
+
     public static void initLobbyManager() {
 
         lobbyManager = new PlazaLobbyManager();
@@ -103,6 +109,7 @@ public class XenyriaSplatoon extends JavaPlugin {
     }
 
     public void onEnable() {
+
 
         /*XenyriaSpigotAPI.HANDLE_TAB_LIST = false;
         XenyriaSpigotAPI.HANDLE_PLAYER_INFO = false;
@@ -118,9 +125,9 @@ public class XenyriaSplatoon extends JavaPlugin {
             WorldUtil.purifyWorld("sp_sr");
             WorldUtil.purifyWorld("sp_lobby");
             WorldUtil.purifyWorld("sp_arena");
-            WorldUtil.deleteRegions("sp_sr");
-            WorldUtil.deleteRegions("sp_tutorial");
-            WorldUtil.deleteRegions("sp_arena");
+            WorldUtil.purgeWorld("sp_sr");
+            WorldUtil.purgeWorld("sp_tutorial");
+            WorldUtil.purgeWorld("sp_arena");
 
             File resourcepack = new File(getPlugin().getDataFolder() + File.separator + "resourcepack.zip");
             byte[] buf = new byte[1024];
@@ -140,6 +147,8 @@ public class XenyriaSplatoon extends JavaPlugin {
                 sb.append(Integer.toString((RESOURCE_PACK_HASH[i] & 0xff) + 0x100, 16).substring(1));
             }
             String fileHash = sb.toString();
+            digest.reset();
+            stream.close();
 
             getXenyriaLogger().log("Resourcepack-Hash festgelegt: §e" + fileHash);
 
@@ -164,6 +173,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         getCommand("shootingrange").setExecutor(new ShootingRangeCommand());
         getCommand("shootingrange").setAliases(Arrays.asList("sr"));
         getCommand("scoins").setExecutor(new SplatoonCoinsCommand());
+        getCommand("benchmark").setExecutor(new BenchmarkCommand());
 
         new PlayerEventHandler();
         new InitializeListener();
@@ -177,6 +187,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         arenaRegistry = new ArenaRegistry();
         genericGearRegistry = new SplatoonGenericGearRegistry();
         weaponSetRegistry = new WeaponSetRegistry();
+        musicManager = new MusicManager();
         //match.registerTeam(Team.DEBUG_TEAM_3);
         //match.registerTeam(Team.DEBUG_TEAM_4);
         /*match.getMap().getPaintDefinition().getPaintableMaterials().add(Material.SMOOTH_STONE);

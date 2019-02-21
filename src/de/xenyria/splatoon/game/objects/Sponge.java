@@ -4,6 +4,7 @@ import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.equipment.weapon.util.PlayerDamageCooldownMap;
 import de.xenyria.splatoon.game.match.Match;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.projectile.*;
 import de.xenyria.splatoon.game.team.Team;
 import net.minecraft.server.v1_13_R2.*;
@@ -12,6 +13,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_13_R2.block.CraftBlock;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.util.Vector;
 
@@ -88,11 +90,8 @@ public class Sponge extends GameObject implements HitableEntity {
 
                 server.setTypeUpdate(entry.getKey(), entry.getValue());
                 Block block = getMatch().getWorld().getBlockAt(entry.getKey().getX(), entry.getKey().getY(), entry.getKey().getZ());
-                if(block.hasMetadata("Team")) {
-
-                    block.removeMetadata("Team", XenyriaSplatoon.getPlugin());
-
-                }
+                BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlockIfExist(block.getX(), block.getY(), block.getZ());
+                flag.setTeamID(owningTeam.getID());
 
             }
             backup.clear();
@@ -120,9 +119,10 @@ public class Sponge extends GameObject implements HitableEntity {
                 for(int z = minZ; z <= maxZ; z++) {
 
                     Block block = world.getBlockAt(x,y,z);
-                    if(block.hasMetadata("Team")) {
+                    BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlockIfExist(x,y,z);
+                    if(flag.hasSetTeam()) {
 
-                        block.removeMetadata("Team", XenyriaSplatoon.getPlugin());
+                        flag.setTeamID(BlockFlagManager.BlockFlag.NO_TEAM);
 
                     }
 
@@ -133,7 +133,8 @@ public class Sponge extends GameObject implements HitableEntity {
 
                     if(owningTeam != null) {
 
-                        block.setMetadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), owningTeam.getColor().name()));
+                        BlockFlagManager.BlockFlag flag1 = getMatch().getBlockFlagManager().getBlock(getMatch().getOffset(), block.getX(), block.getY(), block.getZ());
+                        flag1.setTeamID(owningTeam.getID());
                         block.setType(owningTeam.getColor().getSponge());
 
                     } else {

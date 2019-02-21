@@ -15,8 +15,19 @@ public class Node implements IHeapItem {
     public Node getParent() { return parent; }
     public void setParent(Node node) { this.parent = node; }
 
-    private HashMap<String, Object> additionalData = new HashMap<>();
-    public HashMap<String, Object> getAdditionalData() { return additionalData; }
+    private HashMap<String, Object> additionalData;
+    public boolean isAdditionalDataInitialized() { return additionalData != null; }
+    public boolean containsData(String name) { return isAdditionalDataInitialized() && additionalData.containsKey(name); }
+    public void putData(String key, Object obj) {
+
+        if(!isAdditionalDataInitialized()) {
+
+            additionalData = new HashMap<>();
+
+        }
+        additionalData.put(key, obj);
+
+    }
 
     private boolean first;
     public boolean isFirst() { return first; }
@@ -132,8 +143,35 @@ public class Node implements IHeapItem {
 
     public Vector toVector() {
 
-        return new Vector(x+.5,totalHeight(),z+.5);
+        if(alternativeVec != null) {
+
+            return alternativeVec;
+
+        } else {
+
+            return new Vector(x + .5, totalHeight(), z + .5);
+
+        }
 
     }
 
+    private Vector alternativeVec;
+    public void addHeight(double v) {
+
+        alternativeVec = new Vector(x+.5,v,z+.5);
+
+    }
+
+    public Object getData(String key) {
+
+        if(isAdditionalDataInitialized()) {
+
+            return additionalData.get(key);
+
+        }
+        return null;
+
+    }
+
+    public HashMap getAdditionalData() { return additionalData; }
 }

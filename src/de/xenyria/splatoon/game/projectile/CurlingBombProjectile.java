@@ -98,11 +98,11 @@ public class CurlingBombProjectile extends SplatoonProjectile implements DamageD
                 oldPos, newPos, FluidCollisionOption.NEVER, true, true
         );
 
-        getMatch().paint(bomb.getLocation().clone().add(0, -0.5, 0).toVector(), getShooter());
-        getMatch().paint(bomb.getLocation().clone().add(0.2, -0.5, 0).toVector(), getShooter());
-        getMatch().paint(bomb.getLocation().clone().add(-0.2, -0.5, 0).toVector(), getShooter());
-        getMatch().paint(bomb.getLocation().clone().add(0, -0.5, 0.2).toVector(), getShooter());
-        getMatch().paint(bomb.getLocation().clone().add(0, -0.5, -0.2).toVector(), getShooter());
+        getMatch().paint(getShooter(), bomb.getLocation().clone().add(0, -0.5, 0).toVector(), getShooter().getTeam());
+        getMatch().paint(getShooter(), bomb.getLocation().clone().add(0.2, -0.5, 0).toVector(), getShooter().getTeam());
+        getMatch().paint(getShooter(), bomb.getLocation().clone().add(-0.2, -0.5, 0).toVector(), getShooter().getTeam());
+        getMatch().paint(getShooter(), bomb.getLocation().clone().add(0, -0.5, 0.2).toVector(), getShooter().getTeam());
+        getMatch().paint(getShooter(), bomb.getLocation().clone().add(0, -0.5, -0.2).toVector(), getShooter().getTeam());
 
         if(noCollisionTicks>0) { noCollisionTicks--; }
         if(!wrapInstead && pos != null && noCollisionTicks < 1) {
@@ -140,11 +140,11 @@ public class CurlingBombProjectile extends SplatoonProjectile implements DamageD
                     );
 
                     // Getroffenen Block einfärben
-                    if (getMatch().isPaintable(getShooter().getTeam(), getLocation().getWorld().getBlockAt(
+                    if (getMatch().isPaintable(getShooter().getTeam(),
                             (int) pos.pos.x, (int) pos.pos.y, (int) pos.pos.z
-                    ))) {
+                    )) {
 
-                        getMatch().paint(new Vector(pos.pos.x, pos.pos.y, pos.pos.z), getShooter());
+                        getMatch().paint(getShooter(), new Vector(pos.pos.x, pos.pos.y, pos.pos.z), getShooter().getTeam());
 
                     }
                     SplatoonServer.broadcastColorParticleExplosion(getLocation().getWorld(), getLocation().getX(), getLocation().getY(), getLocation().getZ(), getShooter().getTeam().getColor());

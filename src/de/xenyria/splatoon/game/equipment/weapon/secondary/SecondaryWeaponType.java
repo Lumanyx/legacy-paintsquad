@@ -6,7 +6,8 @@ public enum SecondaryWeaponType {
 
     GRENADE("Bombe", "Explodiert nach Kontakt mit einer Fläche oder einem Feind.\nFärbt einen kleinen Teil der Fläche ein.", Material.GUNPOWDER),
     SPRINKLER("Sprinkler", "Kann an Böden, Decken und Wänden befestigt werden.\nFärbt selbstständig Fläche ein.\nEs kann maximal ein Sprinkler platziert werden.", Material.HOPPER),
-    JUMPPOINT("Sprungboje", "Mobiler Sprungpunkt für deine Mitspieler.\nEs kann maximal eine Sprungboje platziert werden.", Material.BEACON);
+    JUMPPOINT("Sprungboje", "Mobiler Sprungpunkt für deine Mitspieler.\nEs kann maximal eine Sprungboje platziert werden.", Material.BEACON),
+    DETECTOR("", "", Material.AIR);
 
     private String name;
     public String getName() { return name; }

@@ -28,6 +28,7 @@ public abstract class SplatoonSecondaryWeapon extends SplatoonWeapon implements 
         builder.addLore("§8§l> Marke");
         builder.addLore(getBrand().getDisplayName());
         builder.addToNBT("WeaponID", getID());
+        builder.addToNBT("SecondaryWeapon", true);
 
         return builder.create();
 

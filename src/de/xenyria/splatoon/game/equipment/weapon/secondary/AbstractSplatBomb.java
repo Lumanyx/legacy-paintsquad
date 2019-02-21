@@ -2,6 +2,7 @@ package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SplatBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
@@ -13,7 +14,7 @@ public abstract class AbstractSplatBomb extends SplatoonSecondaryWeapon implemen
     @Override
     public void throwBomb(Location target, Trajectory trajectory) {
 
-        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, 20, 145, true);
+        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, (int)activationDelay, 145, true);
         projectile.spawn(trajectory, getPlayer().getShootingLocation(false), target);
 
     }
@@ -42,8 +43,8 @@ public abstract class AbstractSplatBomb extends SplatoonSecondaryWeapon implemen
         int copy = projectilesToSpawn;
         for (int i = 0; i < copy; i++) {
 
-            BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, 20, 145, true);
-            projectile.spawn(0.825d, getPlayer().getShootingLocation(true));
+            BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, 20, SplatBomb.MAX_DAMAGE, true);
+            projectile.spawn(SplatBomb.IMPULSE, getPlayer().getShootingLocation(true));
 
         }
         projectilesToSpawn -= copy;
@@ -92,7 +93,7 @@ public abstract class AbstractSplatBomb extends SplatoonSecondaryWeapon implemen
 
     @Override
     public double getImpulse() {
-        return 0.7d;
+        return SplatBomb.IMPULSE;
     }
 
     @Override

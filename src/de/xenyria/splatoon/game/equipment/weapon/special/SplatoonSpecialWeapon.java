@@ -32,6 +32,7 @@ public abstract class SplatoonSpecialWeapon extends SplatoonWeapon {
         builder.addLore(getDescription().split("\n"));
         builder.addLore("§0");
         builder.addToNBT("WeaponID", getID());
+        builder.addToNBT("SpecialWeapon", true);
 
         return builder.create();
 

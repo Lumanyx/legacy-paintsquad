@@ -5,13 +5,18 @@ import de.xenyria.splatoon.game.equipment.weapon.SplatoonWeapon;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.util.AABBUtil;
+import de.xenyria.splatoon.game.util.BlockUtil;
+import de.xenyria.splatoon.game.util.VectorUtil;
 import net.minecraft.server.v1_13_R2.*;
+import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
@@ -37,14 +42,20 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
 
     }
 
-    public HitableEntity getHitEntity(double maxRange) {
+    public HitableEntity getHitEntity(double maxRange, boolean passPassables) {
+
+        return getHitEntity(maxRange, true, passPassables);
+
+    }
+
+    public HitableEntity getHitEntity(double maxRange, boolean checkObstruction, boolean passPassables) {
 
         return getHitEntity(maxRange, new Predicate<HitableEntity>() {
             @Override
             public boolean test(HitableEntity hitableEntity) {
                 return true;
             }
-        });
+        }, checkObstruction, passPassables);
 
     }
 
@@ -61,13 +72,29 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
 
     }
 
-    public static ArrayList<Block> rayCastBlocks(double finalRange, Location startLocation, Vector direction) {
+    public static ArrayList<Block> rayCastBlocks(double finalRange, Location startLocation, Vector direction, Match match) {
 
         ArrayList<Block> blocks = new ArrayList<>();
-        RayTraceResult result1 = startLocation.getWorld().rayTraceBlocks(
-                startLocation, direction,
-                finalRange, FluidCollisionMode.NEVER);
-        double travelledDistance = 0d;
+        RayTraceResult result1 = match.getWorldInformationProvider().rayTraceBlocks(startLocation.toVector(), direction, finalRange, true);
+        if(result1 != null) {
+
+            finalRange = result1.getHitPosition().distance(startLocation.toVector());
+
+        }
+        finalRange+=2d;
+
+        Vector cursor = startLocation.toVector();
+        for(double dist = 0; dist < finalRange; dist+=0.25d) {
+
+            cursor.add(direction.clone().multiply(.25d));
+            Location location = new Location(startLocation.getWorld(), (int)cursor.getX(), (int)cursor.getY(), (int)cursor.getZ());
+            Block block1 = BlockUtil.ground(location, 16);
+            blocks.add(block1);
+
+        }
+        return blocks;
+
+        /*double travelledDistance = 0d;
         if(result1 != null) {
 
             travelledDistance += startLocation.toVector().distance(result1.getHitPosition());
@@ -130,23 +157,33 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
             gatherBlocks(startLocation.toVector(), startLocation.clone().add(direction.clone().multiply(finalRange)).toVector(), blocks, startLocation.getWorld());
 
         }
-        return blocks;
+        return blocks;*/
 
     }
 
-    public HitableEntity getHitEntity(double maxRange, java.util.function.Predicate<HitableEntity> filter) {
+    public HitableEntity getHitEntity(double maxRange, java.util.function.Predicate<HitableEntity> filter, boolean checkObstruction, boolean canPassPassableBlocks) {
 
         ArrayList<HitableEntity> arrayList = new ArrayList<>();
         for(HitableEntity entity : getShooter().getMatch().getHitableEntities()) {
 
-            AxisAlignedBB entityAABB = entity.aabb();
+            if(ProjectileUtil.manhattanDistance(this, entity) <= (maxRange+1d)) {
 
-            double dist = entity.distance(this);
-            if(entityAABB != null && dist <= maxRange && rayTraceWithoutObstruction(entityAABB, maxRange)) {
+                AxisAlignedBB entityAABB = entity.aabb();
+                RayTraceResult result = rayTrace(entityAABB, maxRange);
+                if (result != null) {
 
-                if(entity.isHit(this) && filter.test(entity)) {
+                    double dist = entity.distance(this);
+                    boolean obstructionOkay = !checkObstruction || rayTraceWithoutObstruction(entityAABB, maxRange, canPassPassableBlocks);
 
-                    arrayList.add(entity);
+                    if (entityAABB != null && dist <= maxRange && obstructionOkay) {
+
+                        if (entity.isHit(this) && filter.test(entity)) {
+
+                            arrayList.add(entity);
+
+                        }
+
+                    }
 
                 }
 
@@ -177,7 +214,15 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
     public RayTraceResult rayTrace(AxisAlignedBB bb, double range) {
 
         BoundingBox boundingBox = new BoundingBox(bb.minX, bb.minY, bb.minZ, bb.maxX, bb.maxY, bb.maxZ);
-        return boundingBox.rayTrace(origin.toVector(), direction, range);
+        if(VectorUtil.isValid(direction) && direction.length() > 0) {
+
+            return boundingBox.rayTrace(origin.toVector(), direction, range);
+
+        } else {
+
+            return null;
+
+        }
 
     }
     public RayTraceResult rayTrace(AxisAlignedBB bb, double range, Vector dir) {
@@ -186,12 +231,12 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
         return boundingBox.rayTrace(origin.toVector(), dir, range);
 
     }
-    public boolean rayTraceWithoutObstruction(AxisAlignedBB targetBB, double range, Vector dir) {
+    public boolean rayTraceWithoutObstruction(AxisAlignedBB targetBB, double range, Vector dir, boolean passPassableBlocks) {
 
         RayTraceResult result = rayTrace(targetBB, range, dir);
         if(result != null) {
 
-            RayTraceResult newRes = checkResultForBlockCollision(result);
+            RayTraceResult newRes = checkResultForBlockCollision(result, passPassableBlocks);
             if(newRes == null || newRes.getHitBlock() == null) {
 
                 return true;
@@ -202,14 +247,14 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
         return false;
 
     }
-    public boolean rayTraceWithoutObstruction(AxisAlignedBB targetBB, double range) {
+    public boolean rayTraceWithoutObstruction(AxisAlignedBB targetBB, double range, boolean passPassables) {
 
         if(isNullVector()) { return true; }
 
         RayTraceResult result = rayTrace(targetBB, range);
         if(result != null) {
 
-            RayTraceResult newRes = checkResultForBlockCollision(result);
+            RayTraceResult newRes = checkResultForBlockCollision(result, passPassables);
             if(newRes == null || newRes.getHitBlock() == null) {
 
                 return true;
@@ -221,7 +266,7 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
 
     }
 
-    public RayTraceResult checkResultForBlockCollision(RayTraceResult result) {
+    public RayTraceResult checkResultForBlockCollision(RayTraceResult result, boolean passPassables) {
 
         Vector targetPos = result.getHitPosition();
         World world = origin.getWorld();
@@ -232,8 +277,9 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
 
         }
 
-        RayTraceResult newRes = world.rayTraceBlocks(origin, direction, dist);
-        return newRes;
+        return getMatch().getWorldInformationProvider().rayTraceBlocks(origin.toVector(), direction, dist, !passPassables);
+        //RayTraceResult newRes = world.rayTraceBlocks(origin, direction, dist);
+        //return newRes;
 
     }
 

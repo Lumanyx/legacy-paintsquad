@@ -13,7 +13,7 @@ public class CarbonRoller extends AbstractRoller {
     public CarbonRoller() {
 
         // super(4, "Protoroller", 0.03f, 0.22f, 2.5f, 0.2f, 17, 120, 50f);
-        super(ID, "Karbonroller", 0.05f, 0.25f, 2, 0.18f, 16, 73, 72);
+        super(ID, "Karbonroller", 0.05f, 0.25f, 3, 0.18f, 16, 73, 72);
 
     }
 

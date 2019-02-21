@@ -10,15 +10,19 @@ import de.xenyria.splatoon.ai.pathfinding.path.NodePath;
 import de.xenyria.splatoon.ai.pathfinding.worker.PathfindingManager;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponRoller;
+import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
 import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.objects.InkRail;
 import de.xenyria.splatoon.game.objects.RideRail;
+import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.VectorUtil;
 import net.minecraft.server.v1_13_R2.BlockPosition;
 import net.minecraft.server.v1_13_R2.Navigation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -70,13 +74,31 @@ public class NavigationManager {
         while (!remainingNavigationPoints.isEmpty()) {
 
             found = remainingNavigationPoints.get(0);
-            if(!found.isReached(npc.getLocation()) || skipPoint) {
+            double horRange = .5d, vertRange=0.1d;
+            if(npc.getEquipment().getSpecialWeapon() != null && npc.getEquipment().getSpecialWeapon() instanceof Baller) {
+
+                if(npc.getEquipment().getSpecialWeapon().isActive()) {
+
+                    horRange = 0.75d;
+                    vertRange = 256d;
+
+                }
+
+            }
+
+            if(!found.isReached(npc.getLocation(), horRange, vertRange) && !skipPoint) {
 
                 return found;
 
             } else {
 
-                skipPoint = false;
+                if(skipPoint) {
+
+                    skipPoint = false;
+                    remainingNavigationPoints.remove(0);
+                    return null;
+
+                }
                 ticksSinceLastNewNavigationPoint = 0;
                 remainingNavigationPoints.remove(0);
                 npc.disableWallSwimMode();
@@ -101,7 +123,8 @@ public class NavigationManager {
     private TransitionType[] COMPLEX_TRANSITIONS = new TransitionType[] {
 
             TransitionType.RIDE_RAIL, TransitionType.INK_RAIL,
-            TransitionType.JUMP_TO, TransitionType.SWIM_WALL_VERTICAL, TransitionType.ENTER_FOUNTAIN
+            TransitionType.JUMP_TO, TransitionType.SWIM_WALL_VERTICAL, TransitionType.ENTER_FOUNTAIN,
+            TransitionType.SWIM_BLOCKED, TransitionType.SWIM_DRY
 
     };
     private int ticksSinceLastNewNavigationPoint;
@@ -194,7 +217,23 @@ public class NavigationManager {
 
         if(!disabled) {
 
-            String debugStr = "Ticks: " + npc.getWeaponManager().getShootingTicks();
+            String debugStr = "";
+            String str2 = ""+System.currentTimeMillis()+" ";
+
+            str2+=ticksSinceLastNewNavigationPoint + " " + ticksSincePathFound + " ";
+
+            if(pathfindRequest != null) {
+
+                str2+=pathfindRequest.getRequestResult();
+
+            }
+
+            if(!remainingNavigationPoints.isEmpty()) {
+
+                NavigationPoint point = remainingNavigationPoints.get(0);
+                debugStr+=point.x + " " + point.toVector().getY() + " " + point.z + " || ";
+
+            }
 
             // Vergangene Ticks seit dem letzten neuen Navigationspunkt: Soll den Stuck-Status verhindern
             ticksSinceLastNewNavigationPoint++;
@@ -296,7 +335,6 @@ public class NavigationManager {
 
                         NavigationPoint point = new NavigationPoint(position.x, position.y + position.blockHeight, position.z, position.getType(), position.getData());
                         remainingNavigationPoints.add(point);
-                        npc.getWorld().spawnParticle(Particle.VILLAGER_HAPPY, point.x + .5, point.y + .5, point.z + .5, 0);
 
                     }
 
@@ -393,7 +431,21 @@ public class NavigationManager {
                             if (npc.isSquid()) {
                                 npc.leaveSquidForm();
                             }
+
+                            Vector before = npc.getLocation().toVector();
                             npc.move(movementDirection.getX(), 0, movementDirection.getZ());
+                            Vector after = npc.getLocation().toVector();
+                            if(before.distance(after) <= 0.0125d) {
+
+                                Vector plannedPos = before.add(new Vector(movementDirection.getX(), 0, movementDirection.getZ()));
+                                Block block = npc.getWorld().getBlockAt((int)plannedPos.getX(), (int)plannedPos.getY(), (int)plannedPos.getZ());
+                                if(AABBUtil.isPassable(block.getType()) && AABBUtil.isPassable(block.getRelative(BlockFace.UP).getType())) {
+
+                                    npc.enterSquidForm();
+
+                                }
+
+                            }
 
                             if (newNavpointFlag && lookInWalkingDirection) {
 
@@ -438,7 +490,7 @@ public class NavigationManager {
 
                             }
 
-                        } else if (point.getTransitionType() == TransitionType.SWIM || point.getTransitionType() == TransitionType.SWIM_DRY || point.getTransitionType() == TransitionType.SWIM_BLOCKED) {
+                        } else if (point.getTransitionType() == TransitionType.SWIM || point.getTransitionType() == TransitionType.SWIM_DRY || point.getData().containsKey("nextSwim") || point.getData().containsKey("squidNeeded") || point.getTransitionType() == TransitionType.SWIM_BLOCKED) {
 
                             if (!npc.isSquid() && npc.isSquidFormAvailable()) {
 
@@ -556,11 +608,12 @@ public class NavigationManager {
 
                                     for (BlockPosition position : positions) {
 
-                                        if (npc.getMatch().isOwnedByTeam(npc.getWorld().getBlockAt(
+                                        if (!npc.getMatch().isOwnedByTeam(npc.getWorld().getBlockAt(
                                                 position.getX(), position.getY(), position.getZ()
                                         ), npc.getTeam())) {
 
                                             invalid = true;
+                                            npc.disableWallSwimMode();
                                             break;
 
                                         }
@@ -592,8 +645,8 @@ public class NavigationManager {
                             }
                             if (npc.isSquid() && npc.isSwimmingOnWall()) {
 
-                                npc.move(origMovement.getX() * .3, 0.012, origMovement.getZ() * .3);
-                                if (point.isReached(npc.getLocation())) {
+                                npc.move(origMovement.getX() * .3, 0.017, origMovement.getZ() * .3);
+                                if (point.isReached(npc.getLocation(), .25d, .2d)) {
 
                                     npc.disableWallSwimMode();
 
@@ -634,7 +687,7 @@ public class NavigationManager {
             }
 
             newNavpointFlag = false;
-            npc.diagnosticStand1.setCustomName(debugStr);
+            //npc.diagnosticStand1.setCustomName(str2 + " ");
 
         }
 

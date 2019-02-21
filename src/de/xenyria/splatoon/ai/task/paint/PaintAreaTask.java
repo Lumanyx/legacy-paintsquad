@@ -4,25 +4,31 @@ import de.xenyria.core.array.ThreeDimensionalArray;
 import de.xenyria.core.math.AngleUtil;
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.math.trajectory.Vector3f;
+import de.xenyria.servercore.spigot.util.DirectionUtil;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.ai.navigation.NavigationPoint;
 import de.xenyria.splatoon.ai.navigation.TransitionType;
 import de.xenyria.splatoon.ai.pathfinding.PathfindingTarget;
 import de.xenyria.splatoon.ai.pathfinding.SquidAStar;
 import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.ai.projectile.ProjectileExaminer;
+import de.xenyria.splatoon.ai.target.TargetManager;
 import de.xenyria.splatoon.ai.task.AITask;
 import de.xenyria.splatoon.ai.task.TaskType;
 import de.xenyria.splatoon.ai.task.approach.ApproachEnemiesTask;
 import de.xenyria.splatoon.ai.task.approach.ApproachPaintableRegionTask;
 import de.xenyria.splatoon.ai.task.signal.SignalType;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponCharger;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.util.BlockUtil;
 import de.xenyria.splatoon.game.util.VectorUtil;
+import net.minecraft.server.v1_13_R2.Navigation;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -66,12 +72,11 @@ public class PaintAreaTask extends AITask {
 
     private PaintStrip target;
 
-    public float[] possibleDirections = new float[]{0f, 22.5f, 45f, 67.5f, 90f, 112.5f, 135f, 157.5f, 180f,
-    202.5f, 225f, 247.5f, 270f, 292.5f, 315f, 337.5f};
+    public float[] possibleDirections = new float[]{0f, 45f, 90f, 135f, 180f, 215f, 270f, 315f};
 
     @Override
     public boolean doneCheck() {
-        return !getNPC().getTargetManager().getPossibleTargets().isEmpty();
+        return !getNPC().getTargetManager().getPossibleTargets().isEmpty() || getNPC().getTargetManager().getTarget() != null;
     }
 
     private int lastPaintCheck = 0;
@@ -102,9 +107,9 @@ public class PaintAreaTask extends AITask {
     public boolean newPathNecessary() {
 
         AIWeaponManager.AIPrimaryWeaponType type = getNPC().getWeaponManager().getAIPrimaryWeaponType();
-        if(type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER) {
+        if(type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER || type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
 
-            return target == null && !navigationFlag && getNPC().getNavigationManager().hasReachedTarget(2);
+            return target == null && !navigationFlag && getNPC().getNavigationManager().isDone();
 
         } else if(type == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
@@ -186,7 +191,7 @@ public class PaintAreaTask extends AITask {
 
         }
 
-        if(errorCount > 10) {
+        if(errorCount > 5) {
 
             navigationFlag = false;
             setTarget();
@@ -214,15 +219,15 @@ public class PaintAreaTask extends AITask {
 
 
         if(lastPaintCheck > 0) { lastPaintCheck--; }
-        if(type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER && !pathfindingProgress && target == null && lastPaintCheck < 1) {
+        if((type == AIWeaponManager.AIPrimaryWeaponType.SHOOTER || type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) && !pathfindingProgress && target == null && lastPaintCheck < 1) {
 
-            lastPaintCheck = 7;
+            lastPaintCheck = 9;
             ArrayList<PaintStrip> strips = new ArrayList<>();
             for(float angle : possibleDirections) {
 
                 Location location = new Location(getNPC().getWorld(), 0,0,0);
                 location.setYaw(angle);
-                location.setPitch(-15f);
+                location.setPitch(0f);
                 Vector direction = location.getDirection();
 
                 Vector start = getNPC().getShootingLocation(getNPC().getWeaponManager().getCurrentHandBoolean()).toVector();
@@ -249,7 +254,7 @@ public class PaintAreaTask extends AITask {
 
                         for(Block block : unpainted) {
 
-                            boolean wall = block.hasMetadata("Wall") && block.getMetadata("Wall").get(0).asBoolean();
+                            boolean wall = getNPC().getMatch().isWall(block);
 
                             if(getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
 
@@ -275,7 +280,7 @@ public class PaintAreaTask extends AITask {
 
                         }
                         strip.list = unpainted;
-                        if((strip.enemyBlocks+strip.paintableBlocks) >= 3) {
+                        if((strip.enemyBlocks+strip.paintableBlocks) >= 2) {
 
                             strips.add(strip);
 
@@ -283,49 +288,101 @@ public class PaintAreaTask extends AITask {
 
                     }
 
-                }
+                } else if(type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
 
-                if(strips.size() > 1) {
+                    ArrayList<Block> blocks = new ArrayList<>();
+                    start = getNPC().getEyeLocation().toVector();
+                    double distance = getNPC().getWeaponManager().maxWeaponDistance();
+                    PaintStrip strip = new PaintStrip(start, direction, distance);
+                    strip.list = blocks;
 
-                    Collections.sort(strips, new Comparator<PaintStrip>() {
+                    RayTraceResult result = getNPC().getMatch().getWorldInformationProvider().rayTraceBlocks(start, direction, distance, true);
+                    if(result != null) {
 
-                        @Override
-                        public int compare(PaintStrip o1, PaintStrip o2) {
+                        distance = result.getHitPosition().distance(start);
 
-                            float playerYaw = getNPC().getLocation().getYaw();
-                            if(playerYaw >= 360f) { playerYaw-=360f; } else if(playerYaw < 0) { playerYaw+=360f; }
+                    }
+                    Vector cursor = start.clone();
 
-                            Location loc1 = new Location(getNPC().getWorld(), 0,0,0);
-                            loc1 = loc1.setDirection(o1.direction);
+                    for(double d = 0; d <= distance; d+=.25d) {
 
-                            float loc1Yaw = loc1.getYaw();
-                            if(loc1Yaw >= 360f) { loc1Yaw-=360f; } else if(loc1Yaw < 0) { loc1Yaw+=360f; }
+                        cursor.add(direction.clone().multiply(0.25d));
+                        Block block = BlockUtil.ground(cursor.toLocation(getNPC().getWorld()), 10);
 
-                            double angleOffset1 = AngleUtil.distance(loc1Yaw, playerYaw);
-                            loc1 = loc1.setDirection(o2.direction);
-                            loc1Yaw = loc1.getYaw();
-                            if(loc1Yaw >= 360f) { loc1Yaw-=360f; } else if(loc1Yaw < 0) { loc1Yaw+=360f; }
-                            double angleOffset2 = AngleUtil.distance(loc1Yaw, playerYaw);
+                        if(getNPC().getMatch().isPaintable(getNPC().getTeam(), block.getX(), block.getY(), block.getZ())) {
 
-                            double weight1 = (o1.enemyBlocks*3)+(o1.paintableBlocks)+(o1.paintableWallBlocks*.33) + (angleOffset1*25);
-                            double weight2 = (o2.enemyBlocks*3)+(o2.paintableBlocks)+(o2.paintableWallBlocks*.33) + (angleOffset2*25);
+                            if(!blocks.contains(block)) {
 
-                            return Double.compare(weight1, weight2);
+                                blocks.add(block);
+                                if (getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
+
+                                    strip.enemyBlocks++;
+
+                                } else {
+
+                                    if (getNPC().getMatch().isWall(block)) {
+
+                                        strip.paintableWallBlocks++;
+
+                                    } else {
+
+                                        strip.paintableBlocks++;
+
+                                    }
+
+                                }
+
+                            }
 
                         }
 
-                    });
+                    }
+                    strip.target = start.clone().add(direction.clone().multiply(direction));
+                    if((strip.enemyBlocks+strip.paintableBlocks) >= (getNPC().getWeaponManager().maxWeaponDistance()*.825d)) {
+
+                        strips.add(strip);
+
+                    }
 
                 }
-                if(strips.isEmpty()) {
 
-                    errorCount++;
+            }
+
+            if(strips.size() > 1) {
+
+                Collections.sort(strips, new Comparator<PaintStrip>() {
+
+                    @Override
+                    public int compare(PaintStrip o1, PaintStrip o2) {
+
+                        double weight1 = (o1.enemyBlocks*5)+(o1.paintableBlocks*2);
+                        double weight2 = (o2.enemyBlocks*5)+(o2.paintableBlocks*2);
+
+                        return -Double.compare(weight1, weight2);
+
+                    }
+
+                });
+
+            }
+
+            if(strips.isEmpty()) {
+
+                errorCount++;
+
+            } else {
+
+                /*if(strips.size() >= 3) {
+
+                    target = strips.get(new Random().nextInt(strips.size()-1));
 
                 } else {
 
                     target = strips.get(0);
 
-                }
+                }*/
+                target = strips.get(0);
+                float[] f = DirectionUtil.directionToYawPitch(target.direction);
 
             }
 
@@ -336,10 +393,11 @@ public class PaintAreaTask extends AITask {
             for(Block block : target.list) {
 
                 Location location = block.getLocation();
-                location = location.add(.5, 1.25, .5);
-                location.getWorld().spawnParticle(Particle.VILLAGER_HAPPY, location, 0);
+                location = location.add(.5, 1, .5);
 
             }
+
+            if(getNPC().getNavigationManager().isStuck()) { setTarget(); return; }
 
             if(!getNPC().isSquid()) {
 
@@ -355,11 +413,29 @@ public class PaintAreaTask extends AITask {
                     getNPC().getWeaponManager().fire(30);
                     if (targetChangeTicks == 0) {
 
-                        targetChangeTicks = 9 + (new Random().nextInt(16));
+                        targetChangeTicks = 6 + (new Random().nextInt(12));
+
+                    }
+
+                } else if(type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                    if(getNPC().getWeaponManager().getShootingTicks() == 0) {
+
+                        AIWeaponCharger charger = (AIWeaponCharger) getNPC().getWeaponManager().getAIWeaponInterface();
+                        getNPC().getWeaponManager().aim(target.target);
+
+                        getNPC().getWeaponManager().fire((int) (charger.estimatedChargeTimeForTargetDistance(getNPC().getEyeLocation().toVector().distance(target.target)) / 50));
+
+                        targetChangeTicks = getNPC().getWeaponManager().getShootingTicks() + (new Random().nextInt(4));
+                        currentAimStrip = target;
 
                     }
 
                 }
+
+            } else {
+
+                getNPC().leaveSquidForm();
 
             }
 
@@ -402,7 +478,7 @@ public class PaintAreaTask extends AITask {
 
         } else {
 
-            Vector lastDelta = getNPC().getLastDelta();
+            /*Vector lastDelta = getNPC().getLastDelta();
             Vector current = getNPC().getLocation().toVector();
             Vector target = current.clone().add(lastDelta);
             Vector direction = target.clone().subtract(current).normalize().multiply(-1);
@@ -413,11 +489,26 @@ public class PaintAreaTask extends AITask {
                 location.setDirection(direction);
                 getNPC().updateAngles(location.getYaw(), 0);
 
+            }*/
+            if(currentAimStrip != null) {
+
+                if(getNPC().getNavigationManager().doLookInDirection()) {
+
+                    getNPC().getNavigationManager().disableLookInDirection();
+
+                }
+
+                getNPC().getWeaponManager().aim(currentAimStrip.target);
+                float[] floats = DirectionUtil.directionToYawPitch(currentAimStrip.direction);
+                getNPC().updateAngles(floats[0], floats[1]);
+
             }
 
         }
 
     }
+
+    private PaintStrip currentAimStrip = null;
 
     public class ReachPaintableTerritoryTarget implements PathfindingTarget {
 
@@ -451,6 +542,11 @@ public class PaintAreaTask extends AITask {
 
                 capabilities.canRoll = true;
 
+            } else if(getNPC().getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                capabilities.requiredNodesToSwim = 3;
+                capabilities.squidFormUsable = true;
+
             }
             return capabilities;
 
@@ -471,7 +567,7 @@ public class PaintAreaTask extends AITask {
 
         @Override
         public int maxNodeVisits() {
-            return 125;
+            return 65;
         }
 
         public ThreeDimensionalArray<Double> cachedCoverage = new ThreeDimensionalArray<>();
@@ -487,7 +583,7 @@ public class PaintAreaTask extends AITask {
 
             } else {
 
-                int members = getNPC().getNearbyTeamMembers(center, 10d).size();
+                int members = getNPC().getNearbyTeamMembers(center, 6d).size();
                 nearbyTeamMembers.set(members, coordinate.getX(), coordinate.getY(), coordinate.getZ());
                 return members;
 
@@ -557,18 +653,20 @@ public class PaintAreaTask extends AITask {
                     lastDistWeight*=100d;
 
                     double coverage = getCoverage(node.x, node.y, node.z);
-                    int members = getNearbyTeamMembers(node.x, node.y, node.z);
+                    //int members = getNearbyTeamMembers(node.x, node.y, node.z);
                     PaintableRegion.Coordinate coordinate = PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z);
                     double additionalWeight = 0d;
                     if(visitCounts.containsKey(coordinate)) { additionalWeight = visitCounts.get(coordinate) * 80; }
 
                     double distance = positionBefore.distance(node.toVector());
-                    additionalWeight+=members*35;
-                    if(distance <= 15d) {
+                    //additionalWeight+=members*35;
+                    if(distance <= 5d) {
 
-                        additionalWeight+=((15d-distance) * 4);
+                        additionalWeight+=((5d-distance) * 4);
 
                     }
+
+                    additionalWeight-=(node.toVector().distance(getNPC().getSpawnPoint().toVector())*3);
 
                     return (coverage) + lastDistWeight + additionalWeight;
 
@@ -614,8 +712,8 @@ public class PaintAreaTask extends AITask {
 
                             double coverageVal = getCoverage(node.x, node.y, node.z);
                             double coverage = coverageVal
-                                    + (visitCounts.getOrDefault(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z), 0) * 12)
-                                    + (getNearbyTeamMembers(node.x, node.y, node.z) * 10);
+                                    + (visitCounts.getOrDefault(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z), 0) * 12);
+                                    //+ (getNearbyTeamMembers(node.x, node.y, node.z) * 10);
                             if (coverageVal != -1D && coverageVal <= getRegionCoverageThreshold() && (lowest == null || coverage < lowestCoverage)) {
 
                                 lowest = node;
@@ -705,10 +803,10 @@ public class PaintAreaTask extends AITask {
         for(Vector3f vector : trajectory.getVectors()) {
 
             Location location = new Location(getNPC().getWorld(), vector.x, vector.y, vector.z);
-            Block block = BlockUtil.ground(location, 10);
+            Block block = BlockUtil.ground(location, 15);
 
             Match match = getNPC().getMatch();
-            if(match.isPaintable(getNPC().getTeam(), block)) {
+            if(match.isPaintable(getNPC().getTeam(), block.getX(), block.getY(), block.getZ())) {
 
                 blocks.add(block);
 

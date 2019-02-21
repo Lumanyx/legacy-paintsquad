@@ -16,6 +16,12 @@ public abstract class AbstractSplattershot extends SplatoonPrimaryWeapon impleme
     public double getBaseDamage() { return baseDamage; }
     public void setBaseDamage(double baseDamage) { this.baseDamage = baseDamage; }
 
+    public void cleanUp() {
+
+        projectilesToSpawn = 0;
+
+    }
+
     private float impulse = 0.45f;
     public float getImpulse() { return impulse; }
     public void setImpulse(float impulse) { this.impulse = impulse; }

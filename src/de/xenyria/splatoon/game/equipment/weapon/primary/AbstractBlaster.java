@@ -31,6 +31,12 @@ public abstract class AbstractBlaster extends SplatoonPrimaryWeapon {
 
     }
 
+    public void cleanUp() {
+
+        queuedProjectiles = 0;
+
+    }
+
     @Override
     public Material getRepresentiveMaterial() {
         return Material.IRON_HOE;

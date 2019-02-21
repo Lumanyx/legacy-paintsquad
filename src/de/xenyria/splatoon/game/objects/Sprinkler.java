@@ -19,7 +19,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import java.awt.*;
 import java.util.ArrayList;
 
 public class Sprinkler extends GameObject implements HitableEntity,RemovableGameObject {
@@ -272,7 +271,7 @@ public class Sprinkler extends GameObject implements HitableEntity,RemovableGame
                 if(face != BlockFace.UP && face != BlockFace.DOWN) {
 
                     Vector targetLoc = (spawnPos.toVector().clone().add(face.getDirection().clone().multiply(-1)));
-                    SplatoonServer.broadcastColorParticle(getLocation().getWorld(), targetLoc.getX(), targetLoc.getY(), targetLoc.getZ(), Color.Pink, 1f);
+                    SplatoonServer.broadcastColorParticle(getLocation().getWorld(), targetLoc.getX(), targetLoc.getY(), targetLoc.getZ(), Color.PINK, 1f);
                     BlockFace[] faces = new BlockFace[]{
                             BlockFace.NORTH,
                             BlockFace.EAST,
@@ -291,7 +290,7 @@ public class Sprinkler extends GameObject implements HitableEntity,RemovableGame
                     Location location1 = new Location(getMatch().getWorld(), targetLoc.getX(), targetLoc.getY(), targetLoc.getZ());
                     location1.setDirection(normalFace.getDirection().clone().normalize());
                     location1.setPitch(ray.pitch);
-                    SplatoonServer.broadcastColorParticle(getLocation().getWorld(), location1.getX(), location1.getY(), location1.getZ(), Color.Pink, 1f);
+                    SplatoonServer.broadcastColorParticle(getLocation().getWorld(), location1.getX(), location1.getY(), location1.getZ(), Color.PINK, 1f);
 
                     Vector end = location1.clone().add(location1.getDirection().normalize().clone().multiply(2)).toVector();
                     Vector start = spawnPos.toVector();

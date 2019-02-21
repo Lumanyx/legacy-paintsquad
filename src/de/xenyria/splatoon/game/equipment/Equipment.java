@@ -55,17 +55,45 @@ public class Equipment {
 
     public void syncTick() {
 
-        if(primaryWeapon != null) { primaryWeapon.syncTick(); }
-        if(secondaryWeapon != null) { secondaryWeapon.syncTick(); }
-        if(specialWeapon != null) { specialWeapon.syncTick(); }
+        if(getPlayer().getMatch() != null && !getPlayer().getMatch().inLobbyPhase() && !getPlayer().getMatch().inIntro() && !getPlayer().getMatch().inOutro()) {
+
+            if(!getPlayer().isSpectator()) {
+
+                if (primaryWeapon != null) {
+                    primaryWeapon.syncTick();
+                }
+                if (secondaryWeapon != null) {
+                    secondaryWeapon.syncTick();
+                }
+                if (specialWeapon != null) {
+                    specialWeapon.syncTick();
+                }
+
+            }
+
+        }
 
     }
 
     public void asyncTick() {
 
-        if(primaryWeapon != null) { primaryWeapon.asyncTick(); }
-        if(secondaryWeapon != null) { secondaryWeapon.asyncTick(); }
-        if(specialWeapon != null) { specialWeapon.asyncTick(); }
+        if(getPlayer().getMatch() != null && !getPlayer().getMatch().inLobbyPhase() && !getPlayer().getMatch().inIntro() && !getPlayer().getMatch().inOutro()) {
+
+            if(!getPlayer().isSpectator()) {
+
+                if (primaryWeapon != null) {
+                    primaryWeapon.asyncTick();
+                }
+                if (secondaryWeapon != null) {
+                    secondaryWeapon.asyncTick();
+                }
+                if (specialWeapon != null) {
+                    specialWeapon.asyncTick();
+                }
+
+            }
+
+        }
 
     }
 
@@ -167,6 +195,28 @@ public class Equipment {
 
         this.footGear = (FootGear) gear;
         player.updateEquipment();
+
+    }
+
+    public void resetWeapons() {
+
+        if(player.getEquipment().getPrimaryWeapon() != null) {
+
+            player.getEquipment().resetPrimaryWeapon();
+
+        }
+
+        if(player.getEquipment().getSecondaryWeapon() != null) {
+
+            player.getEquipment().resetSecondaryWeapon();
+
+        }
+
+        if(player.getEquipment().getSpecialWeapon() != null) {
+
+            player.getEquipment().resetSpecialWeapon();
+
+        }
 
     }
 

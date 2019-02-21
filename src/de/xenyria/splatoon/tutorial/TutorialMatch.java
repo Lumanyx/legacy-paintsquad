@@ -10,6 +10,7 @@ import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchControlInterface;
 import de.xenyria.splatoon.game.match.MatchType;
 import de.xenyria.splatoon.game.objects.*;
+import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.objects.tutorial.Checkpoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
@@ -66,8 +67,9 @@ public class TutorialMatch extends Match {
                 aiEntity.npc.remove();
 
             }
-            TutorialAIEntity entity = new TutorialAIEntity(new EntityNPC(aiEntity.spawnPoint, getRegisteredTeams().get(1), this, TUTORIAL_PROPERTIES), aiEntity.spawnPoint);
+            TutorialAIEntity entity = new TutorialAIEntity(new EntityNPC("Gegner", aiEntity.spawnPoint, getRegisteredTeams().get(1), this, TUTORIAL_PROPERTIES), aiEntity.spawnPoint);
             entity.npc.getEquipment().setPrimaryWeapon(23);
+            entity.npc.setVisibleInTab(false);
             entity.npc.setSpawnPoint(aiEntity.spawnPoint);
             newEntities.add(entity);
 
@@ -111,9 +113,16 @@ public class TutorialMatch extends Match {
 
     private AIProperties TUTORIAL_PROPERTIES = new AIProperties(20d, 20d, 25d);
 
+    @Override
+    public void removeBeacon(BeaconObject object) {
+
+
+
+    }
     public TutorialMatch(World world) {
 
         super(world);
+        enableRollback();
         setMatchController(new MatchControlInterface() {
             @Override
             public ArrayList<JumpPoint> getJumpPoints(Team team) {
@@ -141,6 +150,8 @@ public class TutorialMatch extends Match {
 
             @Override
             public void playerRemoved(SplatoonPlayer player) {
+
+                player.getEquipment().resetWeapons();
 
             }
 
@@ -173,6 +184,11 @@ public class TutorialMatch extends Match {
                     player1.getPlayer().sendMessage(" §8" + Characters.ARROW_RIGHT_FROM_TOP + " §7Du hast einen " + player.getTeam().getColor().prefix() + "Gegner §7erledigt!");
 
                 }
+
+            }
+
+            @Override
+            public void teamChanged(SplatoonPlayer splatoonHumanPlayer, Team oldTeam, Team team) {
 
             }
         });
@@ -322,11 +338,10 @@ public class TutorialMatch extends Match {
 
             Vector vec = new Vector(placeholder.x + .5, placeholder.y, placeholder.z + .5);
             vec = vec.add(vector);
-            System.out.println("Spawn AI at " + vec);
 
-
-            EntityNPC npc = new EntityNPC(vec.toLocation(getWorld()), getRegisteredTeams().get(1), this, TUTORIAL_PROPERTIES);
+            EntityNPC npc = new EntityNPC("Gegner", vec.toLocation(getWorld()), getRegisteredTeams().get(1), this, TUTORIAL_PROPERTIES);
             npc.getEquipment().setPrimaryWeapon(23);
+            npc.setVisibleInTab(false);
             TutorialAIEntity entity = new TutorialAIEntity(npc, vec.toLocation(getWorld()));
             aiEntities.add(entity);
             entity.npc.setSpawnPoint(vec.toLocation(getWorld()));

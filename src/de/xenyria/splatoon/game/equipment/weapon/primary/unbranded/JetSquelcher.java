@@ -20,6 +20,12 @@ public class JetSquelcher extends AbstractSplattershot {
 
     }
 
+    
+    @Override
+    public float range() {
+        return 9f;
+    }
+
     @Override
     public float getMovementSpeedOffset() {
 

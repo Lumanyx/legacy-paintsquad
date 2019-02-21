@@ -1,5 +1,10 @@
 package de.xenyria.splatoon.commands;
 
+import com.xxmicloxx.NoteBlockAPI.model.Playlist;
+import com.xxmicloxx.NoteBlockAPI.model.RepeatMode;
+import com.xxmicloxx.NoteBlockAPI.songplayer.NoteBlockSongPlayer;
+import com.xxmicloxx.NoteBlockAPI.songplayer.RadioSongPlayer;
+import com.xxmicloxx.NoteBlockAPI.songplayer.SongPlayer;
 import de.xenyria.core.chat.Chat;
 import de.xenyria.servercore.spigot.camera.CinematicCamera;
 import de.xenyria.servercore.spigot.camera.CinematicSequence;
@@ -12,31 +17,42 @@ import de.xenyria.splatoon.ai.pathfinding.grid.Node;
 import de.xenyria.splatoon.ai.pathfinding.path.NodePath;
 import de.xenyria.splatoon.ai.projectile.ProjectileExaminer;
 import de.xenyria.splatoon.ai.task.paint.PaintableRegion;
+import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.objects.LaunchPad;
+import de.xenyria.splatoon.game.objects.SuctionBomb;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
+import de.xenyria.splatoon.game.projectile.BurstBombProjectile;
+import de.xenyria.splatoon.game.projectile.SprinklerProjectile;
+import de.xenyria.splatoon.game.projectile.SuctionBombProjectile;
 import de.xenyria.splatoon.game.projectile.ink.InkProjectile;
+import de.xenyria.splatoon.game.sound.MusicTrack;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.tutorial.TutorialMatch;
 import net.minecraft.server.v1_13_R2.*;
+import net.minecraft.server.v1_13_R2.World;
 import org.bukkit.*;
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -71,6 +87,42 @@ public class AIDebugCommand implements CommandExecutor {
 
                         pos2.put(player.getUniqueId(), player.getLocation().getBlock().getLocation().add(0.5, 0, .5));
                         player.sendMessage("BODY POS weapons - OK!");
+
+                    } else if(args[0].equalsIgnoreCase("music")) {
+
+                        MusicTrack[] tracks = XenyriaSplatoon.getMusicManager().getTrackList(1);
+                        RadioSongPlayer player1 = new RadioSongPlayer(new Playlist(tracks[0].getSong()));
+                        player1.addPlayer(player);
+                        player1.setVolume((byte) 100);
+                        player1.setPlaying(true);
+
+                        Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                            player1.setTick(tracks[0].getSong().getLength());
+                            player1.setRepeatMode(RepeatMode.NO);
+                            player1.setPlaylist(new Playlist(tracks[1].getSong()));
+                            player1.playSong(0);
+                            player1.setTick((short) 0);
+                            player1.setPlaying(true);
+
+                        }, 40l);
+
+                    } else if(args[0].equalsIgnoreCase("dir")) {
+
+                        Scoreboard scoreboard = player.getScoreboard();
+                        for(org.bukkit.scoreboard.Team team : scoreboard.getTeams()) {
+
+                            player.sendMessage(team.getName() + "...");
+                            team.unregister();
+
+                        }
+
+                    } else if(args[0].equalsIgnoreCase("lm")) {
+
+                        SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+                        BattleMatch match = (BattleMatch) player1.getMatch();
+                        match.setMatchTicks(20*3);
+                        player.sendMessage("Last minute");
 
                     } else if(args[0].equalsIgnoreCase("special")) {
 
@@ -114,10 +166,9 @@ public class AIDebugCommand implements CommandExecutor {
 
                         SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
                         ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(player.getEyeLocation(),
-                                player.getLocation().add(player.getLocation().getDirection().clone().multiply(5)), 1.1d, player1.getMatch(),
-                                SplatoonHumanPlayer.getPlayer(player).getTeam(), SplatoonHumanPlayer.getPlayer(player));
-                        BombProjectile projectile = new BombProjectile(player1, player1.getEquipment().getPrimaryWeapon(), player1.getMatch(),
-                                5f, 20, 120, true);
+                                player.getLocation().add(player.getLocation().getDirection().clone().multiply(7.5)), 0.72d, player1.getMatch(),
+                                SplatoonHumanPlayer.getPlayer(player).getTeam(), null, SplatoonHumanPlayer.getPlayer(player), .72);
+                        SprinklerProjectile projectile = new SprinklerProjectile(player1, player1.getEquipment().getPrimaryWeapon(), player1.getMatch());
                         projectile.spawn(result.getTrajectory(), player.getLocation(), result.getHitLocation());
 
                     } else if(args[0].equalsIgnoreCase("outro")) {
@@ -132,7 +183,7 @@ public class AIDebugCommand implements CommandExecutor {
                             for(int i = 0; i < 3; i++) {
 
                                 Location location1 = player1.getMatch().getNextSpawnPoint(team);
-                                EntityNPC npc1 = new EntityNPC(location1, player1.getTeam(), player1.getMatch());
+                                EntityNPC npc1 = new EntityNPC("test", location1, player1.getTeam(), player1.getMatch());
                                 npc1.disableAI();
                                 npc1.getEquipment().setPrimaryWeapon(1);
                                 npc1.joinMatch(SplatoonHumanPlayer.getPlayer(player).getMatch());
@@ -159,7 +210,7 @@ public class AIDebugCommand implements CommandExecutor {
                             for(int i = 0; i < 3; i++) {
 
                                 Location location1 = player1.getMatch().getNextSpawnPoint(team);
-                                EntityNPC npc1 = new EntityNPC(location1, player1.getTeam(), player1.getMatch());
+                                EntityNPC npc1 = new EntityNPC("test", location1, player1.getTeam(), player1.getMatch());
                                 npc1.disableAI();
                                 npc1.getEquipment().setPrimaryWeapon(1);
                                 npc1.joinMatch(SplatoonHumanPlayer.getPlayer(player).getMatch());
@@ -268,10 +319,11 @@ public class AIDebugCommand implements CommandExecutor {
 
                             }
 
-                            Material material = materials.get(new Random().nextInt(materials.size() - 1));
-                            for(Block block : region.getPaintableBlocks(player1.getColor())) {
 
-                                player.sendBlockChange(block.getLocation(), CraftBlockData.newData(material, ""));
+                            player.sendBlockChange(region.getCenter().toLocation(player1.getMatch().getWorld()), CraftBlockData.newData(Material.OAK_PLANKS, ""));
+                            Material material = materials.get(new Random().nextInt(materials.size() - 1));
+                            System.out.println(region.getCenter());
+                            for(Block block : region.getPaintableBlocks(player1.getColor())) {
 
                             }
 
@@ -450,8 +502,6 @@ public class AIDebugCommand implements CommandExecutor {
                             }
                         };
 
-                        location.getWorld().spawnParticle(Particle.VILLAGER_ANGRY, location, 0);
-                        location.getWorld().spawnParticle(Particle.VILLAGER_ANGRY, location.toVector().toLocation(player.getWorld()), 0);
                         SquidAStar aStar = new SquidAStar(player.getWorld(), location.toVector(), target1, player1.getMatch(), player1.getTeam(), 9000);
                         long start = System.nanoTime();
                         aStar.beginProcessing();

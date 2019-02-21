@@ -4,10 +4,15 @@ import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.WrappedDataWatcher;
+import de.xenyria.core.math.BitUtil;
+import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.game.listeners.ProtocolListener;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.player.TeamEntity;
 import net.minecraft.server.v1_13_R2.Entity;
 import net.minecraft.server.v1_13_R2.PacketPlayOutEntityMetadata;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.scoreboard.Scoreboard;
@@ -126,9 +131,32 @@ public class EntityHighlightController {
 
         }
 
-        ((CraftPlayer)player.getPlayer()).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(
+        /*((CraftPlayer)player.getPlayer()).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(
                 entry.entity.getId(), entry.entity.getDataWatcher(), entry.entity.onGround
-        ));
+        ));*/
+        sendPacket(entry, true);
+
+    }
+
+    public void sendPacket(TeamEntry entry, boolean val) {
+
+        PacketContainer container = new PacketContainer(PacketType.Play.Server.ENTITY_METADATA, new PacketPlayOutEntityMetadata(entry.entity.getId(), entry.entity.getDataWatcher(), entry.entity.onGround));
+        WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(entry.entity.getBukkitEntity()).deepClone();
+        WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(Byte.class);
+
+        byte origVal = (byte) watcher.getObject(0);
+        watcher.setObject(0, serializer, BitUtil.setBit(origVal, 6, val));
+        container.getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
+
+        try {
+
+            ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container, false);
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+        }
 
     }
 
@@ -147,8 +175,12 @@ public class EntityHighlightController {
                     iterator.remove();
                     Team team = highlightTeams.get(entry.chatColor);
                     team.removeEntry(entry.name);
-                    ((CraftPlayer)player.getPlayer()).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(entry.entity.getId(), entry.entity.getDataWatcher(), entry.entity.onGround));
 
+                    Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                        sendPacket(entry, false);
+
+                    }, 2l);
                     continue;
 
                 }

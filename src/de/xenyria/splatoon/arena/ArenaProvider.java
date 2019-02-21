@@ -5,7 +5,10 @@ import de.xenyria.schematics.internal.BlockCoordinate;
 import de.xenyria.schematics.internal.XenyriaSchematic;
 import de.xenyria.schematics.internal.placeholder.SchematicPlaceholder;
 import de.xenyria.schematics.internal.placeholder.StoredPlaceholder;
+import de.xenyria.servercore.spigot.util.WorldUtil;
+import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.arena.builder.ArenaBuilder;
 import de.xenyria.splatoon.arena.placeholder.ArenaPlaceholder;
 import de.xenyria.splatoon.arena.placeholder.StoredTeamPlaceholder;
 import de.xenyria.splatoon.arena.schematic.SchematicProvider;
@@ -14,9 +17,11 @@ import de.xenyria.splatoon.game.match.MatchType;
 import net.minecraft.server.v1_13_R2.*;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
+import org.bukkit.craftbukkit.v1_13_R2.CraftChunk;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.v1_13_R2.generator.CraftChunkData;
@@ -61,6 +66,8 @@ public class ArenaProvider {
             }
 
         }));
+        SplatoonServer.applyGameRules(arenaWorld);
+        arenaWorld.setAutoSave(false);
 
     }
 
@@ -143,10 +150,7 @@ public class ArenaProvider {
 
             if(!exec) {
 
-                if (calculateBegin == 0) {
-                    calculateBegin = System.nanoTime();
-                }
-
+                if (calculateBegin == 0) { calculateBegin = System.nanoTime(); }
                 if (!loaded) {
 
                     try {
@@ -209,6 +213,7 @@ public class ArenaProvider {
                 int placedInIter = 0;
                 int targetIndex = 0;
                 final net.minecraft.server.v1_13_R2.World world1 = ((CraftWorld) world).getHandle();
+
                 for (ThreeDimensionalArray.ThreeDimensionalArrayItem<BlockCoordinate> item : coordinates) {
 
                     BlockCoordinate coordinate = item.getT();
@@ -222,8 +227,22 @@ public class ArenaProvider {
 
                     ChunkCoordIntPair pair = new ChunkCoordIntPair(cX, cZ);
                     if (!chunkReferences.containsKey(pair)) {
-                        chunkReferences.put(pair, world1.getChunkAt(cX, cZ));
+
+                        Chunk chunk = null;
+                        if(world.equals(XenyriaSplatoon.getArenaProvider().arenaWorld)) {
+
+                            chunk = ((CraftChunk) ArenaBuilder.forceChunkLoaded(pair)).getHandle();
+
+                        } else {
+
+                            chunk = ((CraftChunk)world.getChunkAt(pair.x, pair.z)).getHandle();
+
+                        }
+
+                        chunkReferences.put(pair, chunk);
+
                     }
+
                     Chunk chunk = chunkReferences.get(pair);
 
                     ChunkSection section = chunk.getSections()[realY >> 4];
@@ -252,7 +271,6 @@ public class ArenaProvider {
 
                         if (section == null) {
 
-                            NibbleArray array;
                             section = new ChunkSection(realY >> 4 << 4, world1.worldProvider.g(), chunk, world1, true);
                             chunk.getSections()[realY >> 4] = section;
                             for (int x = 0; x < 16; x++) {
@@ -290,15 +308,13 @@ public class ArenaProvider {
                 exec = true;
                 Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
 
-                    done = true;
-                    successful = true;
                     for (BlockCoordinate coordinate : syncCoords) {
 
                         int realX = (int) offset.getX() + coordinate.x;
                         int realY = (int) offset.getY() + coordinate.y;
                         int realZ = (int) offset.getZ() + coordinate.z;
-                        world1.setTypeUpdate(new BlockPosition(realX >> 4, realY >> 4, realZ >> 4), coordinate.data.getState());
                         Chunk chunk = chunkReferences.get(new ChunkCoordIntPair(realX >> 4, realZ >> 4));
+                        chunk.setType(new BlockPosition(realX, realY, realZ), coordinate.data.getState(), true);
                         chunk.getSections()[realY >> 4].getSkyLightArray().a(realX & 15, realY & 15, realZ & 15, coordinate.skyLight);
                         chunk.getSections()[realY >> 4].getEmittedLightArray().a(realX & 15, realY & 15, realZ & 15, coordinate.emitLight);
 
@@ -316,11 +332,10 @@ public class ArenaProvider {
                         match.updateBounds(new Vector(minX, minY, minZ), new Vector(maxX, maxY, maxZ));
 
                     }
+                    done = true;
+                    successful = true;
 
                 });
-
-                //break;
-                //}
 
                 placedBlocks += placedInIter;
 

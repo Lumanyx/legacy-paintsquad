@@ -6,8 +6,12 @@ import de.xenyria.splatoon.game.equipment.weapon.secondary.AbstractBurstBomb;
 public class BurstBomb extends AbstractBurstBomb {
 
     public static final int ID = 20;
+    public static final double IMPULSE = .6d;
+    public static final float MAX_DAMAGE = 27;
+    public static final float RADIUS = 2.5f;
+
     public BurstBomb() {
-        super(ID, "Instabombe", 2f, 27);
+        super(ID, "Instabombe", RADIUS, MAX_DAMAGE);
     }
 
     @Override
@@ -15,4 +19,8 @@ public class BurstBomb extends AbstractBurstBomb {
         return Brand.NOT_BRANDED;
     }
 
+    @Override
+    public double getImpulse() {
+        return IMPULSE;
+    }
 }

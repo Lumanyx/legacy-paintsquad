@@ -62,8 +62,12 @@ public class SquidAStar {
     public void updateCapabilities(MovementCapabilities movementCapabilities) {
 
         this.capabilities = movementCapabilities;
+        dimensions.height = capabilities.hitboxHeight;
+        dimensions.width = capabilities.hitboxWidth;
 
     }
+
+    public void clearGrid() { grid.clear(); }
 
     public static class MovementCapabilities {
 
@@ -72,7 +76,12 @@ public class SquidAStar {
         public boolean exitAsHuman = true;
         public boolean canRoll = false;
         public boolean walkOnEnemyTurf = true;
+        public boolean useRails = true;
+        public boolean useFountains = true;
         public int requiredNodesToSwim = 1;
+        public double hitboxWidth = .3d;
+        public double hitboxHeight = 1.8d;
+        public boolean canJump = true;
 
     }
 
@@ -185,7 +194,11 @@ public class SquidAStar {
         this.maxNodeVisits = maxNodeVisits;
         this.targetVector = target.getEstimatedPosition();
         this.grid = new NodeGrid(this);
-        copySnapshotsFrom(match.getAIController().getSnapshot());
+        if(match.hasAIController()) {
+
+            copySnapshotsFrom(match.getAIController().getSnapshot());
+
+        }
 
         if(capabilities == null) {
 
@@ -228,16 +241,13 @@ public class SquidAStar {
 
         }
         NodeGrid.Result result = grid.isValidPosition(startNode, dimensions);
-        System.out.println("Result for StartNode: " + result);
         if(result == NodeGrid.Result.NO_SPACE) {
 
             if(grid.isValidInSquidForm(startNode.x, startNode.y, startNode.z, dimensions)) {
 
-                System.out.println("Squid Valid");
                 Node below = grid.getNode(startNode.x, startNode.y - 1, startNode.z);
                 if(below.getData().getHeight() == 1d) {
 
-                    System.out.println("Below full");
                     if(nodeListener != null && !nodeListener.isPassable(startNode, startNode.x, startNode.y, startNode.z)) {
 
                         requestResult = RequestResult.NOT_FOUND;
@@ -252,15 +262,16 @@ public class SquidAStar {
                         if (match.isOwnedByTeam(below1, team)) {
 
                             startNode.setType(TransitionType.SWIM_BLOCKED);
-                            startNode.getAdditionalData().put("squidNeeded", true);
+                            startNode.putData("squidNeeded", true);
+                            startNode.putData("nextSwim", true);
                             result = NodeGrid.Result.OK_SQUID;
 
                         } else {
 
                             if(!match.isEnemyTurf(below1, team)) {
 
-                                startNode.getAdditionalData().put("nextSwim", true);
-                                startNode.getAdditionalData().put("squidNeeded", true);
+                                startNode.putData("nextSwim", true);
+                                startNode.putData("squidNeeded", true);
                                 startNode.setType(TransitionType.SWIM_DRY);
                                 result = NodeGrid.Result.OK_SQUID;
 
@@ -326,6 +337,9 @@ public class SquidAStar {
         startNode.setFirst(true);
         openList.add(startNode);
 
+        dimensions.height = capabilities.hitboxHeight;
+        dimensions.width = capabilities.hitboxWidth;
+
     }
 
     public void copySnapshotsFrom(MatchAIManager.GameObjectSnapshot snapshot) {
@@ -384,7 +398,7 @@ public class SquidAStar {
                         TransitionType type = node.getType();
                         if(type == TransitionType.SWIM) {
 
-                            if(node.getAdditionalData().containsKey("squidNeeded")) {
+                            if(node.containsData("squidNeeded")) {
 
                                 reached = false;
 
@@ -546,24 +560,26 @@ public class SquidAStar {
 
                             // Gusher
                             boolean found = false;
-                            for(GusherSnapshot snapshot : gusherSnapshots) {
+                            if(capabilities.useFountains) {
 
-                                if(team == null || snapshot.team == team) {
+                                for (GusherSnapshot snapshot : gusherSnapshots) {
 
-                                    int tX = (int) snapshot.position.getX();
-                                    int tY = (int) snapshot.position.getY();
-                                    int tZ = (int) snapshot.position.getZ();
+                                    if (team == null || snapshot.team == team) {
 
-                                    double dist = Node.distance(nX, nY, nZ, tX, tY, tZ);
-                                    if(dist <= 1) {
+                                        int tX = (int) snapshot.position.getX();
+                                        int tY = (int) snapshot.position.getY();
+                                        int tZ = (int) snapshot.position.getZ();
 
-                                        Node targetNode = grid.getNode(
-                                                (int)snapshot.position.getX(),
-                                                snapshot.targetHeight - 1,
-                                                (int)snapshot.position.getZ());
-                                            if(nodeListener != null) {
+                                        double dist = Node.distance(nX, nY, nZ, tX, tY, tZ);
+                                        if (dist <= 1) {
 
-                                                if(!nodeListener.isPassable(targetNode, nX,nY,nZ)) {
+                                            Node targetNode = grid.getNode(
+                                                    (int) snapshot.position.getX(),
+                                                    snapshot.targetHeight - 1,
+                                                    (int) snapshot.position.getZ());
+                                            if (nodeListener != null) {
+
+                                                if (!nodeListener.isPassable(targetNode, nX, nY, nZ)) {
 
                                                     continue;
 
@@ -575,6 +591,8 @@ public class SquidAStar {
                                             found = true;
 
 
+                                        }
+
                                     }
 
                                 }
@@ -582,7 +600,7 @@ public class SquidAStar {
                             }
                             if(found) { continue; }
 
-                            if(((node.getType() != TransitionType.RIDE_RAIL) && (node.getType() != TransitionType.INK_RAIL))) {
+                            if(((node.getType() != TransitionType.RIDE_RAIL) && (node.getType() != TransitionType.INK_RAIL)) && capabilities.useRails) {
 
                                 // Ride/InkRails
                                 for (RailSnapshot snapshot : railSnapshots) {
@@ -613,8 +631,8 @@ public class SquidAStar {
 
                                                         }
 
-                                                        currentNode.getAdditionalData().put("railIndex", railSnapshots.indexOf(snapshot));
-                                                        currentNode.getAdditionalData().put("objID", snapshot.getID());
+                                                        currentNode.putData("railIndex", railSnapshots.indexOf(snapshot));
+                                                        currentNode.putData("objID", snapshot.getID());
                                                         nodes.add(currentNode);
                                                         found = true;
                                                         break;
@@ -723,7 +741,7 @@ public class SquidAStar {
                                         int streak = 0;
                                         for(Node node1 : nodesBefore) {
 
-                                            if(node1.getAdditionalData().containsKey("squidUsable")) {
+                                            if(node1.containsData("squidUsable")) {
 
                                                 streak++;
 
@@ -736,8 +754,8 @@ public class SquidAStar {
 
                                         }
 
-                                        currentNode.getAdditionalData().put("squidUsable", true);
-                                        currentNode.getAdditionalData().put("blockRef",
+                                        currentNode.putData("squidUsable", true);
+                                        currentNode.putData("blockRef",
                                                 new BlockPosition(block.getX(), block.getY(), block.getZ()));
 
                                         if(streak >= capabilities.requiredNodesToSwim) {
@@ -797,10 +815,10 @@ public class SquidAStar {
 
                             }
 
-                            if(node.getAdditionalData().containsKey("nextSwim")) {
+                            if(node.containsData("nextSwim")) {
 
                                 currentNode.setType(TransitionType.SWIM);
-                                currentNode.getAdditionalData().put("squidNeeded", true);
+                                currentNode.putData("squidNeeded", true);
 
                             }
 
@@ -832,7 +850,7 @@ public class SquidAStar {
                                 boolean trySwim = (node.getType() != TransitionType.ENTER_FOUNTAIN) && y > 0 && x == 0 && z == 0;
                                 boolean tryJump = y == 0 || ((node.getType() == TransitionType.ENTER_FOUNTAIN));
 
-                                if(trySwim) {
+                                if(trySwim && capabilities.squidFormUsable) {
 
                                     // Wall Swim
                                     Node currentNode = grid.swimCheck(nX, nY, nZ, dimensions, team, this, capabilities.climbEveryWall);
@@ -846,7 +864,7 @@ public class SquidAStar {
 
                                 }
 
-                                if (tryJump) {
+                                if (tryJump && capabilities.canJump) {
 
                                     if (diagonal) { continue; }
 
@@ -987,15 +1005,16 @@ public class SquidAStar {
                                                 if (match.isOwnedByTeam(below1, team)) {
 
                                                     node1.setType(TransitionType.SWIM_BLOCKED);
-                                                    node1.getAdditionalData().put("squidNeeded", true);
+                                                    node1.putData("squidNeeded", true);
+                                                    node1.putData("nextSwim", true);
                                                     nodes.add(node1);
 
                                                 } else {
 
                                                     if(!match.isEnemyTurf(below1, team)) {
 
-                                                        node1.getAdditionalData().put("nextSwim", true);
-                                                        node1.getAdditionalData().put("squidNeeded", true);
+                                                        node1.putData("nextSwim", true);
+                                                        node1.putData("squidNeeded", true);
                                                         node1.setType(TransitionType.SWIM_DRY);
                                                         nodes.add(node1);
 
@@ -1025,12 +1044,12 @@ public class SquidAStar {
                                     /*if(match.isOwnedByTeam(below, team)) {
 
                                         node1.setType(TransitionType.SWIM_BLOCKED);
-                                        node1.getAdditionalData().put("squidNeeded", true);
+                                        node1.putData("squidNeeded", true);
 
                                     } else {
 
-                                        node1.getAdditionalData().put("nextSwim", true);
-                                        node1.getAdditionalData().put("squidNeeded", true);
+                                        node1.putData("nextSwim", true);
+                                        node1.putData("squidNeeded", true);
                                         node1.setType(TransitionType.SWIM_DRY);
 
                                     }*/
@@ -1043,9 +1062,9 @@ public class SquidAStar {
 
                     } else {
 
-                        if(node.getAdditionalData().containsKey("railIndex")) {
+                        if(node.containsData("railIndex")) {
 
-                            RailSnapshot snapshot = railSnapshots.get((Integer) node.getAdditionalData().get("railIndex"));
+                            RailSnapshot snapshot = railSnapshots.get((Integer) node.getData("railIndex"));
                             Vector targetVector = snapshot.vectors.get(snapshot.vectors.size() - 1);
                             int targetX = (int) targetVector.getX();
                             int targetY = (int) targetVector.getY();
@@ -1080,7 +1099,7 @@ public class SquidAStar {
 
                                     //world.spawnParticle(Particle.SPELL_INSTANT, node1.toVector().toLocation(world), 0);
                                     node1.setType(node.getType());
-                                    node1.getAdditionalData().put("railIndex", node.getAdditionalData().get("railIndex"));
+                                    node1.putData("railIndex", node.getData("railIndex"));
                                     nodes.add(node1);
                                     return nodes;
 

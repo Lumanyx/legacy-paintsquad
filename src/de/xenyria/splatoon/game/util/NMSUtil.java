@@ -3,6 +3,7 @@ package de.xenyria.splatoon.game.util;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import net.minecraft.server.v1_13_R2.*;
+import org.bukkit.Material;
 import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftEntity;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
@@ -21,6 +22,19 @@ public class NMSUtil {
         public IBlockData processDataAtLocation(IBlockData iBlockData, int i, int i1, int i2) {
 
             if(AABBUtil.isPassable(CraftBlockData.createData(iBlockData).getMaterial())) {
+
+                return Blocks.AIR.getBlockData();
+
+            }
+            return iBlockData;
+
+        }
+    };
+    public static BoundingBoxFilter ironBarStuckFilter = new BoundingBoxFilter() {
+        @Override
+        public IBlockData processDataAtLocation(IBlockData iBlockData, int i, int i1, int i2) {
+
+            if(CraftBlockData.createData(iBlockData).getMaterial() == Material.IRON_BARS) {
 
                 return Blocks.AIR.getBlockData();
 

@@ -48,6 +48,7 @@ public class PathfindingWorker {
                 while ((astar = remainingRequests.poll()) != null) {
 
                     astar.beginProcessing();
+                    astar.clearGrid();
 
                 }
 

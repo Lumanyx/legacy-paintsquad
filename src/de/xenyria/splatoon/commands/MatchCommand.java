@@ -1,5 +1,8 @@
 package de.xenyria.splatoon.commands;
 
+import com.destroystokyo.paper.PaperCommand;
+import com.destroystokyo.paper.PaperConfig;
+import com.destroystokyo.paper.PaperWorldConfig;
 import de.xenyria.splatoon.ai.entity.AIProperties;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.equipment.weapon.primary.PrimaryWeaponType;
@@ -17,17 +20,28 @@ public class MatchCommand implements CommandExecutor {
 
         Player player = ((Player)commandSender);
         SplatoonHumanPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+
+        //for(int i = 0; i < 20; i++) {
+
         TurfWarMatch match = new TurfWarMatch();
-        match.chooseTeam(player1, 0);
-        match.addAIPlayer("Player1", 0, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player2", 0, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player3",0, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player4", 1, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player5", 1, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player6", 1, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player7", 1, AIProperties.Difficulty.EASY, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        //match.start();
+        match.addAIPlayer("Player1", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Player2", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+        match.addAIPlayer("Player3", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+        match.addAIPlayer("Player4", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Player5", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Player6", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+        match.addAIPlayer("Player7", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+        match.addAIPlayer("Player8", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
         player1.joinMatch(match);
+        match.chooseTeam(player1, -1);
+        match.start();
+
+        /*}
+        TurfWarMatch match = new TurfWarMatch();
+        player1.joinMatch(match);
+        match.changeOwner(player1);
+        match.chooseTeam(player1, -1);
+        match.start();*/
 
         return true;
 

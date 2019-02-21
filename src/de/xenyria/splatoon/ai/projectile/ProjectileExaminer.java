@@ -3,6 +3,7 @@ package de.xenyria.splatoon.ai.projectile;
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.math.trajectory.TrajectoryCalculation;
 import de.xenyria.math.trajectory.Vector3f;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.equipment.weapon.registry.SplatoonWeaponRegistry;
 import de.xenyria.splatoon.game.match.Match;
@@ -31,6 +32,30 @@ import java.util.ArrayList;
 import java.util.function.Predicate;
 
 public class ProjectileExaminer {
+
+    public static Result examineRayProjectile(Location begin, Location target, double range, Match match, Team team, EntityNPC npc) {
+
+        Vector direction = target.toVector().subtract(begin.toVector()).normalize();
+        if(VectorUtil.isValid(direction)) {
+
+            RayTraceResult result = match.getWorldInformationProvider().rayTraceBlocks(begin.toVector(), direction, range, true);
+            if(result == null) {
+
+                return new Result(null, true, target, null);
+
+            } else {
+
+                return new Result(null, false, result.getHitPosition().toLocation(match.getWorld()), null);
+
+            }
+
+        } else {
+
+            return new Result(null, false, null, null);
+
+        }
+
+    }
 
     public static class Result {
 
@@ -62,11 +87,11 @@ public class ProjectileExaminer {
 
     public static Result examineInkProjectile(Location location, Location target, double projectileImpulse, Match match, Team team, SplatoonPlayer plr) {
 
-        return examineInkProjectile(location, target, projectileImpulse, match, team, null, plr);
+        return examineInkProjectile(location, target, projectileImpulse, match, team, null, plr, 1d);
 
     }
 
-    public static Result examineInkProjectile(Location location, Location target, double projectileImpulse, Match match, Team team, @Nullable Block targetBlock, SplatoonPlayer plr) {
+    public static Result examineInkProjectile(Location location, Location target, double projectileImpulse, Match match, Team team, @Nullable Block targetBlock, SplatoonPlayer plr, double splitMod) {
 
         World world = location.getWorld();
         Vector startVector = location.toVector();
@@ -79,8 +104,7 @@ public class ProjectileExaminer {
             TrajectoryCalculation calc = new TrajectoryCalculation(new Vector3f(startVector.getX(), startVector.getY(), startVector.getZ()),
                     new Vector3f(endVector.getX(), endVector.getY(), endVector.getZ()), projectileImpulse, GRAVITY_CONSTANT);
 
-            double dividier = projectileImpulse / 20d;
-            calc.calculate(projectileImpulse);
+            calc.calculate(projectileImpulse*splitMod);
 
             // Vorberechnete Flugbahnen testen
             ArrayList<Trajectory> foundTrajectories = new ArrayList<>();
@@ -142,7 +166,7 @@ public class ProjectileExaminer {
                             //world.spawnParticle(Particle.END_ROD, cursor.getX(), cursor.getY(), cursor.getZ(), 0);
 
                             Vector directionMovement = endMovement.clone().subtract(startMovement).normalize();
-                            AxisAlignedBB bb = new AxisAlignedBB(cursor.getX() - .125, cursor.getY(), cursor.getZ() - .125, cursor.getX() + .125, cursor.getY() + .25, cursor.getZ() + .125);
+                            AxisAlignedBB bb = new AxisAlignedBB(cursor.getX() - .25, cursor.getY()-.25, cursor.getZ() - .25, cursor.getX() + .25, cursor.getY() + .25, cursor.getZ() + .25);
 
                             RayProjectile projectile = new RayProjectile(plr, SplatoonWeaponRegistry.getDummy(1), match, startMovement.toLocation(world), directionMovement, 0f);
                             RayTraceResult result = world.rayTraceBlocks(startMovement.toLocation(world), directionMovement, endMovement.distance(startMovement) + .01);
@@ -237,7 +261,7 @@ public class ProjectileExaminer {
                                     return !friendlyFire;
 
                                 }
-                            });
+                            }, true, true);
                             if (entity != null) {
 
                                 return new Result(entity, lastPosition.distance(cursor) < .05, cursor.toLocation(world), trajectory);

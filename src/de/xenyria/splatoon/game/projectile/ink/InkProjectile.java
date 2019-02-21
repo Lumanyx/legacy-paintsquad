@@ -9,6 +9,7 @@ import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.DamageDealingProjectile;
 import de.xenyria.splatoon.game.projectile.DamageReason;
+import de.xenyria.splatoon.game.projectile.ProjectileUtil;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.BlockUtil;
@@ -39,12 +40,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class InkProjectile extends SplatoonProjectile implements DamageDealingProjectile {
 
-    private static CopyOnWriteArrayList<Integer> spawnedItemIDs = new CopyOnWriteArrayList<>();
-    public static CopyOnWriteArrayList<Integer> getSpawnedItemIDs() { return spawnedItemIDs; }
-
-    @Override
+    private Location currentLocation;
     public Location getLocation() {
-        return item.getLocation();
+        return currentLocation;
     }
 
     public InkProjectile(SplatoonPlayer player, SplatoonWeapon weapon, Match match) { super(player, weapon, match); }
@@ -52,7 +50,6 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
     @Override
     public void onRemove() {
 
-        spawnedItemIDs.remove((Integer)item.getEntityId());
         item.remove();
         NMSUtil.broadcastEntityRemovalToSquids(item);
 
@@ -118,6 +115,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
                 spawnLocation.getX(), spawnLocation.getY(), spawnLocation.getZ(),
                 CraftItemStack.asNMSCopy(stack));
         item1.setPosition(spawnLocation.getX(), spawnLocation.getY(), spawnLocation.getZ());
+        currentLocation = spawnLocation.clone();
         targetPositions = trajectory.getVectors();
         travelledDistance+=trajectory.getDistancePerVector();
         item = (Item) item1.getBukkitEntity();
@@ -156,6 +154,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
         loc.setPitch(pitch);
         Vector dir = loc.getDirection().normalize().multiply(impulse);
         item.setVelocity(dir);
+        currentLocation = location.clone();
 
         item1.getBoundingBox().setFilter(NMSUtil.filter);
         if(getShooter() != null) {
@@ -174,9 +173,14 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
         if(item != null) {
 
+            Entity item1 = ((CraftItem)item).getHandle();
+            currentLocation.setX(item1.locX);
+            currentLocation.setY(item1.locY);
+            currentLocation.setZ(item1.locZ);
+
             ((CraftItem)item).getHandle().getBoundingBox().setFilter(NMSUtil.filter);
             SplatoonServer.broadcastColorParticle(item.getWorld(),
-                    item.getLocation().getX(), item.getLocation().getY(), item.getLocation().getZ(),
+                    getLocation().getX(), getLocation().getY(), getLocation().getZ(),
                     getTeam().getColor(), 0.75f);
 
         }
@@ -196,9 +200,10 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
                         if(RandomUtil.random(paintBelowPercentage)) {
 
-                            Block block = getLocation().clone().set(x, getLocation().getY(), z).getBlock();
-                            block = BlockUtil.ground(block.getLocation(), paintBelowRange);
-                            if(getMatch().isPaintable(getTeam(), block)) {
+                            Location location = getLocation();
+                            location.setX(x); location.setZ(z);
+                            Block block = BlockUtil.ground(location, paintBelowRange);
+                            if(getMatch().isPaintable(getTeam(), x, block.getY(), z)) {
 
                                 if(getShooter() != null) {
 
@@ -220,7 +225,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
             }
 
-            Vector vector = item.getLocation().toVector();
+            Vector vector = getLocation().toVector();
             if(!usingTrajectory()) {
 
                 vector = vector.add(item.getVelocity());
@@ -229,7 +234,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
             } else {
 
                 Vector targetPosition = interpolatePosition(trajectoryIndex);
-                Vector current = item.getLocation().toVector();
+                Vector current = getLocation().toVector();
                 item.teleport(targetPosition.toLocation(getLocation().getWorld()));
                 trajectoryIndex++;
                 Vector nextDelta = interpolatePosition(trajectoryIndex);
@@ -252,7 +257,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
             }
 
-            if(item.isOnGround() || item.getLocation().getY() < 0) {
+            if(item.isOnGround() || getLocation().getY() < 0) {
 
                 hitOnNextTick = true;
                 return;
@@ -295,12 +300,16 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
             for(HitableEntity entity : getMatch().getHitableEntities()) {
 
-                if(entity.isHit(this)) {
+                if(ProjectileUtil.manhattanDistance(this, entity) < 3D) {
 
-                    entity.onProjectileHit(this);
-                    SplatoonServer.broadcastColorizedBreakParticle(getLocation().getWorld(),
-                            getLocation().getX(), getLocation().getY(), getLocation().getZ(), getColor());
-                    remove();
+                    if (entity.isHit(this)) {
+
+                        entity.onProjectileHit(this);
+                        SplatoonServer.broadcastColorizedBreakParticle(getLocation().getWorld(),
+                                getLocation().getX(), getLocation().getY(), getLocation().getZ(), getColor());
+                        remove();
+
+                    }
 
                 }
 
@@ -318,7 +327,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
             if(trajectory == null) {
 
-                block = getMatch().getWorld().getBlockAt(item.getLocation().getBlockX(), item.getLocation().getBlockY(), item.getLocation().getBlockZ());
+                block = getMatch().getWorld().getBlockAt(getLocation().getBlockX(), getLocation().getBlockY(), getLocation().getBlockZ());
 
             } else {
 
@@ -348,7 +357,7 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
 
                             if(getShooter() != null) {
 
-                                getMatch().paint(vector, getShooter());
+                                getMatch().paint(getShooter(), vector, getShooter().getTeam());
                                 if (drippingRatio > 0) {
 
                                     if (RandomUtil.random((int) drippingRatio)) {
@@ -382,8 +391,10 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
     @Override
     public AxisAlignedBB aabb() {
 
-        return new AxisAlignedBB(item.getLocation().getX() - .125, item.getLocation().getY(), item.getLocation().getZ() - .125,
-                item.getLocation().getX() + .125, item.getLocation().getY() + .25, item.getLocation().getZ() + .125);
+        EntityItem item = (EntityItem) ((CraftItem) getItem()).getHandle();
+
+        return new AxisAlignedBB(item.locX - .125, item.locY, item.locZ - .125,
+                item.locX + .125, item.locY + .25, item.locZ + .125);
 
     }
 

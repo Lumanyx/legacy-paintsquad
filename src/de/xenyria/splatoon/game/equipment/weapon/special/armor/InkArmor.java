@@ -2,6 +2,7 @@ package de.xenyria.splatoon.game.equipment.weapon.special.armor;
 
 import de.xenyria.core.chat.Chat;
 import de.xenyria.splatoon.SplatoonServer;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AISpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -12,10 +13,16 @@ import org.bukkit.util.Vector;
 
 import java.util.Random;
 
-public class InkArmor extends SplatoonSpecialWeapon {
+public class InkArmor extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
     public InkArmor() {
         super(22, "Tintenrüstung", "§7Du und Teammitglieder in deiner Nähe\n§7erhalten eine Rüstung zum Abwehren\n§7gegnerischer Tinte.", 180);
+    }
+
+    public void cleanUp() {
+
+        ticksToActivation = 0;
+
     }
 
     @Override
@@ -94,15 +101,7 @@ public class InkArmor extends SplatoonSpecialWeapon {
 
             if(getPlayer().isSpecialReady()) {
 
-                ticksToActivation = 20;
-                getPlayer().resetSpecialGauge();
-
-                if(getPlayer() instanceof SplatoonHumanPlayer) {
-
-                    SplatoonHumanPlayer player = (SplatoonHumanPlayer) getPlayer();
-                    player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1f, 2f);
-
-                }
+                activateCall();
 
             } else {
 
@@ -132,6 +131,27 @@ public class InkArmor extends SplatoonSpecialWeapon {
 
     @Override
     public void shoot() {
+
+    }
+
+    public void activateCall() {
+
+        ticksToActivation = 20;
+        getPlayer().resetSpecialGauge();
+
+        if(getPlayer() instanceof SplatoonHumanPlayer) {
+
+            SplatoonHumanPlayer player = (SplatoonHumanPlayer) getPlayer();
+            player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1f, 2f);
+
+        }
+        getPlayer().addInk(100d);
+
+    }
+    @Override
+    public void activate() {
+
+        activateCall();
 
     }
 }

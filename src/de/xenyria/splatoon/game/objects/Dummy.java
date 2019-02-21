@@ -299,6 +299,7 @@ public class Dummy extends GameObject implements HitableEntity, TentaMissleTarge
             public Location getLocation() {
                 return ((ArmorStand)stand.getBukkitEntity()).getLocation();
             }
+            public Vector getLastDelta() { return new Vector(0,0,0); }
         };
     }
 

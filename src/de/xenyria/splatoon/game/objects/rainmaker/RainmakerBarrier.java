@@ -359,6 +359,11 @@ public class RainmakerBarrier extends GameObject implements TentaMissleTarget {
             public Location getLocation() {
                 return position.toLocation(getMatch().getWorld());
             }
+
+            @Override
+            public Vector getLastDelta() {
+                return new Vector();
+            }
         };
     }
 

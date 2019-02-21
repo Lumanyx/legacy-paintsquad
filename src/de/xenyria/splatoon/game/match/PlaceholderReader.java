@@ -22,11 +22,6 @@ public class PlaceholderReader {
         ints.add(1);
         ints.add(0);
         Collections.sort(ints);
-        for(int i : ints) {
-
-            System.out.println(i);
-
-        }
         System.out.println(Material.AIR.isEmpty());
 
     }

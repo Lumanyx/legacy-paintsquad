@@ -9,6 +9,8 @@ import de.xenyria.splatoon.game.equipment.gear.GearType;
 import de.xenyria.splatoon.game.equipment.weapon.primary.PrimaryWeaponType;
 import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSet;
 import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSetRegistry;
+import de.xenyria.splatoon.game.match.BattleMatch;
+import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.userdata.inventory.InventoryItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.ItemCategory;
@@ -73,6 +75,16 @@ public class InventoryListener implements Listener {
 
                             int itemID = ItemBuilder.getIntValue(stack, "ItemID");
                             player.getInventory().onItemClick(itemID);
+
+                        } else if(ItemBuilder.hasValue(stack, "ShowMatchLobby")) {
+
+                            Match match = player.getMatch();
+                            if(match != null && match instanceof BattleMatch) {
+
+                                BattleMatch match1 = (BattleMatch) match;
+                                match1.openLobbyInventory(player);
+
+                            }
 
                         }
 
@@ -257,7 +269,6 @@ public class InventoryListener implements Listener {
 
                         int setID = ItemBuilder.getIntValue(stack, "EquipSet");
                         player.getInventory().equipSet(setID);
-                        System.out.println("Equipped: " + setID);
                         player.getPlayer().sendMessage(Chat.SYSTEM_PREFIX + "Set ausgerüstet!");
                         event.getWhoClicked().openInventory(XenyriaSplatoon.getLobbyManager().getLobby().getWeaponShop().getOverviewInventory());
 

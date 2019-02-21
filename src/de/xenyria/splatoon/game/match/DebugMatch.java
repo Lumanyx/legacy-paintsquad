@@ -124,6 +124,11 @@ public class DebugMatch extends Match {
 
             }
 
+            @Override
+            public void teamChanged(SplatoonPlayer splatoonHumanPlayer, Team oldTeam, Team team) {
+
+            }
+
 
         });
 
@@ -132,5 +137,10 @@ public class DebugMatch extends Match {
     @Override
     public MatchType getMatchType() {
         return MatchType.TURF_WAR;
+    }
+
+    @Override
+    public void removeBeacon(BeaconObject object) {
+
     }
 }

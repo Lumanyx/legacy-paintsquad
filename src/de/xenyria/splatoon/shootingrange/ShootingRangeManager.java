@@ -5,6 +5,7 @@ import de.xenyria.core.chat.Chat;
 import de.xenyria.schematics.internal.XenyriaSchematic;
 import de.xenyria.schematics.internal.placeholder.SchematicPlaceholder;
 import de.xenyria.schematics.internal.placeholder.StoredPlaceholder;
+import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.arena.ArenaProvider;
 import de.xenyria.splatoon.arena.boundary.ArenaBoundaryConfiguration;
@@ -52,13 +53,14 @@ public class ShootingRangeManager {
 
             }
         }));
+        SplatoonServer.applyGameRules(shootingRangeWorld);
         configuration = ArenaBoundaryConfiguration.fromFile(new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "arena" + File.separator + "shootingrange.sbounds"));
         schematic = SchematicProvider.loadSchematic("shootingrange.xsc");
         Vector currentOffset = new Vector(0,64,0);
         for(int i = 0; i < Bukkit.getMaxPlayers(); i++) {
 
             createCluster(currentOffset);
-            currentOffset = currentOffset.clone().add(new Vector(500, 0, 0));
+            currentOffset = currentOffset.clone().add(new Vector(300, 0, 0));
 
         }
 
@@ -146,7 +148,7 @@ public class ShootingRangeManager {
 
         });
 
-        Team team = new Team(primaryColor);
+        Team team = new Team(0, primaryColor);
         range.registerTeam(team);
 
         ArrayList<Map.TeamSpawn> spawns = PlaceholderReader.getSpawns(offset, schematic);

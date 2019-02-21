@@ -19,6 +19,27 @@ public abstract class SplatoonWeapon {
 
     }
 
+    public void reset() {
+
+        if(this instanceof SplatoonPrimaryWeapon) {
+
+            player.getEquipment().resetPrimaryWeapon();
+
+        } else if(this instanceof SplatoonSecondaryWeapon) {
+
+            player.getEquipment().resetSecondaryWeapon();
+
+        } else if(this instanceof SplatoonSpecialWeapon) {
+
+            player.getEquipment().resetSpecialWeapon();
+
+        }
+        cleanUp();
+        player = null;
+
+    }
+    public void cleanUp() {}
+
     private int id;
     public int getID() { return id; }
 

@@ -102,7 +102,7 @@ public class NodeGrid {
             Node lastNode = null;
             while (true) {
 
-                if (y >= 256) {
+                if (y >= 256 || y < 0) {
                     return null;
                 }
 
@@ -118,7 +118,7 @@ public class NodeGrid {
 
                     if (colored) {
 
-                        wallSwimReferences.add(new BlockPosition(nX, y, nZ));
+                        wallSwimReferences.add(new BlockPosition(block.getX(), block.getY(), block.getZ()));
 
                     }
 
@@ -127,7 +127,7 @@ public class NodeGrid {
                     colored = pathfinder.getMatch().isPaintable(block);
                     if (colored) {
 
-                        wallSwimReferences.add(new BlockPosition(nX, y, nZ));
+                        wallSwimReferences.add(new BlockPosition(block.getX(), block.getY(), block.getZ()));
 
                     }
 
@@ -144,16 +144,14 @@ public class NodeGrid {
                     Result result = isValidPosition(nX, y, nZ, dimensions);
                     if (result == Result.OK) {
 
-                        Node node = getNode(nX, y, nZ);
-                        node.getAdditionalData().put("wallNodes", wallSwimReferences);
-
                         if(climbed >= 1) {
 
+                            Node node = getNode(nX, y, nZ);
+                            node.putData("wallNodes", wallSwimReferences);
                             return node;
 
                         } else {
 
-                            node.getAdditionalData().clear();
                             return null;
 
                         }
@@ -167,15 +165,14 @@ public class NodeGrid {
                             Result result1 = isValidPosition(nX + face.getModX(), y, nZ + face.getModZ(), dimensions);
                             if (result1 == Result.OK) {
 
-                                Node node = getNode(nX + face.getModX(), y, nZ + face.getModZ());
-                                node.getAdditionalData().put("wallNodes", wallSwimReferences);
                                 if(climbed >= 1) {
 
+                                    Node node = getNode(nX + face.getModX(), y, nZ + face.getModZ());
+                                    node.putData("wallNodes", wallSwimReferences);
                                     return node;
 
                                 } else {
 
-                                    node.getAdditionalData().clear();
                                     return null;
 
                                 }
@@ -204,9 +201,15 @@ public class NodeGrid {
 
     }
 
+    public void clear() {
+
+        nodes = null;
+
+    }
+
     public static class BoundingBoxDimensions {
 
-        public double width = 0.3d, height = 1.8;
+        public double width = 0.5d, height = 1.8;
 
     }
 

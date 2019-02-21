@@ -9,6 +9,7 @@ import de.xenyria.core.math.AngleUtil;
 import de.xenyria.core.math.BitUtil;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.combat.HitableEntity;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AISpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
@@ -29,11 +30,13 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class TentaMissles extends SplatoonSpecialWeapon {
+public class TentaMissles extends SplatoonSpecialWeapon implements AISpecialWeapon {
+
+    public static final int ID = 3;
 
     public TentaMissles() {
 
-        super(3, "Schwarmraketen", "§7Markiere bis zu fünf Gegner und zwinge\n§7sie durch Tintenraketen zur Flucht.", 0);
+        super(ID, "Schwarmraketen", "§7Markiere bis zu fünf Gegner und zwinge\n§7sie durch Tintenraketen zur Flucht.", 180);
 
     }
 
@@ -48,6 +51,14 @@ public class TentaMissles extends SplatoonSpecialWeapon {
     private int firedRocketsForTarget = 0;
     private int remainingRockets;
     private int ticksSinceRocketShoot;
+
+    public void cleanUp() {
+
+        remainingRockets = 0;
+        confirmedTargets.clear();
+        currentTarget = null;
+
+    }
 
     @Override
     public void syncTick() {
@@ -139,6 +150,7 @@ public class TentaMissles extends SplatoonSpecialWeapon {
                         confirmedTargets.remove(0);
                         ticksSinceRocketShoot = 0;
                         firedRocketsForTarget = 0;
+                        getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7feuert §e" + (confirmedTargets.size()*4) + " Schwarmraketen §7ab!");
 
                     }
 
@@ -189,7 +201,7 @@ public class TentaMissles extends SplatoonSpecialWeapon {
 
     }
 
-    private ArrayList<TentaMissleTarget> getTargetsInSight() {
+    public ArrayList<TentaMissleTarget> getTargetsInSight() {
 
         ArrayList<TentaMissleTarget> targets = new ArrayList<>();
 
@@ -344,13 +356,7 @@ public class TentaMissles extends SplatoonSpecialWeapon {
 
             if(getPlayer().getSpecialPoints() >= getRequiredPoints()) {
 
-                getPlayer().enableWalkSpeedOverride();
-                getPlayer().setOverrideWalkSpeed(0.1f);
-
-                getPlayer().resetSpecialGauge();
-                getPlayer().resetLastInteraction();
-                aimPhase = true;
-                remainingAimTicks = 300;
+                activateCall();
 
                 if(getPlayer() instanceof SplatoonHumanPlayer) {
 
@@ -398,6 +404,18 @@ public class TentaMissles extends SplatoonSpecialWeapon {
 
     }
 
+    public void activateCall() {
+
+        getPlayer().enableWalkSpeedOverride();
+        getPlayer().setOverrideWalkSpeed(0.1f);
+
+        getPlayer().resetSpecialGauge();
+        getPlayer().resetLastInteraction();
+        aimPhase = true;
+        remainingAimTicks = 300;
+
+    }
+
     @Override
     public boolean canUse() {
         return false;
@@ -431,5 +449,22 @@ public class TentaMissles extends SplatoonSpecialWeapon {
     @Override
     public boolean isActive() {
         return aimPhase || shootPhase;
+    }
+
+    @Override
+    public void activate() {
+
+        activateCall();
+        ArrayList<TentaMissleTarget> targets = getTargetsInSight();
+        aimPhase = false;
+        remainingRockets = targets.size() * 4;
+        confirmedTargets.addAll(targets);
+        shootPhase = true;
+        currentTarget = confirmedTargets.get(0);
+        confirmedTargets.remove(0);
+        ticksSinceRocketShoot = 0;
+        firedRocketsForTarget = 0;
+        getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7feuert §e" + (confirmedTargets.size()*4) + " Schwarmraketen §7ab!");
+
     }
 }

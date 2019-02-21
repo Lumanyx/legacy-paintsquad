@@ -51,7 +51,11 @@ public class NodePath {
 
             }
 
-            this.data = data;
+            if(data != null) {
+
+                this.data = data;
+
+            }
             this.type = type;
 
         }

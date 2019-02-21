@@ -4,6 +4,7 @@ import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.match.BattleMatch;
+import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.set.WeaponSetItem;
@@ -94,7 +95,7 @@ public class UserInventory {
             BattleMatch match = (BattleMatch) player.getMatch();
             if(match.isLobbyPhase()) {
 
-                for(SplatoonHumanPlayer player : match.getPlayerLobbyPool()) {
+                for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
 
                     match.queuePlayerInventoryUpdate(player);
 
@@ -276,6 +277,26 @@ public class UserInventory {
 
         setCategoryBar();
         setItemsInstantly();
+
+        inventory.setItem(49, ItemBuilder.getUnclickablePane());
+        if(player.getMatch() != null) {
+
+            Match match = player.getMatch();
+            if(match instanceof BattleMatch) {
+
+                BattleMatch match1 = (BattleMatch)match;
+                if(match1.isLobbyPhase()) {
+
+                    inventory.setItem(49, new ItemBuilder(
+                            Material.PAPER
+                    ).setDisplayName("§eZur Matchlobby").addToNBT("ShowMatchLobby", true).create());
+
+                }
+
+            }
+
+        }
+
         player.getPlayer().openInventory(inventory);
         player.getPlayer().playSound(player.getLocation(), Sound.BLOCK_CHEST_OPEN, 1f, 1f);
 

@@ -8,6 +8,7 @@ import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.equipment.Brand;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponCharger;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.RayProjectile;
@@ -18,6 +19,7 @@ import net.minecraft.server.v1_13_R2.*;
 import org.bukkit.*;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftArmorStand;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftEntity;
@@ -29,7 +31,24 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.function.Predicate;
 
-public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
+public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements AIWeaponCharger {
+
+    @Override
+    public float nextSprayPitch() { return 0; }
+    public float nextSprayYaw() { return 0; }
+
+    @Override
+    public long estimatedChargeTimeForTargetDistance(double distance) {
+
+        long totalTime = chargeDuration;
+        double mod = (distance/getRange());
+        return (long) (mod*(totalTime)) + 50;
+
+    }
+
+    public double getRange() {
+        return range-1f;
+    }
 
     public float maxDamage, range;
     private long chargeBegin, chargeTarget, chargeDuration, lastChargeUpdate;
@@ -159,8 +178,10 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
                         Bukkit.getScheduler().runTask(XenyriaSplatoon.getPlugin(), () -> {
 
                             double hitRange = maxRange;
-                            HitableEntity foundEntity = projectile.getHitEntity(maxRange);
+                            HitableEntity foundEntity = projectile.getHitEntity(maxRange, true);
                             boolean hit = foundEntity != null;
+                            Block hitWall = null;
+
                             if(foundEntity != null) {
 
                                 foundEntity.onProjectileHit(projectile);
@@ -173,20 +194,52 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
                                 }
                                 MinecraftKey key;
                                 RayTraceResult result = projectile.rayTrace(foundEntity.aabb(), fPercentage*range);
-                                hitRange = begin.toVector().distance(result.getHitPosition());
+
+                                if(result != null && result.getHitPosition() != null) {
+
+                                    hitRange = begin.toVector().distance(result.getHitPosition());
+
+                                }
+
+                                Vector hitLocation = null;
+                                if(result != null && result.getHitPosition() != null) {
+
+                                    hitLocation = result.getHitPosition();
+
+                                } else {
+
+                                    hitLocation = begin.clone().add(getPlayer().getEyeLocation().getDirection().clone().multiply(hitRange)).toVector();
+
+                                }
+
                                 if(getPlayer() instanceof SplatoonHumanPlayer) {
 
                                     ((SplatoonHumanPlayer) getPlayer()).getPlayer().playSound(((SplatoonHumanPlayer) getPlayer()).getPlayer().getLocation(),
                                             Sound.BLOCK_GLASS_BREAK, 1f, 2f);
                                     ((SplatoonHumanPlayer) getPlayer()).getPlayer().playSound(((SplatoonHumanPlayer) getPlayer()).getPlayer().getLocation(),
                                             Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 2f);
-                                    getPlayer().hitMark(result.getHitPosition().toLocation(((SplatoonHumanPlayer) getPlayer()).getPlayer().getWorld()));
+                                    getPlayer().hitMark(hitLocation.toLocation(((SplatoonHumanPlayer) getPlayer()).getPlayer().getWorld()));
 
 
                                 }
+                            } else {
+
+                                RayTraceResult result = getPlayer().getMatch().getWorldInformationProvider().rayTraceBlocks(begin.toVector(), getPlayer().getLocation().getDirection().clone(), maxRange,true);
+                                if(result != null) {
+
+                                    hitRange = (float) result.getHitPosition().distance(begin.toVector());
+
+                                    if(result.getHitBlock() != null) {
+
+                                        hitWall = result.getHitBlock().getRelative(result.getHitBlockFace().getOppositeFace());
+
+                                    }
+
+                                }
+
                             }
 
-                            ArrayList<Block> blocks = RayProjectile.rayCastBlocks(hitRange, begin, getPlayer().getEyeLocation().getDirection());
+                            ArrayList<Block> blocks = RayProjectile.rayCastBlocks(hitRange, begin, getPlayer().getLocation().getDirection().clone(), getPlayer().getMatch());
 
                             storeBeginTime = 0;
                             storeFlag = false;
@@ -198,12 +251,35 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
 
                             }
 
+                            int i = 0;
                             for (Block block : blocks) {
 
-                                Location location = BlockUtil.ground(block.getLocation().clone(), 256).getLocation();
-                                if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), location.getBlock())) {
+                                Location location = block.getLocation();
+                                if (getPlayer().getMatch().isPaintable(getPlayer().getTeam(), block.getX(), block.getY(), block.getZ())) {
 
-                                    getPlayer().getMatch().colorSquare(location.getBlock(), getPlayer().getTeam(), getPlayer(), 3);
+                                    getPlayer().getMatch().paint(getPlayer(), location.toVector(), getPlayer().getTeam());
+                                    getPlayer().getMatch().colorSquare(location.getBlock(), getPlayer().getTeam(), getPlayer(), 2);
+                                    getPlayer().getMatch().colorSquare(location.getBlock(), getPlayer().getTeam(), getPlayer(), 2);
+
+                                }
+
+                                i++;
+
+                            }
+
+                            if(hitWall != null) {
+
+                                Block block1 = hitWall;
+                                for(int x = 0; x < 16; x++) {
+
+                                    block1 = block1.getRelative(BlockFace.DOWN);
+                                    if(getPlayer().getMatch().isPaintable(getPlayer().getTeam(), block1.getX(), block1.getY(), block1.getZ())) {
+
+                                        getPlayer().getMatch().paint(getPlayer(), block1.getLocation().toVector(), getPlayer().getTeam());
+                                        getPlayer().getMatch().colorSquare(block1, getPlayer().getTeam(), getPlayer(), 1);
+                                        getPlayer().getMatch().colorSquare(block1, getPlayer().getTeam(), getPlayer(), 1);
+
+                                    } else { break; }
 
                                 }
 
@@ -273,7 +349,6 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
                     if(isSelected()) {
 
                         float percentage = 1f - (((float) remainingMillis) / (float) chargeDuration);
-                        System.out.println(remainingMillis);
                         float ratio = percentage / 3f;
                         percentage *= 100f;
                         percentage = (float) Math.ceil(percentage);
@@ -372,6 +447,8 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon {
 
     @Override
     public void calculateNextInkUsage() {
+
+        setNextInkUsage(fullUsage);
 
     }
 

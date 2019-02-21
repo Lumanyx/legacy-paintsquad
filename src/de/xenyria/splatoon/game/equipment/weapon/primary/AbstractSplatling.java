@@ -20,6 +20,15 @@ public abstract class AbstractSplatling extends SplatoonPrimaryWeapon {
     private float fullUsage;
     public int projectilesPerFullCharge = 20;
 
+    public void cleanUp() {
+
+        projectilesToFire = 0;
+        lastChargeUpdate = 0;
+        chargeTarget = 0;
+        chargeBegin = 0;
+
+    }
+
     private int projectilesInThisRound = 0;
     private int projectilesToFire = 0;
 

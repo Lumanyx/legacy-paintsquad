@@ -1,15 +1,51 @@
 package de.xenyria.splatoon;
 
 import de.xenyria.splatoon.game.color.Color;
-import org.bukkit.Bukkit;
-import org.bukkit.Particle;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.v1_13_R2.util.CraftMagicNumbers;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 public class SplatoonServer {
+
+    public static void applyGameRules(World world) {
+
+        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
+        world.setGameRule(GameRule.DO_WEATHER_CYCLE, false);
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        world.setGameRule(GameRule.DO_ENTITY_DROPS, false);
+        world.setGameRule(GameRule.RANDOM_TICK_SPEED, 0);
+        world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
+        world.setGameRule(GameRule.MOB_GRIEFING, false);
+        world.setGameRule(GameRule.SPAWN_RADIUS, 0);
+        world.setGameRule(GameRule.DO_FIRE_TICK, false);
+        world.setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, false);
+        world.setGameRule(GameRule.SEND_COMMAND_FEEDBACK, false);
+        world.setGameRule(GameRule.SHOW_DEATH_MESSAGES, false);
+        world.setGameRule(GameRule.REDUCED_DEBUG_INFO, true);
+        world.setGameRule(GameRule.DO_MOB_LOOT, false);
+        world.setGameRule(GameRule.DO_TILE_DROPS, false);
+        world.setGameRule(GameRule.MAX_ENTITY_CRAMMING, 0);
+        world.setGameRule(GameRule.NATURAL_REGENERATION, false);
+        world.setFullTime(6000);
+
+        world.setAmbientSpawnLimit(0);
+        world.setAnimalSpawnLimit(0);
+        world.setWaterAnimalSpawnLimit(0);
+        world.setMonsterSpawnLimit(0);
+
+        world.setTicksPerAnimalSpawns(0);
+        world.setTicksPerMonsterSpawns(0);
+
+        world.setStorm(false);
+        world.setWeatherDuration(0);
+        world.setThunderDuration(0);
+        world.setPVP(false);
+        world.setThundering(false);
+        world.setDifficulty(Difficulty.PEACEFUL);
+
+    }
 
     public static void broadcastColorParticle(World world, double x, double y, double z, Color color, float size) {
 

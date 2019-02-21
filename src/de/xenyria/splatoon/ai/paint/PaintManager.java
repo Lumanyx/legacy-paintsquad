@@ -139,7 +139,7 @@ public class PaintManager {
                                 if (block.getLocation().distance(npc.getLocation()) <= npc.getWeaponManager().maxWeaponDistance()) {
 
                                     if (npc.getWeaponManager().canHitBlock(
-                                            npc.getShootingLocation(node.toVector(), npc.getWeaponManager().getCurrentHandBoolean()), block.getLocation().toVector().add(new Vector(.5, .5, .5)), block)) {
+                                            npc.getShootingLocation(node.toVector(), npc.getWeaponManager().getCurrentHandBoolean()), block.getLocation().toVector().add(new Vector(.5, 1.25, .5)), block)) {
 
                                         possible++;
                                         if (possible >= 4) {

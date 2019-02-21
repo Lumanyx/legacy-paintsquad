@@ -62,7 +62,6 @@ public class ArenaData {
 
     }
 
-    private Material material;
     public Material getRepresentiveMaterial() { return material; }
 
 }

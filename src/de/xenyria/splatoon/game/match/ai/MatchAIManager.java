@@ -1,6 +1,8 @@
 package de.xenyria.splatoon.game.match.ai;
 
 import de.xenyria.core.array.ThreeDimensionalArray;
+import de.xenyria.io.reader.ByteArrayReader;
+import de.xenyria.io.reader.ByteArrayWriter;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.navigation.TransitionType;
 import de.xenyria.splatoon.ai.pathfinding.PathfindingTarget;
@@ -14,7 +16,9 @@ import de.xenyria.splatoon.game.objects.Gusher;
 import de.xenyria.splatoon.game.objects.InkRail;
 import de.xenyria.splatoon.game.objects.RideRail;
 import de.xenyria.splatoon.game.team.Team;
+import net.minecraft.server.v1_13_R2.BlockPosition;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -346,8 +350,7 @@ public class MatchAIManager {
             mapCenter = mapCenter.add(spawn.getPosition().toVector());
 
         }
-        mapCenter = mapCenter.divide(new Vector(match.getMap().getSpawns().size(), match.getMap().getSpawns().size(), match.getMap().getSpawns().size()));
-
+        this.mapCenter = mapCenter.divide(new Vector(match.getMap().getSpawns().size(), match.getMap().getSpawns().size(), match.getMap().getSpawns().size()));
 
     }
 
@@ -431,45 +434,17 @@ public class MatchAIManager {
 
         }
 
-        /*Vector min = getMatch().getMap().getBoundaries().getMin();
-        Vector max = getMatch().getMap().getBoundaries().getMax();
-
-        int minX = (int)Math.min(Math.floor(min.getX()), Math.ceil(max.getX()));
-        int minY = (int)Math.min(Math.floor(min.getY()), Math.ceil(max.getY()));
-        int minZ = (int)Math.min(Math.floor(min.getZ()), Math.ceil(max.getZ()));
-        int maxX = (int)Math.max(Math.floor(min.getX()), Math.ceil(max.getX()));
-        int maxY = (int)Math.max(Math.floor(min.getY()), Math.ceil(max.getY()));
-        int maxZ = (int)Math.max(Math.floor(min.getZ()), Math.ceil(max.getZ()));
-
-        for(int x = minX; x <= maxX; x++) {
-
-            for(int y = minY; y <= maxY; y++) {
-
-                for(int z = minZ; z <= maxZ; z++) {
-
-                    PaintableRegion.Coordinate coordinate = PaintableRegion.Coordinate.fromWorldCoordinates(x,y,z);
-                    if(!coordinates.contains(coordinate)) {
-
-                        coordinates.add(coordinate);
-
-                    }
-
-                }
-
-            }
-
-        }*/
         for(PaintableRegion.Coordinate coordinate : coordinates) {
 
             Vector start = new Vector(coordinate.getX() * 5, coordinate.getY() * 5, coordinate.getZ() * 5);
             Vector end = new Vector((coordinate.getX() * 5) + 5, (coordinate.getY() * 5) + 5, (coordinate.getZ() * 5) + 5);
 
-            int minX = (int) Math.min(start.getX(), end.getX()) - 2;
-            int minY = (int) Math.min(start.getY(), end.getY()) - 2;
-            int minZ = (int) Math.min(start.getZ(), end.getZ()) - 2;
-            int maxX = (int) Math.max(start.getX(), end.getX()) + 2;
-            int maxY = (int) Math.max(start.getY(), end.getY()) + 2;
-            int maxZ = (int) Math.max(start.getZ(), end.getZ()) + 2;
+            int minX = (int) Math.min(start.getX(), end.getX());
+            int minY = (int) Math.min(start.getY(), end.getY());
+            int minZ = (int) Math.min(start.getZ(), end.getZ());
+            int maxX = (int) Math.max(start.getX(), end.getX());
+            int maxY = (int) Math.max(start.getY(), end.getY());
+            int maxZ = (int) Math.max(start.getZ(), end.getZ());
 
             ArrayList<Node> nodes = new ArrayList<>();
             for(Node node : foundNodeArray) {
@@ -496,6 +471,100 @@ public class MatchAIManager {
             paintableRegionMirror.set(region, region.getCoordinate().getX(), region.getCoordinate().getY(), region.getCoordinate().getZ());
 
         }
+
+    }
+
+    public void fromBytes(byte[] data) {
+
+        determineMapCenter();
+        ByteArrayReader reader = new ByteArrayReader(data);
+        Vector offset = match.getOffset();
+        int offsetX = (int) offset.getX();
+        int offsetY = (int) offset.getY();
+        int offsetZ = (int) offset.getZ();
+        reader.readInt();
+        reader.readInt();
+        reader.readInt();
+
+        int indx = reader.readInt();
+        for(int i = 0; i < indx; i++) {
+
+            double centerX = offsetX+reader.readInt()+.5;
+            double centerY = offsetY+reader.readInt()+.5;
+            double centerZ = offsetZ+reader.readInt()+.5;
+            PaintableRegion region = new PaintableRegion(getMatch().getWorld(), this, centerX, centerY, centerZ);
+            int blockCount = reader.readInt();
+            for(int x = 0; x < blockCount; x++) {
+
+                int blockX = offsetX+reader.readInt();
+                int blockY = offsetY+reader.readInt();
+                int blockZ = offsetZ+reader.readInt();
+                region.getPaintableBlocks().add(match.getWorld().getBlockAt(
+                        blockX, blockY, blockZ
+                ));
+
+            }
+            int nodeCount = reader.readInt();
+            for(int x = 0; x < nodeCount; x++) {
+
+                int nodeX = offsetX+reader.readInt();
+                int nodeY = offsetY+reader.readInt();
+                int nodeZ = offsetZ+reader.readInt();
+                Node node = new Node(nodeX, nodeY, nodeZ);
+                node.addHeight(offsetY+reader.readDouble());
+                node.setType(TransitionType.WALK);
+                region.getFloorCoordinates().add(node);
+
+            }
+            PaintableRegion.Coordinate coordinate = PaintableRegion.Coordinate.fromWorldCoordinates(
+                    (int)centerX, (int)centerY, (int)centerZ
+            );
+            paintableRegionMirror.set(region, coordinate.getX(), coordinate.getY(), coordinate.getZ());
+            this.paintableRegions.add(region);
+
+        }
+
+    }
+
+    public byte[] regionsToBytes() {
+
+        Vector offset = match.getOffset();
+        int offsetX = (int) offset.getX();
+        int offsetY = (int) offset.getY();
+        int offsetZ = (int) offset.getZ();
+
+        ByteArrayWriter writer = new ByteArrayWriter();
+        writer.writeInt(offsetX);
+        writer.writeInt(offsetY);
+        writer.writeInt(offsetZ);
+        writer.writeInt(this.getPaintableRegions().size());
+        for(PaintableRegion region : getPaintableRegions()) {
+
+            Vector relPos = region.getCenter();
+            writer.writeInt((int)relPos.getX()-offsetX);
+            writer.writeInt((int)relPos.getY()-offsetY);
+            writer.writeInt((int)relPos.getZ()-offsetZ);
+            writer.writeInt(region.getPaintableBlocks().size());
+            for(Block block : region.getPaintableBlocks()) {
+
+                writer.writeInt(block.getX()-offsetX);
+                writer.writeInt(block.getY()-offsetY);
+                writer.writeInt(block.getZ()-offsetZ);
+
+            }
+            writer.writeInt(region.getFloorCoordinates().size());
+            System.out.println("Save " + region.getFloorCoordinates().size() + " coords");
+            for(Node node : region.getFloorCoordinates()) {
+
+                writer.writeInt(node.x-offsetX);
+                writer.writeInt(node.y-offsetY);
+                writer.writeInt(node.z-offsetZ);
+                writer.writeDouble(node.toVector().getY()-offsetY);
+
+            }
+
+        }
+        return writer.bytes();
 
     }
 

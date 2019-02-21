@@ -51,6 +51,10 @@ public class RecentPlayerNPC {
         player.yaw = location.getYaw();
         player.aS = location.getYaw();
         player.pitch = location.getPitch();
+        player.setInvisible(true);
+        player.setInvisible(false);
+        player.setInvisible(true);
+        player.setInvisible(false);
 
     }
 

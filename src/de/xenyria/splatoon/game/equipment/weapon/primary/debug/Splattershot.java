@@ -55,4 +55,8 @@ public class Splattershot extends AbstractSplattershot {
     @Override
     public PrimaryWeaponType getPrimaryWeaponType() { return PrimaryWeaponType.SPLATTERSHOT; }
 
+    @Override
+    public float range() {
+        return 5f;
+    }
 }

@@ -18,6 +18,7 @@ import de.xenyria.splatoon.game.match.MatchControlInterface;
 import de.xenyria.splatoon.game.match.MatchType;
 import de.xenyria.splatoon.game.match.scoreboard.ScoreboardSlotIDs;
 import de.xenyria.splatoon.game.objects.GameObject;
+import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -180,7 +181,7 @@ public class SplatoonLobby extends Match {
             player.sendMessage("");
 
         });
-        CinematicSequence endScreen = new CinematicSequence(camera_6_introduce_start, camera_6_introduce_end, camera_6_introduce_focus, 7 * 60);
+        CinematicSequence endScreen = new CinematicSequence(camera_6_introduce_start, camera_6_introduce_end, camera_6_introduce_focus, 4 * 60);
         endScreen.getTimeline().addAction(10, () -> {
 
             player.sendMessage("");
@@ -208,6 +209,7 @@ public class SplatoonLobby extends Match {
         bodyGearTeleport = new Location(plazaWorld, 19.5, 66, 15.5, -45, 0);
         headGearTeleport = new Location(plazaWorld, 11, 66, 26, -72.5f, 0);
         weaponShopTeleport = new Location(plazaWorld, 18, 64, 33.5, 0f, 0f);
+        fightTeleport = new Location(plazaWorld, -.5, 68, 55.5, 0, 0);
 
         footGearShopkeeperLocation = new Location(plazaWorld, 31.5, 68, 9.5, 135f, 0f);
         footGearItemLocations.add(new Vector(30.5, 68.5, 2.5));
@@ -531,6 +533,11 @@ public class SplatoonLobby extends Match {
             public void handleSplat(SplatoonPlayer player, SplatoonPlayer shooter, SplatoonProjectile projectile) {
 
             }
+
+            @Override
+            public void teamChanged(SplatoonPlayer splatoonHumanPlayer, Team oldTeam, Team team) {
+
+            }
         });
 
     }
@@ -575,6 +582,11 @@ public class SplatoonLobby extends Match {
         return MatchType.TUTORIAL;
     }
 
+    @Override
+    public void removeBeacon(BeaconObject object) {
+
+    }
+
     public ShopItem getShopItem(int id) {
 
         for(GearShop shop : gearShops) {
@@ -587,6 +599,13 @@ public class SplatoonLobby extends Match {
 
         }
         return null;
+
+    }
+
+    private Location fightTeleport;
+    public void teleportToFights(SplatoonHumanPlayer player1) {
+
+        player1.getPlayer().teleport(fightTeleport);
 
     }
 

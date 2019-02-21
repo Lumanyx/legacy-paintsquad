@@ -11,6 +11,7 @@ import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchControlInterface;
 import de.xenyria.splatoon.game.match.MatchType;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.match.scoreboard.ScoreboardSlotIDs;
 import de.xenyria.splatoon.game.objects.Dummy;
 import de.xenyria.splatoon.game.objects.GameObject;
@@ -42,9 +43,9 @@ public class ShootingRange extends Match {
         for(ArenaBoundaryConfiguration.ArenaBoundaryBlock block : configuration.getPaintableSurfaces()) {
 
             Vector realPos = offset.clone().add(new Vector(block.x, block.y, block.z));
-            Block block1 = getWorld().getBlockAt(realPos.getBlockX(), realPos.getBlockY(), realPos.getBlockZ());
-            block1.setMetadata("Paintable", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), true));
-            block1.setMetadata("Wall", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), block.wall));
+            BlockFlagManager.BlockFlag flag = getBlockFlagManager().getBlock(offset, realPos.getBlockX(), realPos.getBlockY(), realPos.getBlockZ());
+            flag.setPaintable(true);
+            flag.setWall(block.wall);
 
         }
 
@@ -78,7 +79,7 @@ public class ShootingRange extends Match {
         player.getScoreboard().setLine(ScoreboardSlotIDs.SHOOTINGRANGE_SCORE, player2.getTeam().getColor().prefix() + "§o§l" + player2.getScoreboardManager().getPointValue());
 
         // Spezialwaffen-Fortschritt
-        int currentPoints = player2.getSpecialPoints();
+        int currentPoints = (int) player2.getSpecialPoints();
         float percentage = 0f;
         if(currentPoints >= player2.getRequiredSpecialPoints()) {
 
@@ -164,11 +165,18 @@ public class ShootingRange extends Match {
 
     }
 
+    @Override
+    public void removeBeacon(BeaconObject object) {
+
+        if(jumpPoints.containsKey(object)) { jumpPoints.remove(object); }
+
+    }
     private HashMap<BeaconObject, JumpPoint.Beacon> jumpPoints = new HashMap<>();
     public ShootingRange(World world, Location spawn) {
 
         super(world);
         this.location = spawn;
+        enableRollback();
         setMatchController(new MatchControlInterface() {
 
             @Override
@@ -204,6 +212,7 @@ public class ShootingRange extends Match {
             public void playerRemoved(SplatoonPlayer player) {
 
                 rollbackCall();
+                player.getEquipment().resetWeapons();
 
             }
 
@@ -264,6 +273,11 @@ public class ShootingRange extends Match {
 
             @Override
             public void handleSplat(SplatoonPlayer player, SplatoonPlayer shooter, SplatoonProjectile projectile) {
+
+            }
+
+            @Override
+            public void teamChanged(SplatoonPlayer splatoonHumanPlayer, Team oldTeam, Team team) {
 
             }
         });

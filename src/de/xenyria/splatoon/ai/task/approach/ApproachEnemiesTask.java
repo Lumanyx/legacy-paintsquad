@@ -30,7 +30,7 @@ public class ApproachEnemiesTask extends AITask {
     @Override
     public boolean doneCheck() {
 
-        return flag1 && (getNPC().getNavigationManager().isDone() || getNPC().getNavigationManager().isStuck() || getNPC().getTargetManager().hasPotentialTarget());
+        return flag1 && (getNPC().getNavigationManager().isDone() || getNPC().getNavigationManager().isStuck() || getNPC().getTargetManager().hasPotentialTarget() || getNPC().getTargetManager().hasTarget());
     }
 
     private boolean flag1;
@@ -120,7 +120,7 @@ public class ApproachEnemiesTask extends AITask {
 
                     } else {
 
-                        int enemies = getNPC().getTargetManager().nearbyThreats(vector, 10d).size();
+                        int enemies = getNPC().getTargetManager().nearbyThreats(vector, 30d).size();
                         nearbyThreats.set(enemies, node.x, node.y, node.z);
                         return enemies;
 
@@ -128,23 +128,31 @@ public class ApproachEnemiesTask extends AITask {
 
                 }
 
+                private ThreeDimensionalArray<Double> lastDistWeights = new ThreeDimensionalArray<>();
+
                 @Override
                 public double getAdditionalWeight(Node node) {
 
-                    double lastDistWeight = 0d;
-                    for(Location location : getNPC().getTimeLine().last(5)) {
+                    if(!lastDistWeights.exists(node.x, node.y, node.z)) {
 
-                        double maxDist = 12d;
-                        double dist = location.toVector().distance(node.toVector());
-                        if(dist <= 12d) {
+                        double lastDistWeight = 0d;
+                        for (Location location : getNPC().getTimeLine().last(5)) {
 
-                            lastDistWeight+=(maxDist-dist);
+                            double maxDist = 12d;
+                            double dist = location.toVector().distance(node.toVector());
+                            if (dist <= 12d) {
+
+                                lastDistWeight += (maxDist - dist);
+
+                            }
 
                         }
+                        lastDistWeight *= 15d;
+
+                        lastDistWeights.set(lastDistWeight, node.x, node.y, node.z);
 
                     }
-                    lastDistWeight*=15d;
-
+                    double lastDistWeight = lastDistWeights.get(node.x, node.y, node.z);
 
                     return ((lastDistWeight) + ((maxEnemies) - getNearbyThreats(node, node.toVector())) * 5);
 
@@ -161,7 +169,7 @@ public class ApproachEnemiesTask extends AITask {
                         if(node != null) {
 
                             int targets = getNearbyThreats(node, node.toVector());
-                            double currentScore = (getNearbyThreats(node, node.toVector()) * 20) + node.toVector().distance(begin);
+                            double currentScore = (getNearbyThreats(node, node.toVector()) * 20) + node.toVector().distance(begin) + (node.toVector().distance(getNPC().getSpawnPoint().toVector())*3);
                             if((bestNode == null || currentScore > score)) {
 
                                 score = currentScore;

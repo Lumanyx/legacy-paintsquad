@@ -84,7 +84,7 @@ public class ApproachPaintableRegionTask extends AITask {
 
         @Override
         public int maxNodeVisits() {
-            return 250;
+            return 150;
         }
 
         @Override
@@ -159,7 +159,7 @@ public class ApproachPaintableRegionTask extends AITask {
     private boolean flag1 = false;
     @Override
     public boolean doneCheck() {
-        return flag1 && (getNPC().getNavigationManager().isStuck() || getNPC().getNavigationManager().isDone());
+        return flag1 && (getNPC().getNavigationManager().isStuck() || getNPC().getNavigationManager().isDone() || getNPC().getTargetManager().hasPotentialTarget() || getNPC().getTargetManager().hasTarget());
     }
 
     @Override

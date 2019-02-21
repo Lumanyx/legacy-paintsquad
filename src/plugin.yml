@@ -4,7 +4,7 @@ version: 1.0
 api-version: 1.13
 main: de.xenyria.splatoon.XenyriaSplatoon
 
-depend: [XenyriaServerCore, XenyriaStructures, XenyriaSchematics]
+depend: [XenyriaServerCore, XenyriaStructures, XenyriaSchematics, NoteBlockAPI]
 
 commands:
   shootingrange:
@@ -44,4 +44,7 @@ commands:
     aliases: [sl]
   dsv:
     description: Vector-Testtool fuer Waffen
+    usage: /<command>
+  benchmark:
+    description: Fuehrt einen Stresstest aus.
     usage: /<command>

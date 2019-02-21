@@ -11,5 +11,6 @@
     <orderEntry type="library" name="XenyriaServerCore" level="project" />
     <orderEntry type="library" name="XenyriaStructures" level="project" />
     <orderEntry type="library" name="XenyriaSchematics" level="project" />
+    <orderEntry type="library" name="NoteBlockAPI-1.2.5" level="project" />
   </component>
 </module>

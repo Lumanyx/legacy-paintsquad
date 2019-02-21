@@ -10,6 +10,7 @@ import de.xenyria.servercore.spigot.camera.CinematicSequence;
 import de.xenyria.servercore.spigot.camera.listener.CinematicCameraEventHandler;
 import de.xenyria.servercore.spigot.display.image.ImageManager;
 import de.xenyria.servercore.spigot.util.WorldUtil;
+import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import net.minecraft.server.v1_13_R2.*;
@@ -63,6 +64,7 @@ public class PlazaLobbyManager {
             ImageManager.loadImage("testfire_alt", new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "images" + File.separator + "testfire_alt.png"), SplatoonLobby.SCREEN_DIMENSIONS);
 
             lobby = new SplatoonLobby(lobbyWorld);
+            SplatoonServer.applyGameRules(lobbyWorld);
             XenyriaSpigotServerCore.getXenyriaLogger().log("Lobby wurde initialisiert!");
 
         } catch (Exception e) {
@@ -80,7 +82,7 @@ public class PlazaLobbyManager {
         ArrayList<CinematicSequence> sequences = XenyriaSplatoon.getLobbyManager().getLobby().createIntroSequences(player);
         CinematicCamera camera = new CinematicCamera(player.getWorld());
         for(CinematicSequence sequence : sequences) { camera.addSequence(sequence); }
-        camera.setExitGameMode(GameMode.SURVIVAL);
+        camera.setExitGameMode(GameMode.ADVENTURE);
         camera.setGamemodeToUse(GameMode.SPECTATOR);
         camera.setEventHandler(new CinematicCameraEventHandler() {
 

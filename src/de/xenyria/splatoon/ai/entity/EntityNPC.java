@@ -6,9 +6,11 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
+import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.math.AngleUtil;
 import de.xenyria.core.math.SlowRotation;
 import de.xenyria.math.trajectory.Vector3f;
+import de.xenyria.servercore.spigot.listener.ProtocolListener;
 import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.navigation.NavigationManager;
@@ -21,9 +23,12 @@ import de.xenyria.splatoon.ai.task.signal.SignalManager;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.equipment.Equipment;
+import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
 import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.LocationProvider;
+import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.TentaMissleTarget;
 import de.xenyria.splatoon.game.equipment.weapon.util.ResourcePackUtil;
+import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchType;
 import de.xenyria.splatoon.game.objects.Hook;
@@ -83,29 +88,37 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     }
 
+    private boolean visibleInTab = true;
+    public boolean isVisibleInTab() { return visibleInTab; }
+    public void setVisibleInTab(boolean visibleInTab) { this.visibleInTab = visibleInTab; }
+
     public static ArrayList<EntityNPC> getNPCs() { return npcs; }
 
     public void handleProjectileHit(SplatoonProjectile projectile) {
 
-        if(projectile.getShooter() != null && !projectile.getShooter().isSplatted() && projectile instanceof InkProjectile) {
+        if(!isSplatted()) {
 
-            if(getTargetManager().getTarget() != null) {
+            if (projectile.getShooter() != null && !projectile.getShooter().isSplatted() && projectile instanceof InkProjectile) {
 
-                if(hasLineOfSight(projectile.getShooter())) {
+                if (getTargetManager().getTarget() != null) {
 
-                    if(RandomUtil.random((int)properties.getAggressiveness())) {
+                    if (hasLineOfSight(projectile.getShooter())) {
+
+                        if (RandomUtil.random(80)) {
+
+                            getTargetManager().target(projectile.getShooter());
+
+                        }
+
+                    }
+
+                } else {
+
+                    if (hasLineOfSight(projectile.getShooter())) {
 
                         getTargetManager().target(projectile.getShooter());
 
                     }
-
-                }
-
-            } else {
-
-                if(hasLineOfSight(projectile.getShooter())) {
-
-                    getTargetManager().target(projectile.getShooter());
 
                 }
 
@@ -192,7 +205,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         for(EntityNPC npc : npcs) {
 
-            npc.getEquipment().asyncTick();
+            if(npc.getEquipment() != null) {
+
+                npc.getEquipment().asyncTick();
+
+            }
 
         }
 
@@ -201,7 +218,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         for(EntityNPC npc : npcs) {
 
-            npc.getEquipment().syncTick();
+            if(npc.getEquipment() != null) {
+
+                npc.getEquipment().syncTick();
+
+            }
 
         }
 
@@ -209,7 +230,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public boolean isSquidFormAvailable() {
 
-        return !isDead();
+        return !isDead() && !isShooting();
 
     }
 
@@ -231,7 +252,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             if(match.isOwnedByTeam(getLocation().getBlock().getRelative(BlockFace.DOWN), team)) {
 
-                return true;
+                return false;
 
             }
 
@@ -309,6 +330,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         match.removePlayer(this);
         removed = true;
 
+        /*
         if(diagnosticStand1 != null && !diagnosticStand1.isDead()) {
 
             diagnosticStand1.remove();
@@ -319,6 +341,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             diagnosticStand2.remove();
 
         }
+        */
 
     }
 
@@ -328,6 +351,30 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         return removed;
 
     }
+
+    public void setProperties(AIProperties properties) { this.properties = properties; }
+
+    public void broadcastPositionUpdate() {
+
+        for(Player player : trackers) {
+
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
+
+        }
+
+    }
+
+    public boolean estimateEnemyPosition() {
+
+        AIWeaponManager.AIPrimaryWeaponType type = getWeaponManager().getAIPrimaryWeaponType();
+        if(type == AIWeaponManager.AIPrimaryWeaponType.CHARGER) { return false; }
+        return true;
+
+    }
+
+    private int ticksSinceRespawn = 0;
+    public int getTicksSinceRespawn() { return ticksSinceRespawn; }
+    private boolean diedOnce = false;
 
     public class SquidManager {
 
@@ -513,7 +560,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
                 if(ResourcePackUtil.hasCustomResourcePack(player)) {
 
                     ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(tank.getId(), EnumItemSlot.HEAD,
-                            CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.APPLE))));
+                            CraftItemStack.asNMSCopy(new ItemBuilder(Material.GOLDEN_AXE).setDurability(getColor().tankDurabilityValue()).create())));
 
                 }
 
@@ -543,7 +590,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         lastFormChangeTicks = 0;
         squid = true;
         Block below = getWorld().getBlockAt((int)getLocation().getX(), (int)(getLocation().getY() - .5), (int)getLocation().getZ());
-        if(match.isOwnedByTeam(below, team)) {
+        if(match.isOwnedByTeam(below, team) && !inSuperJump()) {
 
             lastInkContactTicks = 0;
             squidManager.setSquidInvisible();
@@ -554,9 +601,12 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         }
 
+        nmsEntity.setInvisible(true);
         for(Player player : trackers) {
 
-            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(nmsEntity.getId()));
+            //((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(nmsEntity.getId()));
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(nmsEntity.getId(), nmsEntity.getDataWatcher(), nmsEntity.onGround));
+            sendEquipment(player);
 
         }
         setTankVisible(false);
@@ -565,16 +615,26 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public void leaveSquidForm() {
 
+
         lastFormChangeTicks = 0;
         setTankVisible(true);
 
         squid = false;
         squidManager.setSquidInvisible();
+        nmsEntity.setInvisible(false);
         for(Player player : trackers) {
 
-            sendSpawnPackets(player);
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
+            sendMetadataPackets(player);
+            sendEquipment(player);
 
         }
+
+    }
+
+    private void sendMetadataPackets(Player player) {
+
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(nmsEntity.getId(), nmsEntity.getDataWatcher(), isOnGround()));
 
     }
 
@@ -585,7 +645,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     }
 
-    public String getName() { return "Splatbot"; }
+    public String getName() { return profile.name; }
 
     @Override
     public boolean isTargetable() {
@@ -604,7 +664,18 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             public Location getLocation() {
                 return instance.getLocation();
             }
+
+            @Override
+            public Vector getLastDelta() {
+                return lastPosition;
+            }
         };
+    }
+
+    public void changeName(String name) {
+
+        this.profile = new NPCProfile(name, UUID.randomUUID(), AISkin.randomSkin(team.getColor()));
+
     }
 
     public class NPCProfile {
@@ -619,8 +690,9 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         public GameProfile toGameProfile() {
 
-            GameProfile profile = new GameProfile(uuid, team.getColor().prefix() + "[AI] " + name);
+            GameProfile profile = new GameProfile(uuid, name);
             profile.getProperties().put("textures", new Property("textures", skinValue, signature));
+            profile.getProperties().put(ProtocolListener.GAMEPROFILE_IGNORE_KEY, new Property("xst", "xst"));
 
             return profile;
 
@@ -758,7 +830,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     @Override
     public void specialNotReady() {}
 
-    private int specialPoints = 0;
+    private double specialPoints = 0;
     public void resetSpecialGauge() {
 
         setSpecialPoints(0);
@@ -769,14 +841,14 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     public void resetLastInteraction() {}
 
     @Override
-    public void setSpecialPoints(int val) {
+    public void setSpecialPoints(double val) {
 
         this.specialPoints = val;
 
     }
 
     @Override
-    public int getSpecialPoints() { return specialPoints; }
+    public double getSpecialPoints() { return specialPoints; }
     public EntityPlayer getNMSPlayer() { return nmsEntity; }
 
     @Override
@@ -811,7 +883,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     }
 
     @Override
-    public void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int ticks) {
+    public void onSplat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int ticks) {
+
+        ticksSinceRespawn = 0;
+        diedOnce = true;
+        burst(splatter, splatter.getColor());
 
         getLocation().getWorld().playSound(getLocation(), Sound.ENTITY_SQUID_DEATH, 1.4f, 1.4f);
         if(isSquid()) {
@@ -819,10 +895,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             leaveSquidForm();
 
         }
-        Bukkit.getConsoleSender().sendMessage(debugName() + " erledigt.");
+        respawnTicks = ticks;
+        nmsEntity.setInvisible(true);
         for(Player player : trackers) {
 
-            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(nmsEntity.getId()));
+            sendEquipment(player);
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(nmsEntity.getId(), nmsEntity.getDataWatcher(), nmsEntity.onGround));
             ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(tank.getId()));
 
         }
@@ -834,7 +913,6 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         signalManager.reset();
         setItemSlot(0);
 
-        respawnTicks = ticks;
 
         if(getMatch().getMatchType() == MatchType.TUTORIAL) {
 
@@ -894,6 +972,26 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     }
 
     @Override
+    public void handleHighlight(TentaMissleTarget target, int i) {
+
+    }
+
+    @Override
+    public int getVisibleEntityID() {
+
+        if(isSquid()) {
+
+            return squidManager.visualSquid.getEntityId();
+
+        } else {
+
+            return nmsEntity.getId();
+
+        }
+
+    }
+
+    @Override
     public boolean isSpectator() {
         return false;
     }
@@ -905,7 +1003,12 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     public double getInk() { return ink; }
 
     @Override
-    public void addInk(double amount) { this.ink+=amount; if(ink >= 100d) { ink = 100d; }}
+    public void addInk(double amount) {
+
+        if(isDebuffed()) { return; }
+        this.ink+=amount; if(ink >= 100d) { ink = 100d; } updateLastInkModification();
+
+    }
 
     private boolean unlimitedInk = false;
 
@@ -918,6 +1021,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             if (ink < 0d) { ink = 0d; }
 
         }
+        updateLastInkModification();
 
     }
 
@@ -1051,30 +1155,39 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     private PositionTimeLine timeLine = new PositionTimeLine(this);
     public PositionTimeLine getTimeLine() { return timeLine; }
 
-    public EntityNPC(Location location, Team team, Match match, AIProperties properties) {
+    public EntityNPC(String name, Location location, Team team, Match match, AIProperties properties) {
 
-        this(location, team, match);
+        this(name, location, team, match);
         this.properties = properties;
 
     }
 
-    public EntityNPC(Location location, Team team, Match match) {
+    public int tagEntityID() { return movementArmorStand.getId(); }
+
+    public EntityNPC(String name, Location location, Team team, Match match) {
 
         this.origin = location.clone();
         this.movementArmorStand = new EntityArmorStand(match.nmsWorld(), location.getX(), location.getY(), location.getZ());
+        movementArmorStand.setCustomNameVisible(true);
+        movementArmorStand.getBukkitEntity().setCustomName(team.getColor().prefix() + name);
+        movementArmorStand.setInvisible(true);
         this.spawnPoint = origin.clone();
         this.match = match;
         this.team = team;
-        this.profile = new NPCProfile("Splatbot", UUID.randomUUID(), AISkin.randomSkin(team.getColor()));
+        this.profile = new NPCProfile(name, UUID.randomUUID(), AISkin.randomSkin(team.getColor()));
+        GameProfile profile = this.profile.toGameProfile();
         nmsEntity = new EntityPlayer(
                 ((CraftWorld)location.getWorld()).getHandle().getMinecraftServer(),
                 ((CraftWorld)location.getWorld()).getHandle(),
-                profile.toGameProfile(),
+                profile,
                 new PlayerInteractManager(((CraftWorld)location.getWorld()).getHandle())
         );
+        nmsEntity.listName = IChatBaseComponent.ChatSerializer.a("{\"text\": \"test\"}");
         nmsEntity.setPositionRotation(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
         nmsEntity.onGround = false;
         nmsEntity.recalcPosition();
+        nmsEntity.setSilent(false);
+        nmsEntity.setCustomNameVisible(true);
 
         xrotation.updateAngle(location.getPitch() + 90f);
         xrotation.target(location.getPitch() + 90);
@@ -1129,6 +1242,15 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     private EntityArmorStand movementArmorStand = null;
 
     public void move(double x, double y, double z) {
+
+        if(x >= 1) { x = 1; } else if(x < -1) { x = -1; }
+        if(y >= 1) { y = 1; } else if(y < -1) { y = -1; }
+        if(z >= 1) { z = 1; } else if(z < -1) { z = -1; }
+
+        if(getEquipment() != null && getEquipment().getSpecialWeapon() != null && getEquipment().getSpecialWeapon() instanceof Baller) {
+
+
+        }
 
         Vector positionBefore = getLocation().toVector();
 
@@ -1195,7 +1317,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             y = targetY - positionBefore.getY();
             z = targetZ - positionBefore.getZ();
 
-            nmsEntity.getBoundingBox().setFilter(null);
+            nmsEntity.getBoundingBox().setFilter(NMSUtil.ironBarStuckFilter);
             nmsEntity.move(EnumMoveType.SELF, x, y, z);
 
             Vector newPosition = getLocation().toVector();
@@ -1240,6 +1362,8 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             }
 
         } else {
+
+            Vector oldPosition = getLocation().toVector();
 
             // Wrap Resolving
             if (grounded && y >= 0) {
@@ -1375,6 +1499,33 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             }
 
+            Vector newPosition = getLocation().toVector();
+            Packet packet = null;
+            double distance = newPosition.distance(oldPosition);
+
+            if (distance >= 7.9d) {
+
+                packet = new PacketPlayOutEntityTeleport(nmsEntity);
+
+            } else {
+
+                // Rel Move
+                long x1 = (long) ((newPosition.getX() * 32 - oldPosition.getX() * 32) * 128);
+                long y1 = (long) ((newPosition.getY() * 32 - oldPosition.getY() * 32) * 128);
+                long z1 = (long) ((newPosition.getZ() * 32 - oldPosition.getZ() * 32) * 128);
+
+                packet = new PacketPlayOutEntity.PacketPlayOutRelEntityMoveLook(nmsEntity.getId(), x1, y1, z1,
+                        floatToByte(nmsEntity.yaw),
+                        floatToByte(nmsEntity.pitch), isOnGround());
+
+            }
+            for (Player player : trackers) {
+
+                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(packet);
+                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(nmsEntity, floatToByte(nmsEntity.yaw)));
+
+            }
+
         }
         hasMovedInThisTick = true;
 
@@ -1382,12 +1533,26 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         Vector last = new Vector(prevX, prevY, prevZ);
         Vector newLoc = new Vector(nmsEntity.locX, nmsEntity.locY, nmsEntity.locZ);
         lastPosition = newLoc.subtract(last);
+        if(!isSplatted()) {
+
+            movementArmorStand.locX=newLoc.getX();
+            movementArmorStand.locY=newLoc.getY();
+            movementArmorStand.locZ=newLoc.getZ();
+            for(Player player : trackers) {
+
+                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(movementArmorStand));
+
+            }
+
+        }
 
     }
 
     private int lastSquidSoundTicks = 0;
     private int lastInkContactTicks = 50;
     private int lastInkContactFacingTicks = 0;
+
+    public static final double TRACKING_RANGE = 96D;
 
     public void manageTracking() {
 
@@ -1398,16 +1563,16 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             while (iterator.hasNext()) {
 
                 Player player = iterator.next();
-                if (!player.isOnline() || !player.getWorld().equals(nmsEntity.getBukkitEntity().getWorld()) || player.getLocation().distance(getLocation()) > 64d) {
+                if (!player.isOnline() || !player.getWorld().equals(nmsEntity.getBukkitEntity().getWorld()) || player.getLocation().distance(getLocation()) > TRACKING_RANGE) {
 
                     iterator.remove();
                     try {
 
-                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(
-                                PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, nmsEntity
-                        ));
                         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
                                 nmsEntity.getId()
+                        ));
+                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                                movementArmorStand.getId()
                         ));
                         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
                                 tank.getId()
@@ -1428,17 +1593,35 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
                 if (!trackers.contains(player)) {
 
-                    if (player.getWorld().equals(nmsEntity.getBukkitEntity().getWorld()) && player.getLocation().distance(getLocation()) <= 64) {
+                    if (player.getWorld().equals(nmsEntity.getBukkitEntity().getWorld()) && player.getLocation().distance(getLocation()) <= TRACKING_RANGE) {
 
                         trackers.add(player);
                         final Player playerCopy = player;
+
 
                         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, nmsEntity));
                         Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
                             if (trackers.contains(playerCopy)) {
 
+                                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(nmsEntity));
                                 sendSpawnPackets(playerCopy);
+
+                            }
+                            if(!visibleInTab) {
+
+                                Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                    if(trackers.contains(playerCopy)) {
+
+                                        ((CraftPlayer)playerCopy).getHandle().playerConnection.sendPacket(
+                                                new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER,
+                                                        nmsEntity)
+                                        );
+
+                                    }
+
+                                }, 3l);
 
                             }
 
@@ -1599,7 +1782,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     private int lastEnemyInkContactTicks = 0;
 
-    public ArmorStand diagnosticStand1, diagnosticStand2;
+    //public ArmorStand diagnosticStand1, diagnosticStand2;
 
     public int getLastFormChangeTicks() {
 
@@ -1612,37 +1795,40 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public void tick() {
 
+        if(respawnTicks < 1) {
+
+            ticksSinceRespawn++;
+
+        }
+
+        if(match != null) {
+
+            if(match.inIntro() || match.inOutro() || (match instanceof BattleMatch && !((BattleMatch)match).getAIStartFlag())) {
+
+                return;
+
+            }
+
+        }
+
         lastFormChangeTicks++;
-        if(!removed && diagnosticStand1 == null) {
-
-            diagnosticStand1 = (ArmorStand) getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
-            diagnosticStand1.setCustomNameVisible(true);
-            diagnosticStand2 = (ArmorStand) getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
-            diagnosticStand2.setCustomNameVisible(true);
-            diagnosticStand1.setVisible(false);
-            diagnosticStand2.setVisible(false);
-            diagnosticStand1.setGravity(false);
-            diagnosticStand2.setGravity(false);
-
-        }
-
-        if(!removed) {
-
-            diagnosticStand1.teleport(getLocation().clone().add(0, 1, 0));
-            diagnosticStand2.teleport(getLocation().clone().add(0, 1.25, 0));
-
-        }
 
         tank.locX = nmsEntity.locX;
         tank.locY = nmsEntity.locY;
         tank.locZ = nmsEntity.locZ;
+        tickHighlights();
 
         //getLocation().getWorld().spawnParticle(org.bukkit.Particle.SMOKE_NORMAL, getLocation().getX(), getLocation().getY(), getLocation().getZ(), 0);
         if(!isDead()) {
 
+            tickDebuff();
             tickInkArmor();
             timeLine.tick();
             updateLastSafe();
+            if(getWeaponManager() != null) {
+
+
+            }
             if(!xrotation.isReached()) {
 
                 xrotation.rotate(15f);
@@ -1948,7 +2134,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
                 } else {
 
-                    if(lastInkContactTicks < 10 && !isOnEnemyTurf()) {
+                    if(!inSuperJump() && lastInkContactTicks < 10 && !isOnEnemyTurf()) {
 
                         squidManager.setSquidInvisible();
 
@@ -1965,6 +2151,12 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             navigationManager.tick();
             squidManager.tick();
+
+            if(inSuperJump() && !squidManager.isSquidVisible()) {
+
+                squidManager.setSquidVisible();
+
+            }
 
             /*
             if(!isSquid()) {
@@ -2031,6 +2223,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             }
 
+            setShooting(false);
             respawnTicks--;
             if(respawnTicks < 1) {
 
@@ -2235,6 +2428,8 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
                 ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(getEntityID(),
                         getNMSEntity().getDataWatcher(), isOnGround()));
+                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
+
 
             }
 
@@ -2249,22 +2444,29 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         for (EnumItemSlot slot : EnumItemSlot.values()) {
 
             ItemStack stack = nmsEntity.getEquipment(slot);
+            if(!isSquid() && !isSplatted()) {
 
-            if(slot == EnumItemSlot.MAINHAND) {
+                if (slot == EnumItemSlot.MAINHAND) {
 
-                stack = CraftItemStack.asNMSCopy(currentItemInMainHand);
+                    stack = CraftItemStack.asNMSCopy(currentItemInMainHand);
 
-            } else if(slot == EnumItemSlot.HEAD) {
+                } else if (slot == EnumItemSlot.HEAD) {
 
-                stack = CraftItemStack.asNMSCopy(getEquipment().getHeadGear().asItemStack(getColor()));
+                    stack = CraftItemStack.asNMSCopy(getEquipment().getHeadGear().asItemStack(getColor()));
 
-            } else if(slot == EnumItemSlot.CHEST) {
+                } else if (slot == EnumItemSlot.CHEST) {
 
-                stack = CraftItemStack.asNMSCopy(getEquipment().getBodyGear().asItemStack(getColor()));
+                    stack = CraftItemStack.asNMSCopy(getEquipment().getBodyGear().asItemStack(getColor()));
 
-            } else if(slot == EnumItemSlot.FEET) {
+                } else if (slot == EnumItemSlot.FEET) {
 
-                stack = CraftItemStack.asNMSCopy(getEquipment().getFootGear().asItemStack(getColor()));
+                    stack = CraftItemStack.asNMSCopy(getEquipment().getFootGear().asItemStack(getColor()));
+
+                }
+
+            } else {
+
+                stack = CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.AIR));
 
             }
 
@@ -2294,11 +2496,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         if(!isSquid()) {
 
-            ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(nmsEntity));
             ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(nmsEntity.getId(), nmsEntity.getDataWatcher(), isOnGround()));
             sendEquipment(player);
 
         }
+
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(movementArmorStand));
+        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(movementArmorStand.getId(), movementArmorStand.getDataWatcher(), false));
 
         if(ResourcePackUtil.hasCustomResourcePack(player)) {
 
@@ -2307,7 +2511,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             if(tankVisible) {
 
-                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(tank.getId(), EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.APPLE))));
+                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(tank.getId(), EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(new ItemBuilder(Material.GOLDEN_AXE).setDurability(getColor().tankDurabilityValue()).create())));
 
             } else {
 
@@ -2334,23 +2538,27 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public float getMovementSpeed() {
 
+        double mod = 1d;
+        if(isDebuffed()) { mod = SplatoonPlayer.DEBUFF_SPEED_MOD; }
+        double val = 0d;
+
         if(!squid) {
 
             if(!walkSpeedOverride) {
 
                 if (lastEnemyInkContactTicks < 3) {
 
-                    return 0.125f;
+                    val = 0.125f;
 
                 } else {
 
-                    return 0.25f;
+                    val = 0.25f;
 
                 }
 
             } else {
 
-                return walkSpeedOverrideValue;
+                val = walkSpeedOverrideValue;
 
             }
 
@@ -2360,17 +2568,17 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
                 if(lastEnemyInkContactTicks < 3) {
 
-                    return 0.06f;
+                    val = 0.06f;
 
                 } else {
 
                     if (lastInkContactTicks < 10) {
 
-                        return swimmingSpeed;
+                        val = swimmingSpeed;
 
                     } else {
 
-                        return 0.12f;
+                        val = 0.12f;
 
                     }
 
@@ -2378,11 +2586,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             } else {
 
-                return walkSpeedOverrideValue;
+                val = walkSpeedOverrideValue;
 
             }
 
         }
+
+        return (float) (val*mod);
 
     }
 
@@ -2394,9 +2604,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         health = 0d;
 
         trackers.clear();
+        nmsEntity.setInvisible(true);
         for(Player player : trackers) {
 
-            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(nmsEntity.getId()));
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(nmsEntity.getId(), nmsEntity.getDataWatcher(), false));
+            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
             ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(tank.getId()));
 
         }

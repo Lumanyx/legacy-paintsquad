@@ -235,9 +235,9 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
                             Location loc = startLocation.clone();
                             loc.setY(newY);
 
-                            if(getPlayer().getMatch().isPaintable(getPlayer().getTeam(), loc.getBlock())) {
+                            if(getPlayer().getMatch().isPaintable(getPlayer().getTeam(), (int)loc.getX(), (int)loc.getY(), (int)loc.getZ())) {
 
-                                getPlayer().getMatch().paint(new Vector(loc.getX(), loc.getY(), loc.getZ()), getPlayer());
+                                getPlayer().getMatch().paint(getPlayer(), new Vector(loc.getX(), loc.getY(), loc.getZ()), getPlayer().getTeam());
                                 break;
 
                             }
@@ -361,7 +361,6 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
         if(model.isActive()) {
 
             seat.removePassenger(getPlayer().getBukkitEntity());
-
             seat.remove();
             NMSUtil.broadcastEntityRemovalToSquids(seat);
 
@@ -439,6 +438,26 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
         hitboxStand.setPosition(startLocation.getX(), startLocation.getY(), startLocation.getZ());
         getPlayer().resetSpecialGauge();
         ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponBegin();
+        getPlayer().addInk(100d);
+        getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7aktiviert den §eTintendüser§7!");
+
+    }
+
+    public void cleanUp() {
+
+        if(!seat.isDead()) {
+
+            seat.removePassenger(getPlayer().getBukkitEntity());
+            seat.remove();
+            NMSUtil.broadcastEntityRemovalToSquids(seat);
+
+        }
+
+        if(model != null) {
+
+            model.removeForcefully();
+
+        }
 
     }
 

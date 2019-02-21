@@ -91,7 +91,7 @@ public class RainMakerProjectile extends SplatoonProjectile implements DamageDea
             for(HitableEntity entity : getMatch().getHitableEntities()) {
 
                 RayProjectile projectile = new RayProjectile(getShooter(), getWeapon(), getMatch(), location, target.clone().subtract(current).normalize(), 30f);
-                if(projectile.rayTraceWithoutObstruction(entity.aabb(), velocity.length() + .3, target.clone().subtract(current).normalize()) && entity.isHit(projectile)) {
+                if(projectile.rayTraceWithoutObstruction(entity.aabb(), velocity.length() + .3, target.clone().subtract(current).normalize(), true) && entity.isHit(projectile)) {
 
                     entity.onProjectileHit(projectile);
 
@@ -206,11 +206,11 @@ public class RainMakerProjectile extends SplatoonProjectile implements DamageDea
                                         if(block.getType() == Material.AIR) {
 
                                             Block grounded = BlockUtil.ground(block.getLocation(), 7);
-                                            getMatch().paint(grounded.getLocation().toVector(), getShooter());
+                                            getMatch().paint(getShooter(), grounded.getLocation().toVector(), getShooter().getTeam());
 
                                         } else {
 
-                                            getMatch().paint(block.getLocation().toVector(), getShooter());
+                                            getMatch().paint(getShooter(), block.getLocation().toVector(), getShooter().getTeam());
 
                                         }
 

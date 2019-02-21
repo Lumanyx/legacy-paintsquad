@@ -5,6 +5,7 @@ import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.*;
+import de.xenyria.splatoon.game.util.VectorUtil;
 import net.minecraft.server.v1_13_R2.AxisAlignedBB;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -56,7 +57,11 @@ public class BallerHitbox extends GameObject implements HitableEntity {
                         lastBounceTicks = 10;
                         Vector current = baller.mimic.getBukkitEntity().getLocation().toVector();
                         Vector dir = entityLoc.subtract(current).normalize().multiply(-1.7);
-                        baller.getVelocity().add(dir);
+                        if(VectorUtil.isValid(dir)) {
+
+                            baller.getVelocity().add(dir);
+
+                        }
 
                         break;
 
@@ -75,7 +80,7 @@ public class BallerHitbox extends GameObject implements HitableEntity {
 
     }
 
-    private double health = 500d;
+    private double health = 350d;
 
     @Override
     public void onProjectileHit(SplatoonProjectile projectile) {
@@ -89,6 +94,7 @@ public class BallerHitbox extends GameObject implements HitableEntity {
                 getLocation().getWorld().playSound(getLocation(), Sound.BLOCK_GLASS_BREAK, 0.35f, 0.8f);
                 if(health < 0) {
 
+                    baller.getPlayer().sendMessage( " §7Die §eSepisphäre §7wurde durch einen Gegner zerstört!");
                     baller.end();
 
                 }
@@ -107,6 +113,13 @@ public class BallerHitbox extends GameObject implements HitableEntity {
 
     @Override
     public boolean isHit(SplatoonProjectile projectile) {
+
+        if(projectile.getTeam() != null) {
+
+            if(projectile.getTeam() == baller.getPlayer().getTeam()) { return false; }
+
+        }
+
         if(projectile instanceof RayProjectile || projectile instanceof InstantDamageKnockbackProjectile) {
 
             return true;

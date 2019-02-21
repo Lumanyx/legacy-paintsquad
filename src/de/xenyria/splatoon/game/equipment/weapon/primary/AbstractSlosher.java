@@ -16,6 +16,12 @@ public abstract class AbstractSlosher extends SplatoonPrimaryWeapon {
 
     }
 
+    public void cleanUp() {
+
+        queuedSloshes = 0;
+
+    }
+
     private int queuedSloshes;
     private long sloshDelay = 900;
     private long lastSlosh;

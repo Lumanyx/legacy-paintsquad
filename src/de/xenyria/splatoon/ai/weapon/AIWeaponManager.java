@@ -6,12 +6,13 @@ import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.ai.projectile.ProjectileExaminer;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeapon;
+import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponCharger;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponRoller;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponShooter;
-import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractRoller;
-import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractSplattershot;
-import de.xenyria.splatoon.game.equipment.weapon.primary.SplatoonPrimaryWeapon;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SplatBomb;
+import de.xenyria.splatoon.game.equipment.weapon.primary.*;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.SplatoonSecondaryWeapon;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.*;
+import de.xenyria.splatoon.game.objects.Sprinkler;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 import de.xenyria.splatoon.game.util.VectorUtil;
@@ -26,6 +27,7 @@ import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.util.Random;
@@ -50,7 +52,7 @@ public class AIWeaponManager {
             if(primaryWeapon instanceof AIWeaponShooter) {
 
                 AIWeaponShooter shooter = (AIWeaponShooter)primaryWeapon;
-                ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(location, target.toLocation(npc.getWorld()), shooter.getImpulse(), npc.getMatch(), npc.getTeam(), block, npc);
+                ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(location, target.toLocation(npc.getWorld()), shooter.getImpulse(), npc.getMatch(), npc.getTeam(), block, npc, 1d);
                 if(result.isTargetReached() || (result.getHitLocation() != null && result.getHitLocation().toVector().distance(target) <= 0.51)) {
 
                     return true;
@@ -62,7 +64,7 @@ public class AIWeaponManager {
             } else if(primaryWeapon instanceof AIWeaponRoller) {
 
                 AIWeaponRoller roller = (AIWeaponRoller)primaryWeapon;
-                ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(location, target.toLocation(npc.getWorld()), roller.getImpulse(), npc.getMatch(), npc.getTeam(), block, npc);
+                ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(location, target.toLocation(npc.getWorld()), roller.getImpulse(), npc.getMatch(), npc.getTeam(), block, npc, 1d);
                 if(result.isTargetReached() || (result.getHitLocation() != null && result.getHitLocation().toVector().distance(target) <= 0.51)) {
 
                     return true;
@@ -70,6 +72,31 @@ public class AIWeaponManager {
                 }
 
                 return false;
+
+            } else if(primaryWeapon instanceof AIWeaponCharger) {
+
+                Vector direction = target.clone().subtract(location.toVector()).normalize();
+                if(VectorUtil.isValid(direction)) {
+
+                    RayTraceResult result = npc.getMatch().getWorldInformationProvider().rayTraceBlocks(
+                            location.toVector(), direction, maxWeaponDistance(), true
+                            );
+
+                    if(result != null) {
+
+                        if(result.getHitBlock().equals(block)) {
+
+                            return true;
+
+                        } else { return false; }
+
+                    } else {
+
+                        return true;
+
+                    }
+
+                }
 
             }
 
@@ -108,6 +135,32 @@ public class AIWeaponManager {
 
                 return false;
 
+            } else if(primaryWeapon instanceof AIWeaponCharger) {
+
+                Vector direction = positionB.clone().subtract(positionA.toVector()).toVector().normalize();
+                if(VectorUtil.isValid(direction)) {
+
+                    RayTraceResult result = npc.getMatch().getWorldInformationProvider().rayTraceBlocks(
+                            positionA.toVector(), direction, maxWeaponDistance(), true);
+
+                    if(result != null) {
+
+                        if(result.getHitPosition().distance(positionA.toVector()) <= (entity.getLocation().toVector().distance(positionA.toVector()))) {
+
+                            return true;
+
+                        } else {
+
+                            return false;
+
+                        }
+
+                    }
+                    return true;
+
+                }
+                return false;
+
             }
 
         }
@@ -134,6 +187,11 @@ public class AIWeaponManager {
                 AIWeaponRoller roller = (AIWeaponRoller)primaryWeapon;
                 ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(start.toLocation(npc.getWorld()), end.toLocation(npc.getWorld()), roller.getImpulse(), npc.getMatch(), npc.getTeam(), npc);
                 return result;
+
+            } else if(primaryWeapon instanceof AIWeaponCharger) {
+
+                AIWeaponCharger charger = (AIWeaponCharger)primaryWeapon;
+                return ProjectileExaminer.examineRayProjectile(start.toLocation(npc.getWorld()), end.toLocation(npc.getWorld()), charger.getRange(), npc.getMatch(), npc.getTeam(), npc);
 
             }
 
@@ -172,6 +230,12 @@ public class AIWeaponManager {
 
                 return false;
 
+            } else if(primaryWeapon instanceof AIWeaponCharger) {
+
+                AIWeaponCharger charger = (AIWeaponCharger)primaryWeapon;
+                ProjectileExaminer.Result result = ProjectileExaminer.examineRayProjectile(positionA, positionB, maxWeaponDistance(), npc.getMatch(), npc.getTeam(), npc);
+                return result.isTargetReached();
+
             }
 
         }
@@ -193,21 +257,39 @@ public class AIWeaponManager {
         AIPrimaryWeaponType type = getAIPrimaryWeaponType();
         if(type == AIPrimaryWeaponType.SHOOTER) {
 
-            return 6;
+            return ((AIWeaponShooter)getAIWeaponInterface()).range();
 
         } else if(type == AIPrimaryWeaponType.ROLLER) {
 
             return 3;
+
+        } else if(type == AIPrimaryWeaponType.CHARGER) {
+
+            return ((AIWeaponCharger)getAIWeaponInterface()).getRange();
 
         }
         return 0d;
 
     }
 
+    private int ignoreTicks = 0;
     private int shootTicks;
     public void fire(int ticks) {
 
+        if(ignoreTicks > 0) {
+
+            ignoreTicks--;
+            return;
+
+        }
+
         shootTicks=ticks;
+
+        if(getAIPrimaryWeaponType() == AIPrimaryWeaponType.CHARGER) {
+
+            ignoreTicks=ticks+16;
+
+        }
 
     }
 
@@ -260,6 +342,22 @@ public class AIWeaponManager {
     }
 
     public void tick() {
+
+        if(npc.isSplatted()) {
+
+            shootTicks = 0;
+            npc.setShooting(false);
+            targetBlock = null;
+            targetTrajectory = null;
+            return;
+
+        }
+
+        if(ignoreTicks > 0) {
+
+            ignoreTicks--;
+
+        }
 
         if(shootTicks > 0 && aimLocation != null) {
 
@@ -332,6 +430,10 @@ public class AIWeaponManager {
 
                         }
 
+                    } else if(weapon instanceof AIWeaponCharger) {
+
+                        npc.updateAngles(targetYaw, targetPitch);
+
                     }
 
                 }
@@ -395,6 +497,18 @@ public class AIWeaponManager {
 
     public int getShootingTicks() { return shootTicks; }
 
+    public int requiredTicksForDistance(double v) {
+
+        AIWeapon weapon = getAIWeaponInterface();
+        if(weapon instanceof AIWeaponCharger) {
+
+            return (int)Math.ceil((double)((AIWeaponCharger)weapon).estimatedChargeTimeForTargetDistance(v) / 50d);
+
+        }
+
+        return 1;
+
+    }
 
     public class TrajectoryTargetPair {
 
@@ -425,7 +539,7 @@ public class AIWeaponManager {
             Vector newTarget = start.toVector().add(location.getDirection().clone().multiply(start.distance(end)));
 
             ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(start,
-                    newTarget.toLocation(npc.getWorld()), impulse, npc.getMatch(), npc.getTeam(), targetBlock, npc);
+                    newTarget.toLocation(npc.getWorld()), impulse, npc.getMatch(), npc.getTeam(), targetBlock, npc, 1d);
             if(result != null && result.isTargetReached()) {
 
                 if(targetBlock != null) {
@@ -450,7 +564,7 @@ public class AIWeaponManager {
         if(aimLocation != null) {
 
             ProjectileExaminer.Result result = ProjectileExaminer.examineInkProjectile(npc.getShootingLocation(npc.getWeaponManager().getCurrentHandBoolean()),
-                    aimLocation, impulse, npc.getMatch(), npc.getTeam(), targetBlock, npc);
+                    aimLocation, impulse, npc.getMatch(), npc.getTeam(), targetBlock, npc, 1d);
             if(result != null && result.getTrajectory() != null) {
 
                 if(targetBlock != null) {
@@ -471,8 +585,9 @@ public class AIWeaponManager {
 
     public static enum AIPrimaryWeaponType {
 
-        SHOOTER("§aNormale Schusswaffen", Material.STONE_HOE, ResourcePackItemOption.SPLATTERSHOT.getDamageValue()),
-        ROLLER("§aFarbroller", Material.IRON_SHOVEL, ResourcePackItemOption.ROLLER_IDLE.getDamageValue());
+        SHOOTER("§aNormale Schusswaffen", Material.STONE_HOE, ResourcePackItemOption.SPLATTERSHOT.getDamageValue(), PrimaryWeaponType.SPLATTERSHOT),
+        ROLLER("§aFarbroller", Material.IRON_SHOVEL, ResourcePackItemOption.ROLLER_IDLE.getDamageValue(), PrimaryWeaponType.ROLLER),
+        CHARGER("§aKonzentratorwaffen", Material.GOLDEN_HOE, ResourcePackItemOption.DEFAULT_CHARGER.getDamageValue(), PrimaryWeaponType.CHARGER);
 
         private String name;
         private Material material;
@@ -480,27 +595,43 @@ public class AIWeaponManager {
 
         public ItemBuilder createItem() { return new ItemBuilder(material).setDisplayName(name).setUnbreakable(true).addAttributeHider().setDurability(durability); }
 
-        AIPrimaryWeaponType(String name, Material material, short durability) {
+        AIPrimaryWeaponType(String name, Material material, short durability, PrimaryWeaponType type) {
 
             this.name = name;
             this.material = material;
             this.durability = durability;
+            weaponType = type;
 
         }
 
+        public String getName() { return name; }
+
+        private PrimaryWeaponType weaponType;
+        public PrimaryWeaponType toPrimaryWeaponType() { return weaponType; }
     }
 
     public static enum AISecondaryWeaponType {
 
-        PAINTBOMB,DAMAGEBOMB,BEACON,SPRINKLER;
+        PAINTBOMB,DAMAGEBOMB,BEACON;
 
     }
 
     public AISecondaryWeaponType getAISecondaryWeaponType() {
 
-        if(npc.getEquipment().getSecondaryWeapon() instanceof SplatBomb) {
+        SplatoonSecondaryWeapon secondary = npc.getEquipment().getSecondaryWeapon();
+        if(secondary instanceof SplatBomb ||
+                secondary instanceof ToxicMist ||
+                secondary instanceof BurstBomb) {
 
             return AISecondaryWeaponType.DAMAGEBOMB;
+
+        } else if(secondary instanceof SprinklerSecondary || secondary instanceof SuctionBomb) {
+
+            return AISecondaryWeaponType.PAINTBOMB;
+
+        } else if(secondary instanceof Beacon) {
+
+            return AISecondaryWeaponType.BEACON;
 
         }
         return null;
@@ -516,6 +647,10 @@ public class AIWeaponManager {
         } else if(npc.getEquipment().getPrimaryWeapon() instanceof AbstractRoller) {
 
             return AIPrimaryWeaponType.ROLLER;
+
+        } else if(npc.getEquipment().getPrimaryWeapon() instanceof AbstractCharger) {
+
+            return AIPrimaryWeaponType.CHARGER;
 
         }
         return null;

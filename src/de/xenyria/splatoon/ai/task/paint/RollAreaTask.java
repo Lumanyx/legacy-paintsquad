@@ -27,7 +27,7 @@ public class RollAreaTask extends AITask {
 
     @Override
     public boolean doneCheck() {
-        return getNPC().getTargetManager().hasPotentialTarget() || getNPC().getInk() <= 20d;
+        return getNPC().getTargetManager().hasPotentialTarget() || getNPC().getTargetManager().getTarget() != null || getNPC().getInk() <= 20d;
     }
 
     private boolean reach = false;
@@ -63,7 +63,6 @@ public class RollAreaTask extends AITask {
         public void beginPathfinding() {
 
             flag = true;
-            System.out.println("Begin");
 
         }
 
@@ -93,9 +92,8 @@ public class RollAreaTask extends AITask {
                 @Override
                 public double getAdditionalWeight(Node node) {
 
-                    Block below = getNPC().getWorld().getBlockAt(node.x, node.y-1, node.z);
                     double nearby = getNPC().getTargetManager().nearbyThreats(node.toVector(), 8d).size() * 8;
-                    if(!getNPC().getMatch().isPaintable(getNPC().getTeam(), below)) {
+                    if(!getNPC().getMatch().isPaintable(getNPC().getTeam(), node.x, node.y-1, node.z)) {
 
                         return 20d+nearby;
 
@@ -141,7 +139,6 @@ public class RollAreaTask extends AITask {
 
                     }
 
-                    System.out.println("highest: " + highestScore);
                     if(highestScore >= 30) {
 
                         return highestNode;

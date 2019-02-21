@@ -41,6 +41,12 @@ public abstract class AbstractDualies extends SplatoonPrimaryWeapon {
     public double getOptimalRange() { return optimalRange; }
     public void setOptimalRange(double d) { this.optimalRange = d; }
 
+    public void cleanUp() {
+
+        projectilesToSpawn = 0;
+
+    }
+
     @Override
     public ResourcePackItemOption getResourcepackOption() {
         return ResourcePackItemOption.DUALIES;
@@ -96,13 +102,6 @@ public abstract class AbstractDualies extends SplatoonPrimaryWeapon {
             Location target = getPlayer().getEyeLocation().clone();
             target = target.add(target.getDirection().clone().multiply(optimalRange));
 
-            spawnLoc = spawnLoc.add(0, 0.9, 0);
-            Location clone = spawnLoc.clone();
-            clone.setYaw(clone.getYaw() - 90f);
-            double mod = 1;
-            if(weaponFlag) { mod = -1; }
-            spawnLoc = spawnLoc.add(clone.getDirection().multiply(0.39).multiply(mod));
-
             Vector direction = target.toVector().subtract(spawnLoc.toVector());
             Location location = new Location(getPlayer().getWorld(), 0,0,0);
             location.setDirection(direction);
@@ -110,7 +109,8 @@ public abstract class AbstractDualies extends SplatoonPrimaryWeapon {
             InkProjectile projectile = new InkProjectile(getPlayer(), this, getPlayer().getMatch());
             projectile.withReason(DamageReason.WEAPON);
             projectile.withDamage(baseDamage);
-            projectile.setDrippingRatio(20);
+            projectile.setDrippingRatio(17);
+            projectile.setPaintBelowRatio(10, 5, 1);
             projectile.spawn(spawnLoc, SprayUtil.addSpray(location.getYaw(), maxSpray),
                     SprayUtil.addSpray(location.getPitch(), maxSpray), impulse);
 

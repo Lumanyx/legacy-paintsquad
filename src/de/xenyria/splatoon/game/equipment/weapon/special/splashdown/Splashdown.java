@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.equipment.weapon.special.splashdown;
 
 import de.xenyria.splatoon.SplatoonServer;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AISpecialWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -15,7 +16,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
 
     public static final int ID = 10;
     public Splashdown() {
-        super(ID, "Tintenschock", "Führt eine mächtige Stampfattacke aus.", 0);
+        super(ID, "Tintenschock", "Führt eine mächtige Stampfattacke aus.", 190);
     }
 
     private boolean doneFlag = true;
@@ -34,7 +35,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
     private int downTicker = 0;
     private int impactTicker = 0;
     private boolean waitForImpact = false;
-    private float radius = 3.75f;
+    private float radius = 5f;
     private Location useLoc;
 
     @Override
@@ -49,6 +50,8 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
                 appliedVelocity = false;
                 impactTicker = 0;
                 doneFlag = true;
+                if(getPlayer() instanceof EntityNPC) { ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponEnd(); }
+
                 return;
 
             }
@@ -120,7 +123,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
             Location xzCur = getPlayer().getLocation().clone();
             xzCur.setY(0);
             Location xzTar = useLoc.clone();
-            xzTar.setY(0);;
+            xzTar.setY(0);
             double dist = xzCur.distance(xzTar);
             if(dist > 0.05) {
 
@@ -147,6 +150,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
                     downTicker = 0;
                     impactTicker = 0;
                     useLoc = null;
+                    if(getPlayer() instanceof EntityNPC) { ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponEnd(); }
                     getPlayer().disableWalkSpeedOverride();
 
                 } else {
@@ -183,8 +187,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
 
         if(getPlayer().isShooting() && getPlayer().getSpecialPoints() >= getRequiredPoints() && !isActive() && isSelected() && getPlayer().hasControl()) {
 
-            getPlayer().resetSpecialGauge();
-            doneFlag = false;
+            activate();
 
         }
 
@@ -210,11 +213,29 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
 
     }
 
+    public void cleanUp() {
+
+        if(!doneFlag) {
+
+            appliedVelocity = false;
+            doneFlag = true;
+            waitForImpact = false;
+            downTicker = 0;
+            impactTicker = 0;
+            useLoc = null;
+            getPlayer().disableWalkSpeedOverride();
+
+        }
+
+    }
+
     @Override
     public void activate() {
 
+        getPlayer().addInk(100d);
         getPlayer().resetSpecialGauge();
         doneFlag = false;
+        getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7setzt den §eTintenschock §7ein!");
 
     }
 
