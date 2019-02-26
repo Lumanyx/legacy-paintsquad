@@ -109,7 +109,7 @@ public class ArenaBoundaryConfiguration {
     public boolean isBlocked(Block block, BlockFace face) {
 
         Block rel = block.getRelative(face);
-        if(!rel.isEmpty() && !AABBUtil.isPassable(rel.getType())) {
+        if((!rel.isEmpty() || (rel.isLiquid())) && !AABBUtil.isPassable(rel.getType())) {
 
             return true;
 

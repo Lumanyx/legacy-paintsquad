@@ -1,4 +1,4 @@
-package de.xenyria.splatoon.game.equipment.weapon.secondary.debug;
+package de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded;
 
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.game.equipment.Brand;

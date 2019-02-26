@@ -257,6 +257,7 @@ public abstract class AbstractSplatling extends SplatoonPrimaryWeapon {
                 boolean fullyCharged = System.currentTimeMillis() >= chargeTarget;
                 long remainingMillis = chargeTarget - System.currentTimeMillis();
                 float percentage = 1f - (((float) remainingMillis) / (float) chargeDuration);
+                if(percentage >= 1f) { percentage = 1f; }
                 projectilesToFire = (int) ((float)projectilesPerFullCharge * percentage);
                 projectilesInThisRound = projectilesToFire;
 

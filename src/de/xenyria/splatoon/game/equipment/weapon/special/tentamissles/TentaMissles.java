@@ -100,7 +100,6 @@ public class TentaMissles extends SplatoonSpecialWeapon implements AISpecialWeap
 
                     for(TentaMissleTarget target : targets) {
 
-
                         if(getPlayer() instanceof SplatoonHumanPlayer) {
 
                             SplatoonHumanPlayer player = (SplatoonHumanPlayer) getPlayer();
@@ -207,7 +206,7 @@ public class TentaMissles extends SplatoonSpecialWeapon implements AISpecialWeap
 
         for(SplatoonPlayer player : getPlayer().getMatch().getAllPlayers()) {
 
-            if(player.getTeam() != getPlayer().getTeam()) {
+            if(player.getTeam() != getPlayer().getTeam() && !player.isSpectator()) {
 
                 TentaMissleTarget target = (TentaMissleTarget)player;
                 if(target.isTargetable() && targets.size() < 5) {
@@ -434,12 +433,6 @@ public class TentaMissles extends SplatoonSpecialWeapon implements AISpecialWeap
     private boolean aimPhase, shootPhase;
     private int remainingAimTicks = 0;
 
-    @Override
-    public void use() {
-
-
-
-    }
 
     @Override
     public void shoot() {

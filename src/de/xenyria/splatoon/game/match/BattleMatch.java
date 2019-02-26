@@ -48,6 +48,9 @@ import de.xenyria.splatoon.game.match.PlaceholderReader;
 import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.match.scoreboard.ScoreboardSlotIDs;
 import de.xenyria.splatoon.game.objects.GameObject;
+import de.xenyria.splatoon.game.objects.Gusher;
+import de.xenyria.splatoon.game.objects.InkRail;
+import de.xenyria.splatoon.game.objects.RideRail;
 import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
@@ -61,10 +64,13 @@ import de.xenyria.splatoon.game.sound.MusicTrack;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.VectorUtil;
 import de.xenyria.splatoon.lobby.SplatoonLobby;
+import net.minecraft.server.v1_13_R2.BlockPosition;
 import net.minecraft.server.v1_13_R2.ChunkCoordIntPair;
+import net.minecraft.server.v1_13_R2.EntityPlayer;
 import net.minecraft.server.v1_13_R2.ItemMilkBucket;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -141,6 +147,7 @@ public abstract class BattleMatch extends Match {
 
                     SplatoonHumanPlayer player1 = (SplatoonHumanPlayer)player;
                     humanPlayerAdded(player1);
+                    player1.getXenyriaPlayer().getScoreboard().reset();
 
                 }
 
@@ -179,10 +186,26 @@ public abstract class BattleMatch extends Match {
 
                 if(player instanceof SplatoonHumanPlayer) {
 
+                    if(inIntro()) {
+
+                        getIntroManager().handlePlayerQuit((SplatoonHumanPlayer) player);
+
+                    } else if(inOutro()) {
+
+                        getOutroManager().handlePlayerQuit((SplatoonHumanPlayer)player);
+
+                    }
+
                     Room.RoomEntry entry = room.findEntry(player.getUUID());
                     if(entry != null) {
 
                         room.removeEntry(entry.getID());
+
+                    }
+
+                    for(EntityNPC npc : getNPCs()) {
+
+                        npc.untrack(player);
 
                     }
 
@@ -192,6 +215,7 @@ public abstract class BattleMatch extends Match {
                 lobbyPlayerPool.remove(player);
                 teamIDs.remove(player);
                 spectators.remove(player);
+                player.unlockSquidForm();
 
                 if(matchTitle != null) {
 
@@ -302,13 +326,21 @@ public abstract class BattleMatch extends Match {
                     if(oldTeam != null) {
 
                         org.bukkit.scoreboard.Team team1 = scoreboard.getTeam("match-" + oldTeam.getColor().name());
-                        team1.removeEntry(splatoonHumanPlayer.getUUID().toString());
+                        if(team1 != null) {
+
+                            team1.removeEntry(splatoonHumanPlayer.getUUID().toString());
+
+                        }
 
                     }
                     if(team != null) {
 
                         org.bukkit.scoreboard.Team team1 = scoreboard.getTeam("match-" + team.getColor().name());
-                        team1.addEntry(splatoonHumanPlayer.getUUID().toString());
+                        if(team1 != null) {
+
+                            team1.addEntry(splatoonHumanPlayer.getUUID().toString());
+
+                        }
 
                     }
 
@@ -407,6 +439,13 @@ public abstract class BattleMatch extends Match {
         matchPreBeginTitle = false;
         gamePhase = false;
 
+        ArrayList<EntityNPC> npcs = getNPCs();
+        for(EntityNPC npc : npcs) {
+
+            npc.remove();
+
+        }
+
         teamIDs.clear();
         spectators.clear();
         lobbyPlayerPool.addAll(getHumanPlayers());
@@ -424,6 +463,12 @@ public abstract class BattleMatch extends Match {
                 player.teleport(SplatoonLobby.getLobbySpawn());
 
                 Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                    player.getPlayer().setFlying(false);
+                    player.getPlayer().setAllowFlight(false);
+                    player.getPlayer().setWalkSpeed(.2f);
+                    player.getPlayer().setGameMode(GameMode.ADVENTURE);
+                    player.getPlayer().setFlySpeed(0.1f);
 
                     openLobbyInventory(player);
 
@@ -454,7 +499,7 @@ public abstract class BattleMatch extends Match {
     private Location tempPos = null;
 
     private boolean lobbyPhase = true;
-    private boolean skipIntro = true;
+    private boolean skipIntro = false;
     private boolean matchStarted = false;
 
     private int countdownTicker = 0;
@@ -543,6 +588,7 @@ public abstract class BattleMatch extends Match {
                             try {
 
                                 ArenaBoundaryConfiguration configuration = ArenaBoundaryConfiguration.fromFile(new File(XenyriaSplatoon.getPlugin().getDataFolder() + File.separator + "arena" + File.separator + task.getArenaData().getMap().get(getMatchType()) + ".sbounds"));
+                                System.out.println(task.getArenaData().getMap().get(getMatchType()) + ".sbounds");
                                 broadcastDebugMessage("Färbflächen festlegen");
                                 apply(configuration, task.getOffset());
                                 int teamID = 0;
@@ -558,6 +604,89 @@ public abstract class BattleMatch extends Match {
                                     }
 
                                 }
+                                HashMap<Integer, ArrayList<Vector>> inkRailJoints = new HashMap<>(), rideRailJoints = new HashMap<>();
+                                for(StoredPlaceholder placeholder : task.getSchematic().getStoredPlaceholders()) {
+
+                                    if(placeholder.type == SchematicPlaceholder.Splatoon.GUSHER) {
+
+                                        double impulse = Double.parseDouble(placeholder.getData().get("impulse"));
+                                        Gusher gusher = new Gusher(this, getWorld().getBlockAt(
+                                                placeholder.x+(int)offset.getX(),
+                                                placeholder.y+(int)offset.getY(),
+                                                placeholder.z+(int)offset.getZ()
+                                        ), BlockFace.UP, impulse);
+                                        addGameObject(gusher);
+
+                                    } else if(placeholder.type == SchematicPlaceholder.Splatoon.RIDE_RAIL_JOINT) {
+
+                                        Vector vec = new Vector(placeholder.x + .5, placeholder.y + .5, placeholder.z + .5);
+                                        vec = vec.add(offset);
+
+                                        int railID = Integer.parseInt(placeholder.getData().get("railid"));
+                                        if(!rideRailJoints.containsKey(railID)) {
+
+                                            ArrayList<Vector> vectors = new ArrayList<>();
+                                            vectors.add(vec);
+                                            rideRailJoints.put(railID, vectors);
+
+                                        } else {
+
+                                            rideRailJoints.get(railID).add(vec);
+
+                                        }
+
+                                    } else if(placeholder.type == SchematicPlaceholder.Splatoon.INK_RAIL_JOINT) {
+
+                                        Vector vec = new Vector(placeholder.x + .5, placeholder.y + .5, placeholder.z + .5);
+                                        vec = vec.add(offset);
+
+                                        int railID = Integer.parseInt(placeholder.getData().get("railid"));
+                                        if(!inkRailJoints.containsKey(railID)) {
+
+                                            ArrayList<Vector> vectors = new ArrayList<>();
+                                            vectors.add(vec);
+                                            inkRailJoints.put(railID, vectors);
+
+                                        } else {
+
+                                            inkRailJoints.get(railID).add(vec);
+
+                                        }
+
+                                    }
+
+                                }
+                                for(ArrayList<Vector> inkRailVectors : inkRailJoints.values()) {
+
+                                    InkRail rail = new InkRail(this, inkRailVectors.toArray(new Vector[]{}));
+                                    try {
+
+                                        rail.interpolateVectors();
+                                        addGameObject(rail);
+
+                                    } catch (Exception e) {
+
+                                        e.printStackTrace();
+
+                                    }
+
+                                }
+                                for(ArrayList<Vector> rideRailVectors : rideRailJoints.values()) {
+
+                                    RideRail rail = new RideRail(this, rideRailVectors.toArray(new Vector[]{}));
+                                    try {
+
+                                        rail.interpolateVectors();
+                                        addGameObject(rail);
+
+                                    } catch (Exception e) {
+
+                                        e.printStackTrace();
+
+                                    }
+
+                                }
+
                                 broadcastDebugMessage("Kamerafahrt wird erstellt");
                                 for (StoredPlaceholder placeholder : task.getSchematic().getStoredPlaceholders()) {
 
@@ -659,7 +788,7 @@ public abstract class BattleMatch extends Match {
 
                                         npc.getEquipment().setPrimaryWeapon(set.getPrimaryWeapon());
                                         npc.getEquipment().setSecondaryWeapon(set.getSecondary());
-                                        npc.getEquipment().setSpecialWeapon(TentaMissles.ID);
+                                        npc.getEquipment().setSpecialWeapon(set.getSpecial());
                                         //npc.getEquipment().setSpecialWeapon(37);
                                         setUsedWeaponSet(npc, set);
 
@@ -845,7 +974,10 @@ public abstract class BattleMatch extends Match {
                     }
                     matchStartPhase = false;
 
+                    // DBG
+                    XenyriaSplatoon.getXenyriaLogger().log("§eMatch #" + getRoomID() + " §7beginnt - Modus: §e" + getMatchType());
                     remainingGameTicks = getMatchType()==MatchType.TURF_WAR ? 180*20 : 300*20;
+
                     matchLengthTicks = remainingGameTicks;
 
                     // Musik
@@ -998,6 +1130,12 @@ public abstract class BattleMatch extends Match {
 
                                 SplatoonHumanPlayer player1 = (SplatoonHumanPlayer)player;
                                 player1.getPlayer().sendTitle(new Title("§7Ende!", "§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█§6█§0█", 2, 40, 10));
+                                if(player1.isSquid()) {
+
+                                    player1.leaveSquidForm();
+                                    player1.lockSquidForm();
+
+                                }
                                 //player1.getEquipment().resetPrimaryWeapon();
                                 //player1.getEquipment().resetSecondaryWeapon();
                                 //player1.getEquipment().resetSpecialWeapon();
@@ -1025,9 +1163,18 @@ public abstract class BattleMatch extends Match {
 
                             if(!player.isSpectator()) {
 
-                                player.getEquipment().getPrimaryWeapon().reset();
-                                player.getEquipment().getSecondaryWeapon().reset();
-                                player.getEquipment().getSpecialWeapon().reset();
+                                try { player.getEquipment().getPrimaryWeapon().reset(); } catch (Exception e) { e.printStackTrace(); }
+                                try { player.getEquipment().getSecondaryWeapon().reset(); } catch (Exception e) { e.printStackTrace(); }
+                                try { player.getEquipment().getSpecialWeapon().reset(); } catch (Exception e) { e.printStackTrace(); }
+
+                            } else {
+
+                                if(player instanceof SplatoonHumanPlayer) {
+
+                                    SplatoonHumanPlayer player1 = (SplatoonHumanPlayer) player;
+                                    player1.leaveSpectatorMode();
+
+                                }
 
                             }
 
@@ -1043,6 +1190,7 @@ public abstract class BattleMatch extends Match {
 
                         outroDelay = 5;
                         initOutroManager();
+                        XenyriaSplatoon.getXenyriaLogger().log("§eMatch #" + getRoomID() + " §7endet.");
 
                     }
 
@@ -1364,7 +1512,7 @@ public abstract class BattleMatch extends Match {
         return outroPhase;
 
     }
-
+    public static final ArrayList<BlockPosition> DEBUG = new ArrayList<>();
 
     public void apply(ArenaBoundaryConfiguration configuration, Vector offset) {
 
@@ -2374,6 +2522,29 @@ public abstract class BattleMatch extends Match {
 
         }
         return inventory;
+
+    }
+
+    public void selectMap(int i) {
+
+        selectedMapID = i;
+        updatePlayerLobbyInventories();
+
+    }
+
+    public int getRemainingGameTicks() { return remainingGameTicks; }
+
+    public static final String SPECTATE_MENU_TITLE = "§8" + Characters.ARROW_RIGHT_FROM_TOP + " §cZuschauerkamera";
+    public void openSpectateMenu(Player player, SplatoonPlayer player1) {
+
+        Inventory inventory = Bukkit.createInventory(null, 9, SPECTATE_MENU_TITLE);
+        for(int i = 0; i < 9; i++) { inventory.setItem(i, ItemBuilder.getUnclickablePane()); }
+        inventory.setItem(0, new ItemBuilder(Material.PLAYER_HEAD).addToNBT("PlayerIndex", indexOfPlayer(player1)).setDisplayName(player1.coloredName()).withTextureAndSignature(player1.getGameProfile()).create());
+        inventory.setItem(2, new ItemBuilder(Material.ENDER_EYE).setDisplayName("§eErste Person").addToNBT("CameraMode", SplatoonHumanPlayer.SpectatorCameraMode.FIRST_PERSON.name()).create());
+        inventory.setItem(3, new ItemBuilder(Material.COMPASS).setDisplayName("§eRotierend").addToNBT("CameraMode", SplatoonHumanPlayer.SpectatorCameraMode.ROTATE.name()).create());
+        inventory.setItem(4, new ItemBuilder(Material.STICK).setDisplayName("§eFixiert").addToNBT("CameraMode", SplatoonHumanPlayer.SpectatorCameraMode.FIXED.name()).create());
+        inventory.setItem(8, new ItemBuilder(Material.BARRIER).setDisplayName("§cNicht mehr zuschauen").addToNBT("QuitSpectator", true).create());
+        player.openInventory(inventory);
 
     }
 

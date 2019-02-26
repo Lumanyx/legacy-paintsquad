@@ -331,4 +331,11 @@ public class Sprinkler extends GameObject implements HitableEntity,RemovableGame
         remove();
         remove = false;
     }
+
+    @Override
+    public void onRemove() {
+
+        stand.remove();
+
+    }
 }

@@ -71,6 +71,46 @@ public class IntroManager {
 
     private ArrayList<FakeEntity> entities = new ArrayList<>();
 
+    private HashMap<SplatoonHumanPlayer, ArrayList<Entity>> spawnedEntities = new HashMap<>();
+
+    public void handlePlayerQuit(SplatoonHumanPlayer player) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, new ArrayList<>());
+        for(Entity entity : entities) {
+
+            if(entity instanceof EntityPlayer) {
+
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, (EntityPlayer)entity));
+
+            }
+            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.getId()));
+
+        }
+
+    }
+    public void addSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, new ArrayList<>());
+        if(entities.isEmpty()) {
+
+            spawnedEntities.put(player, entities);
+
+        }
+        entities.add(entity);
+
+    }
+    public void removeSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, null);
+        if(entities != null) {
+
+            entities.remove(entity);
+
+        }
+
+
+    }
+
     public IntroManager(Match match) {
 
         this.match = match;
@@ -137,6 +177,7 @@ public class IntroManager {
                 for (FakeEntity entity : entities) {
 
                     EntityPlayer player1 = player.getNMSPlayer();
+                    addSpawnedEntity((SplatoonHumanPlayer)player, entity.squid);
                     player1.playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(entity.squid));
                     player1.playerConnection.sendPacket(new PacketPlayOutEntityMetadata(entity.squid.getId(), entity.squid.getDataWatcher(), true));
                     player1.playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(entity.squid, (byte)(entity.squid.yaw * 0.7111)));
@@ -164,6 +205,7 @@ public class IntroManager {
 
                 if(player1 != player) {
 
+                    removeSpawnedEntity((SplatoonHumanPlayer)player, player1.getNMSPlayer());
                     player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player1.getNMSPlayer().getId()));
                     player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, player1.getNMSPlayer()));
 
@@ -173,6 +215,7 @@ public class IntroManager {
 
             for(FakeEntity entity : entities) {
 
+                addSpawnedEntity((SplatoonHumanPlayer)player, entity.player);
                 player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, entity.player));
 
             }
@@ -180,7 +223,9 @@ public class IntroManager {
             Location location = getCurrentLocation();
             MatchType type = match.getMatchType();
 
-            player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + type.getTitle(), type.getDescription(), 20, 80, 20));
+            String prefix = (player.getColor() != null ? player.getTeam().getColor().prefix() : "§8");
+
+            player.getPlayer().sendTitle(new Title(prefix + type.getTitle(), type.getDescription(), 20, 80, 20));
             player.getPlayer().setGameMode(GameMode.SPECTATOR);
             player.getPlayer().teleport(getCurrentLocation());
             player.getPlayer().setAllowFlight(true);
@@ -226,7 +271,11 @@ public class IntroManager {
 
                 for (SplatoonHumanPlayer player : players) {
 
-                    player.getNMSPlayer().playerConnection.sendPacket(packet);
+                    if(player.getMatch() == match) {
+
+                        player.getNMSPlayer().playerConnection.sendPacket(packet);
+
+                    }
 
                 }
 
@@ -331,6 +380,12 @@ public class IntroManager {
                         FakeEntity entity = entities.get(x);
                         removal[0] = entity.squid.getId();
                         removal[1] = entity.player.getId();
+                        for(SplatoonHumanPlayer player : match.getHumanPlayers()) {
+
+                            removeSpawnedEntity(player, entity.squid);
+                            removeSpawnedEntity(player, entity.player);
+
+                        }
                         x++;
 
                     }
@@ -443,6 +498,7 @@ public class IntroManager {
                             if(entity.team.equals(before)) {
 
                                 player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.player.getId()));
+                                removeSpawnedEntity(player, entity.player);
 
                             }
 

@@ -246,13 +246,9 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
                     }
 
-                    for(Player player : Bukkit.getOnlinePlayers()) {
+                    for(SplatoonHumanPlayer player : getPlayer().getMatch().getHumanPlayers()) {
 
-                        if(player.getWorld().equals(getPlayer().getWorld())) {
-
-                            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(stand));
-
-                        }
+                        player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(stand));
 
                     }
 
@@ -275,7 +271,7 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
                     } else {
 
-                        for(Player player : Bukkit.getOnlinePlayers()) {
+                        for(SplatoonHumanPlayer player : getPlayer().getMatch().getHumanPlayers()) {
 
                             if(player.getWorld().equals(getPlayer().getLocation().getWorld())) {
 
@@ -286,7 +282,7 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
                                     container.getIntegerArrays().write(0, new int[]{getPlayer().getEntityID()});
                                     try {
 
-                                        ProtocolLibrary.getProtocolManager().sendServerPacket(player, container);
+                                        ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container);
 
                                     } catch (Exception e) {
 
@@ -445,7 +441,7 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
     public void cleanUp() {
 
-        if(!seat.isDead()) {
+        if(seat != null && !seat.isDead()) {
 
             seat.removePassenger(getPlayer().getBukkitEntity());
             seat.remove();

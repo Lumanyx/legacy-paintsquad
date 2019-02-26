@@ -25,7 +25,10 @@ public class BrellaTile extends GameObject implements HitableEntity, GroupedObje
         this.point = point;
 
     }
+    public void onRemove() {
 
+
+    }
     public Vector location() {
 
         Location location = brella.getLocation();

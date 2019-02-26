@@ -198,6 +198,15 @@ public class Equipment {
 
     }
 
+    public void unassignWeapons() {
+
+        if(primaryWeapon != null) { primaryWeapon.uninitialize(); }
+        if(secondaryWeapon != null) { secondaryWeapon.uninitialize(); }
+        if(specialWeapon != null) { specialWeapon.uninitialize(); }
+        primaryWeapon = null; secondaryWeapon = null; specialWeapon = null;
+
+    }
+
     public void resetWeapons() {
 
         if(player.getEquipment().getPrimaryWeapon() != null) {

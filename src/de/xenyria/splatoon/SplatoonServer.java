@@ -7,7 +7,24 @@ import org.bukkit.craftbukkit.v1_13_R2.util.CraftMagicNumbers;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+
 public class SplatoonServer {
+
+    private static final DecimalFormatSymbols SYMBOLS = DecimalFormatSymbols.getInstance(Locale.GERMANY);
+    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#.#", SYMBOLS);
+    public static final String formatFloat(float f) {
+
+        return DECIMAL_FORMAT.format(f);
+
+    }
+    public static final String formatFloat(double f) {
+
+        return DECIMAL_FORMAT.format(f);
+
+    }
 
     public static void applyGameRules(World world) {
 

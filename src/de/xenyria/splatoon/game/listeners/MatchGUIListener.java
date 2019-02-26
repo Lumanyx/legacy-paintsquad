@@ -111,7 +111,8 @@ public class MatchGUIListener implements Listener {
                 title.equalsIgnoreCase(BattleMatch.PLAYER_MANAGE_TITLE) ||
                 title.equalsIgnoreCase(BattleMatch.SPECTATOR_MENU_TITLE) ||
                 title.equalsIgnoreCase(OutroManager.BACK_TO_LOBBY_TITLE) ||
-                title.equalsIgnoreCase(OutroManager.BATTLE_STATISTIC)) {
+                title.equalsIgnoreCase(OutroManager.BATTLE_STATISTIC) ||
+                title.equalsIgnoreCase(BattleMatch.SPECTATE_MENU_TITLE)) {
 
                 event.setCancelled(true);
                 ItemStack stack = event.getCurrentItem();
@@ -630,7 +631,7 @@ public class MatchGUIListener implements Listener {
                                         if(player1 != null) {
 
                                             player.getPlayer().closeInventory();
-                                            player.spectatePlayer(player1);
+                                            match1.openSpectateMenu(player.getPlayer(), player1);
 
                                         } else {
 
@@ -673,6 +674,35 @@ public class MatchGUIListener implements Listener {
                                         if (ItemBuilder.hasValue(stack, "Back")) {
 
                                             player.getPlayer().openInventory(match1.getOutroManager().getResultScreen());
+
+                                        }
+
+                                    }
+
+                                } else if(inventory.getTitle().equalsIgnoreCase(BattleMatch.SPECTATE_MENU_TITLE)) {
+
+                                    if(ItemBuilder.hasValue(stack, "QuitSpectator")) {
+
+                                        player.getPlayer().closeInventory();
+                                        player.leaveSpectatorMode();
+
+                                    } else if(ItemBuilder.hasValue(stack, "CameraMode")) {
+
+                                        ItemStack playerHead = inventory.getItem(0);
+                                        int playerIndex = ItemBuilder.getIntValue(playerHead, "PlayerIndex");
+                                        SplatoonHumanPlayer.SpectatorCameraMode mode = SplatoonHumanPlayer.SpectatorCameraMode.valueOf(
+                                                ItemBuilder.getStringValue(stack, "CameraMode")
+                                        );
+                                        SplatoonPlayer player1 = match1.getPlayerFromID(playerIndex);
+                                        if(player1 != null) {
+
+                                            player.getPlayer().closeInventory();
+                                            player.spectatePlayer(player1, mode);
+
+                                        } else {
+
+                                            player.getPlayer().closeInventory();
+                                            player.sendMessage(Chat.SYSTEM_PREFIX + "Der gewählte Spieler konnte nicht gefunden werden.");
 
                                         }
 

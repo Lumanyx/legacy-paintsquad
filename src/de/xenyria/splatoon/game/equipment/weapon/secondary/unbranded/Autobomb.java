@@ -1,39 +1,37 @@
-package de.xenyria.splatoon.game.equipment.weapon.secondary;
+package de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded;
 
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.game.equipment.Brand;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.BurstBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.SecondaryWeaponType;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.SplatoonSecondaryWeapon;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
-import de.xenyria.splatoon.game.projectile.BurstBombProjectile;
+import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
+import de.xenyria.splatoon.game.projectile.autobomb.AutobombProjectile;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
-public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon implements AIThrowableBomb {
+public class Autobomb extends SplatoonSecondaryWeapon implements AIThrowableBomb {
 
-    private float radius, damage;
+    public static final double IMPULSE = BurstBomb.IMPULSE;
+    public static int ID = 41;
 
-    @Override
-    public void throwBomb(Location target, Trajectory trajectory) {
-
-        BurstBombProjectile projectile = new BurstBombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, damage);
-        projectile.spawn(trajectory, getPlayer().getShootingLocation(false), target);
-        getPlayer().getMatch().queueProjectile(projectile);
-
-    }
-
-    public AbstractBurstBomb(int id, String name, float radius, float damage) {
-
-        super(id, name);
-        this.radius = radius;
-        this.damage = damage;
-
+    public Autobomb() {
+        super(ID, "Robobombe");
     }
 
     @Override
-    public SecondaryWeaponType getSecondaryWeaponType() { return SecondaryWeaponType.GRENADE; }
+    public SecondaryWeaponType getSecondaryWeaponType() {
+        return SecondaryWeaponType.GRENADE;
+    }
+
+    @Override
+    public Brand getBrand() {
+        return Brand.NOT_BRANDED;
+    }
 
     @Override
     public void onProjectileSpawn(SplatoonProjectile projectile, SplatoonPlayer player) {
@@ -46,7 +44,7 @@ public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon implemen
         int copy = projectilesToSpawn;
         for (int i = 0; i < copy; i++) {
 
-            BurstBombProjectile projectile = new BurstBombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, damage);
+            AutobombProjectile projectile = new AutobombProjectile(getPlayer(), this, getPlayer().getMatch());
             projectile.spawn(BurstBomb.IMPULSE, getPlayer().getShootingLocation(false));
             getPlayer().getMatch().queueProjectile(projectile);
 
@@ -102,7 +100,7 @@ public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon implemen
     @Override
     public void calculateNextInkUsage() {
 
-        setNextInkUsage(33d);
+        setNextInkUsage(55d);
 
     }
 
@@ -111,15 +109,24 @@ public abstract class AbstractBurstBomb extends SplatoonSecondaryWeapon implemen
 
     @Override
     public Material getRepresentiveMaterial() {
-        return Material.SUGAR;
+        return Material.CHICKEN_SPAWN_EGG;
     }
-
 
     @Override
     public void shoot() {
 
+    }
 
+    @Override
+    public void throwBomb(Location target, Trajectory trajectory) {
+
+        AutobombProjectile projectile = new AutobombProjectile(getPlayer(), this, getPlayer().getMatch());
+        projectile.spawn(trajectory, getPlayer().getShootingLocation(false), target);
 
     }
 
+    @Override
+    public double getImpulse() {
+        return IMPULSE;
+    }
 }

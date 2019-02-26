@@ -25,20 +25,20 @@ public class BenchmarkCommand extends SpigotCommand implements CommandExecutor {
 
         if(commandSender.hasPermission("xenyria.splatoon.admin")) {
 
-            int i = 25;
+            int i = 35;
             broadcast("Benchmark wird gestartet. Generiere §c" + i + " Matches §7mit §e8 Spielern§7...");
 
             for(int y = 0; y < i; y++) {
 
                 TurfWarMatch match = new TurfWarMatch();
-                match.addAIPlayer("Player1", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-                match.addAIPlayer("Player2", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
-                match.addAIPlayer("Player3", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
-                match.addAIPlayer("Player4", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-                match.addAIPlayer("Player5", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-                match.addAIPlayer("Player6", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
-                match.addAIPlayer("Player7", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
-                match.addAIPlayer("Player8", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+                match.addAIPlayer("Spieler1", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+                match.addAIPlayer("Spieler2", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+                match.addAIPlayer("Spieler3", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+                match.addAIPlayer("Spieler4", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+                match.addAIPlayer("Spieler5", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+                match.addAIPlayer("Spieler6", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+                match.addAIPlayer("Spieler7", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+                match.addAIPlayer("Spieler8", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
                 match.start();
 
 

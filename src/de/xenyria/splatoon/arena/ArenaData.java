@@ -20,6 +20,10 @@ public class ArenaData {
     private ArenaCategory category;
     public ArenaCategory getCategory() { return category; }
 
+    private double resultHeightOffset;
+    public double getResultHeightOffset() { return resultHeightOffset; }
+    public void setResultHeightOffset(double offset) {resultHeightOffset = offset; }
+
     public ArenaData(int id, Material material, String arenaName, ArenaCategory category, GamemodeSchematicMap map) {
 
         this.id = id;

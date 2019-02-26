@@ -31,6 +31,8 @@ import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.projectile.DamageReason;
+import de.xenyria.splatoon.game.projectile.MapDamageProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.projectile.TentaMissleRocket;
 import de.xenyria.splatoon.game.team.Team;
@@ -302,11 +304,11 @@ public abstract class Match {
                     ));
                     container.getMultiBlockChangeInfoArrays().write(0, changes);
 
-                    for(Player player : Bukkit.getOnlinePlayers()) {
+                    for(SplatoonHumanPlayer player : getHumanPlayers()) {
 
                         try {
 
-                            ProtocolLibrary.getProtocolManager().sendServerPacket(player, container, false);
+                            ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container, false);
 
                         } catch (Exception e) {
 
@@ -657,6 +659,25 @@ public abstract class Match {
     }
 
     public void tick() {
+
+        for(SplatoonPlayer player : getAllPlayers()) {
+
+            if(!player.isSplatted() && !player.isSpectator()) {
+
+                if(!inIntro() && !inOutro()) {
+
+                    if(player.getLocation().getY() < 1 || player.getLocation().getBlock().isLiquid()) {
+
+                        MapDamageProjectile projectile = new MapDamageProjectile(player.getColor(), DamageReason.HUMAN_ERROR, player.getLocation(), this, 100d);
+                        player.onProjectileHit(projectile);
+
+                    }
+
+                }
+
+            }
+
+        }
 
         handleInkTanks();
         if(manager != null) {
@@ -1344,6 +1365,10 @@ public abstract class Match {
 
     public abstract void removeBeacon(BeaconObject object);
 
+    public boolean hasPlayer(SplatoonHumanPlayer player) { return registeredPlayers.contains(player); }
+
+    public int getSelectedMapID() { return -1; }
+
 
     //public ArrayList<JumpPoint> getJumpPoints(SplatoonPlayer player) {
 
@@ -1451,21 +1476,6 @@ public abstract class Match {
 
         queuedPlayerRemovals.add(player);
 
-        if(player instanceof EntityNPC) {
-
-            Iterator<EntityNPC> iterator = EntityNPC.getNPCs().iterator();
-            while (iterator.hasNext()) {
-
-                if(iterator.next().equals(player)) {
-
-                    iterator.remove();
-
-                }
-
-            }
-
-        }
-
     }
 
     public void queueObjectRemoval(GameObject object) {
@@ -1526,12 +1536,33 @@ public abstract class Match {
 
     public void markTrail(Block relative, Team team) {
 
-        if(relative.getType() == team.getColor().getSponge()) { return; }
+        if(relative.getType() == team.getColor().getClay()) { return; }
 
         World world = relative.getWorld();
         WorldServer server = ((CraftWorld)world).getHandle();
         TrailBlock block = new TrailBlock(team, server.getType(new BlockPosition(relative.getX(), relative.getY(), relative.getZ())), relative.getX(), relative.getY(), relative.getZ());
-        relative.setType(team.getColor().getClay());
+
+        org.bukkit.Chunk chunk = getOrLoad(relative.getX()>>4,relative.getZ()>>4);
+        Chunk chunk1 = ((CraftChunk)chunk).getHandle();
+        ChunkSection section = chunk1.getSections()[relative.getY()>>4];
+        section.setType(relative.getX()&15,relative.getY()&15,relative.getZ()&15,team.getColor().getClayData());
+        PacketContainer container = new PacketContainer(PacketType.Play.Server.BLOCK_CHANGE);
+        container.getBlockPositionModifier().write(0, new com.comphenix.protocol.wrappers.BlockPosition(relative.getX(), relative.getY(), relative.getZ()));
+        container.getBlockData().write(0, WrappedBlockData.fromHandle(team.getColor().getClayData()));
+        for(SplatoonHumanPlayer player : getHumanPlayers()) {
+
+            try {
+
+                ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container);
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+            }
+
+        }
+
         if(!blocks.contains(block)) {
 
             BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(relative.getX(), relative.getY(), relative.getZ());
@@ -1557,6 +1588,28 @@ public abstract class Match {
                     WorldServer server = ((CraftWorld)world).getHandle();
                     server.setTypeUpdate(new BlockPosition(block.x, block.y, block.z), block.dataBefore);
                     Block block1 = world.getBlockAt(block.x, block.y, block.z);
+
+                    org.bukkit.Chunk chunk = getOrLoad(block.x>>4,block.z>>4);
+                    Chunk chunk1 = ((CraftChunk)chunk).getHandle();
+                    ChunkSection section = chunk1.getSections()[block.y>>4];
+                    section.setType(block.x&15,block.y&15,block.z&15, block.dataBefore);
+                    PacketContainer container = new PacketContainer(PacketType.Play.Server.BLOCK_CHANGE);
+                    container.getBlockPositionModifier().write(0, new com.comphenix.protocol.wrappers.BlockPosition(block.x, block.y, block.z));
+                    container.getBlockData().write(0, WrappedBlockData.fromHandle(block.dataBefore));
+                    for(SplatoonHumanPlayer player : getHumanPlayers()) {
+
+                        try {
+
+                            ProtocolLibrary.getProtocolManager().sendServerPacket(player.getPlayer(), container);
+
+                        } catch (Exception e) {
+
+                            e.printStackTrace();
+
+                        }
+
+                    }
+
                     BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block1.getX(), block1.getY(), block1.getZ());
                     if(flag != null) {
 

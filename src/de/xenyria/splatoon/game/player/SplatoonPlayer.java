@@ -37,7 +37,7 @@ import java.util.*;
 
 public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget, PushableEntity {
 
-    public static double BASE_INK_CHARGE_VALUE = 1.65d, HUMAN_INK_CHARGE_VALUE = 0.2d;
+    public static double BASE_INK_CHARGE_VALUE = 1.75d, HUMAN_INK_CHARGE_VALUE = 0.3d;
 
     public abstract Equipment getEquipment();
     public abstract double getHealth();
@@ -150,6 +150,7 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public void beginRidingInkRail(InkRail rail) {
 
         updateRidingIndex(0);
+
         if(rail.getOwningTeam() != null && rail.getOwningTeam() == getTeam()) {
 
             rail.moveToNearestPosition(this);
@@ -447,6 +448,18 @@ public abstract class SplatoonPlayer implements HitableEntity, TentaMissleTarget
     public abstract boolean isOnGround();
 
     public void splat(Color color, @Nullable SplatoonPlayer splatter, @Nullable SplatoonProjectile projectile, int splatTicks) {
+
+        Match match = getMatch();
+        if(match instanceof BattleMatch) {
+
+            BattleMatch match1 = (BattleMatch) match;
+            if(match1.getRemainingGameTicks() < 1) {
+
+                return;
+
+            }
+
+        }
 
         int points = (int) getSpecialPoints();
         if(points != 0) {

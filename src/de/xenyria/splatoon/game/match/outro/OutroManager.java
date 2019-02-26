@@ -11,9 +11,13 @@ import com.mojang.authlib.properties.Property;
 import de.xenyria.api.spigot.ItemBuilder;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.core.chat.Chat;
+import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.servercore.spigot.listener.ProtocolListener;
+import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.arena.ArenaProvider;
+import de.xenyria.splatoon.arena.ArenaRegistry;
 import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.equipment.gear.GearType;
 import de.xenyria.splatoon.game.equipment.gear.SpecialEffect;
@@ -49,6 +53,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.text.DecimalFormat;
@@ -74,6 +79,47 @@ public class OutroManager {
     private int determineTicks = 5;
     private int resultLookTicker = 20;
     private int ticksToRewards = 75;
+
+    private HashMap<SplatoonHumanPlayer, ArrayList<Entity>> spawnedEntities = new HashMap<>();
+
+    public void handlePlayerQuit(SplatoonHumanPlayer player) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, new ArrayList<>());
+        for(Entity entity : entities) {
+
+            if(entity instanceof EntityPlayer) {
+
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, (EntityPlayer)entity));
+
+            }
+            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.getId()));
+            removeSpawnedEntity(player, entity);
+
+        }
+
+    }
+    public void addSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, new ArrayList<>());
+        if(entities.isEmpty()) {
+
+            spawnedEntities.put(player, entities);
+
+        }
+        entities.add(entity);
+
+    }
+    public void removeSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {
+
+        ArrayList<Entity> entities = spawnedEntities.getOrDefault(player, null);
+        if(entities != null) {
+
+            entities.remove(entity);
+
+        }
+
+
+    }
 
     public void setBlocks() {
 
@@ -289,6 +335,7 @@ public class OutroManager {
             stand.setInvisible(true);
             stands.add(stand);
 
+            addSpawnedEntity(player, stand);
             player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(stand));
             player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(stand.getId(), stand.getDataWatcher(), false));
             return stand;
@@ -372,11 +419,19 @@ public class OutroManager {
             Reward reward = rewardMap.getOrDefault(player, null);
             if(reward != null) {
 
-                totalCoinCounter.getBukkitEntity().setCustomName("§7" + player.getUserData().getCoins() + " §a(+ " + reward.coins + ")");
+                if(totalCoinCounter != null) {
+
+                    totalCoinCounter.getBukkitEntity().setCustomName("§7" + player.getUserData().getCoins() + " §a(+ " + reward.coins + ")");
+
+                }
 
             } else {
 
-                totalCoinCounter.getBukkitEntity().setCustomName("§7" + player.getUserData().getCoins());
+                if(totalCoinCounter != null) {
+
+                    totalCoinCounter.getBukkitEntity().setCustomName("§7" + player.getUserData().getCoins());
+
+                }
 
             }
             player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(totalCoinCounter.getId(), totalCoinCounter.getDataWatcher(), false));
@@ -447,11 +502,13 @@ public class OutroManager {
 
                 entry.getKey().getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(player.getId()));
                 entry.getKey().getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, player));
+                removeSpawnedEntity(entry.getKey(), player);
 
             }
             for(EntityArmorStand stand : entry.getValue().stands) {
 
                 entry.getKey().getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(stand.getId()));
+                removeSpawnedEntity(entry.getKey(), stand);
 
             }
 
@@ -593,7 +650,7 @@ public class OutroManager {
                     WeaponSet weaponSet = match.getUsedWeaponSet(player1);
                     Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
 
-
+                        addSpawnedEntity(player, npc);
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(npc));
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(npc, (byte)(npc.yaw * .703)));
                         player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(npc.getId(), EnumItemSlot.MAINHAND,
@@ -661,10 +718,9 @@ public class OutroManager {
     private int rewardGiveTicker = 20;
     private Team winningTeam = null;
 
-    private static DecimalFormat decimalFormat = new DecimalFormat("#.#", DecimalFormatSymbols.getInstance(Locale.GERMANY));
     public static String formatPercentage(float input) {
 
-        String formatted = decimalFormat.format(input);
+        String formatted = SplatoonServer.formatFloat(input);
         if(!formatted.contains(",")) {
 
             formatted+=",0";
@@ -709,7 +765,7 @@ public class OutroManager {
                         .addLore("§aErledigte Spieler: §7" + player.getStatistic().getSplats())
                         .addLore("§eAssists: §7" + player.getStatistic().getAssists())
                         .addLore("§cTode: §7" + player.getStatistic().getDeaths())
-                        .addLore("§6Erreichte Punkte: §7" + player.getPoints())
+                        .addLore("§6Erreichte Punkte: §7" + (int)player.getPoints())
                         .addLore("§bSpezialwaffe eingesetzt: §7" + player.getSpecialUseCounter() + " mal")
                 .create());
                 offset++;
@@ -925,19 +981,19 @@ public class OutroManager {
                                     player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_TWINKLE_FAR, .4f, 1.5f);
                                     player.getPlayer().sendMessage("");
                                     player.getPlayer().sendMessage(" " + player.getTeam().getColor().prefix() + "§o§lSieg!");
-                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lSieg!", "§7Dein Team hat gewonnen!", 5, 15, 5));
+                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lSieg!", "§7Dein Team hat gewonnen!", 5, 35, 5));
                                     player.getPlayer().sendMessage(" ");
-                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
+                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (int)(match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
                                     player.getPlayer().sendMessage( " ");
 
                                 } else {
 
                                     player.getPlayer().playSound(player.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, .4f, 1.5f);
-                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lNiederlage!", "§7Dein Team hat verloren.", 5, 15, 5));
+                                    player.getPlayer().sendTitle(new Title(player.getTeam().getColor().prefix() + "§o§lNiederlage!", "§7Dein Team hat verloren.", 5, 35, 5));
                                     player.getPlayer().sendMessage("");
                                     player.getPlayer().sendMessage(" " + player.getTeam().getColor().prefix() + "§o§lNiederlage!");
                                     player.getPlayer().sendMessage("");
-                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
+                                    player.getPlayer().sendMessage(" §7Dein Team hat insgesamt " + player.getTeam().getColor().prefix() + (int)(match.getPaintedTurf(player.getTeam())*Match.BLOCK_POINT_RATIO) + " Punkte §7gesammelt.");
                                     player.getPlayer().sendMessage( " ");
 
                                 }
@@ -1214,6 +1270,11 @@ public class OutroManager {
                                 player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(player1));
                                 player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(player1, (byte) ((rewardLocation.getYaw() - 90f) * 0.711)));
                                 player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutAnimation(player1, 0));
+                                Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, player1));
+
+                                }, 5l);
 
                             }, 2l);
 
@@ -1272,14 +1333,10 @@ public class OutroManager {
 
                 createdTurnThread = true;
 
-                new Thread(() -> {
+                rewardLookTask = Bukkit.getScheduler().runTaskTimer(XenyriaSplatoon.getPlugin(), () -> {
 
-                    while (!rewardsLookComplete && match.inOutro()) {
+                    if (!rewardsLookComplete && match.inOutro()) {
 
-                        try {
-                            Thread.sleep(1000 / 60);
-                        } catch (Exception e) {
-                        }
                         float increment = 1.75f;
                         rewardYaw = rewardYaw + increment;
                         boolean forceAbsolute = false;
@@ -1300,12 +1357,13 @@ public class OutroManager {
 
                             rewardYaw = rewardYaw();
                             forceAbsolute = true;
+                            rewardsLookComplete = true;
 
                         }
 
                         for (SplatoonHumanPlayer player : players) {
 
-                            if(!player.isSpectator() && player.isValid()) {
+                            if(!stayingPlayers.contains(player) && match.hasPlayer(player) && !player.isSpectator() && player.isValid()) {
 
                                 try {
 
@@ -1318,9 +1376,13 @@ public class OutroManager {
 
                         }
 
+                    } else {
+
+                        rewardLookTask.cancel();
+
                     }
 
-                }).start();
+                }, 1l, 1l);
 
             }
 
@@ -1587,6 +1649,8 @@ public class OutroManager {
             secondTicker++;
             if(secondTicker >= 20) {
 
+                setItemsForBackToLobbyInventory();
+
                 secondTicker = 0;
                 returnToLobbyTicker--;
                 if(returnToLobbyTicker == 15) {
@@ -1631,6 +1695,8 @@ public class OutroManager {
         }
 
     }
+
+    private BukkitTask rewardLookTask = null;
 
     private int secondTicker = 0;
     private int endPhaseWaitTicks = 20;
@@ -1716,6 +1782,8 @@ public class OutroManager {
         }
 
         double cameraY = highestDistance * 1.3;
+        cameraY+= XenyriaSplatoon.getArenaRegistry().getArenaData(match.getSelectedMapID()).getResultHeightOffset();
+
         if(cameraY > 256) {
 
             cameraY = 256;

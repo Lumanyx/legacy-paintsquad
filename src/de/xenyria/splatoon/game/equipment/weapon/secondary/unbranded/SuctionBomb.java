@@ -1,7 +1,6 @@
-package de.xenyria.splatoon.game.equipment.weapon.secondary.debug;
+package de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded;
 
 import de.xenyria.splatoon.game.equipment.Brand;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.AbstractSplatBomb;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.AbstractSuctionBomb;
 
 public class SuctionBomb extends AbstractSuctionBomb {

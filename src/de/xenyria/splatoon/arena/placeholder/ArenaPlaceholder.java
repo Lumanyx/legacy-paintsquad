@@ -1,6 +1,9 @@
 package de.xenyria.splatoon.arena.placeholder;
 
+import de.xenyria.splatoon.arena.ArenaProvider;
+import de.xenyria.splatoon.arena.builder.ArenaBuilder;
 import de.xenyria.splatoon.game.color.Color;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import org.bukkit.Material;
 import org.bukkit.metadata.FixedMetadataValue;
 
@@ -8,8 +11,8 @@ public interface ArenaPlaceholder {
 
     Material getTriggeringMaterial();
     Material getReplacement();
-    boolean addMetadata();
-    Metadata getMetadata();
+    boolean handleFlagData();
+    void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag);
 
     public class Metadata {
 

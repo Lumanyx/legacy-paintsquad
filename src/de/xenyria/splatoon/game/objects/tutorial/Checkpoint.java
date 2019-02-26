@@ -49,4 +49,9 @@ public class Checkpoint extends GameObject {
     public void reset() {
 
     }
+
+    @Override
+    public void onRemove() {
+
+    }
 }

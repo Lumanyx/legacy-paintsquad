@@ -38,7 +38,7 @@ public class PathfindingManager {
 
     public PathfindingManager() {
 
-        int workerAmount = 4;
+        int workerAmount = 2;
         availableWorkers = new PathfindingWorker[workerAmount];
         instance = this;
 

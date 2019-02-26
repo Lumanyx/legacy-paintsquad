@@ -28,6 +28,13 @@ public class SuctionBomb extends GameObject implements HitableEntity {
 
     private ArmorStand stand;
 
+    @Override
+    public void onRemove() {
+
+        stand.remove();
+
+    }
+
     public SuctionBomb(Match match, SplatoonPlayer owner, Block block, BlockFace normal, float radius) {
 
         super(match);

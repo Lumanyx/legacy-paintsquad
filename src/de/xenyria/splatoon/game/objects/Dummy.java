@@ -287,6 +287,12 @@ public class Dummy extends GameObject implements HitableEntity, TentaMissleTarge
 
     }
 
+    public void onRemove() {
+
+
+
+    }
+
     @Override
     public boolean isTargetable() {
         return invisibleTicks == 0 && ((ArmorStand)stand.getBukkitEntity()).isVisible();

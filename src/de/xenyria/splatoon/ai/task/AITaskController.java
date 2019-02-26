@@ -124,35 +124,6 @@ public class AITaskController {
 
             if (!paused) {
 
-                // Vorliegende Navigationspunkte einfärben
-                ArrayList<NavigationPoint> nodes = npc.getNavigationManager().readNextPointChain(TransitionType.WALK_ENEMY, 2);
-                if ((
-                        npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.SHOOTER ||
-                        npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER) && !nodes.isEmpty()) {
-
-                    for (NavigationPoint point : nodes) {
-
-                        Block block = npc.getWorld().getBlockAt(
-                                point.x, (int) (point.y - 1), point.z
-                        );
-                        if (npc.getMatch().isOwnedByTeam(block, npc.getTeam())) {
-
-                            point.updateTransitionType(TransitionType.WALK);
-
-                        }
-
-                        if (npc.getWeaponManager().canHitBlock(npc.getShootingLocation(npc.getWeaponManager().getCurrentHandBoolean()), block.getLocation().toVector().add(new Vector(.5, .5, .5)), block)) {
-
-                            npc.getWeaponManager().aim(block);
-                            npc.getWeaponManager().fire(20);
-
-                        }
-
-
-                    }
-
-                }
-
                 if (npc.getMatch().getMatchType() == MatchType.TUTORIAL) {
 
                     if (task == null) {
@@ -418,6 +389,45 @@ public class AITaskController {
             if (!paused) {
 
                 task.tick();
+
+                if(!npc.inSuperJump() && npc.hasControl()) {
+
+                    if(!npc.getTargetManager().hasTarget() && npc.getWeaponManager().getShootingTicks() < 2) {
+
+                        // Vorliegende Navigationspunkte einfärben
+                        ArrayList<NavigationPoint> nodes = npc.getNavigationManager().readNextPointChain(TransitionType.WALK_ENEMY, 3);
+                        Collections.reverse(nodes);
+                        if ((
+                                npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.SHOOTER ||
+                                        npc.getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER) && !nodes.isEmpty()) {
+
+                            for (NavigationPoint point : nodes) {
+
+                                Block block = npc.getWorld().getBlockAt(
+                                        point.x, (int) (point.y - 1), point.z
+                                );
+                                if (npc.getMatch().isOwnedByTeam(block, npc.getTeam())) {
+
+                                    point.updateTransitionType(TransitionType.WALK);
+
+                                }
+
+                                if (npc.getWeaponManager().canHitBlock(npc.getShootingLocation(npc.getWeaponManager().getCurrentHandBoolean()), block.getLocation().toVector().add(new Vector(.5, 1.25, .5)), block)) {
+
+                                    npc.getWeaponManager().aim(block);
+                                    npc.getWeaponManager().fire(20);
+                                    break;
+
+                                }
+
+
+                            }
+
+                        }
+
+                    }
+
+                }
 
             }
 

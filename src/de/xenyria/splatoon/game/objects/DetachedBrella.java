@@ -24,6 +24,11 @@ public class DetachedBrella extends GameObject implements RemovableGameObject {
 
     public SplatoonPlayer owner;
     public AbstractBrella brella;
+    public void onRemove() {
+
+        remove();
+
+    }
 
     public DetachedBrella(SplatoonPlayer player, Match match, AbstractBrella brella) {
 
@@ -66,11 +71,7 @@ public class DetachedBrella extends GameObject implements RemovableGameObject {
 
     public void remove() {
 
-        if(brella.getModel().isActive()) {
-
-            brella.getModel().remove();
-
-        }
+        brella.getModel().removeForcefully();
         positionStand = null;
         brella.getPlayer().getMatch().queueObjectRemoval(this);
 

@@ -102,4 +102,15 @@ public class Hologram extends GameObject {
 
     }
 
+    @Override
+    public void onRemove() {
+
+        for(ArmorStand stand : stands) {
+
+            stand.remove();
+
+        }
+
+    }
+
 }

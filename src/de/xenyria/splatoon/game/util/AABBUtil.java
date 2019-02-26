@@ -137,6 +137,30 @@ public class AABBUtil {
 
     }
 
+    public static double getHeight(BlockPosition position, net.minecraft.server.v1_13_R2.World world) {
+
+        IBlockData data = world.getTypeIfLoaded(position);
+        VoxelShape shape = data.getCollisionShape(world, position);
+        if(shape != null && !shape.isEmpty()) {
+
+            double highestY = 0d;
+            for(Object o : shape.d()) {
+
+                AxisAlignedBB aabb = (AxisAlignedBB) o;
+                if(aabb.maxY > highestY) {
+
+                    highestY = aabb.maxY;
+
+                }
+
+            }
+            return highestY;
+
+        }
+        return 0d;
+
+    }
+
     public static boolean isPassable(Material type) {
 
         return passable.contains(type);

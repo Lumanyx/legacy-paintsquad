@@ -1,6 +1,8 @@
 package de.xenyria.splatoon.arena.placeholder;
 
+import de.xenyria.splatoon.arena.ArenaProvider;
 import de.xenyria.splatoon.game.match.Match;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.team.Team;
 import org.bukkit.Material;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -26,7 +28,8 @@ public class StoredTeamPlaceholder {
 
         CARPET,
         STAINED_CLAY,
-        WOOL;
+        WOOL,
+        GLASS;
 
     }
 
@@ -56,13 +59,17 @@ public class StoredTeamPlaceholder {
 
                     return team.getColor().getWool();
 
+                } else if(type == ReplacementType.GLASS) {
+
+                    return team.getColor().getGlass();
+
                 }
                 return null;
 
             }
 
-            public boolean addMetadata() { return false; }
-            public Metadata getMetadata() { return null; }
+            public boolean handleFlagData() { return false; }
+            public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {}
 
         };
 

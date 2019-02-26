@@ -33,7 +33,7 @@ public class ProjectileExaminerCommand implements CommandExecutor {
 
         if(commandSender instanceof Player) {
 
-            if(commandSender.hasPermission("xenyria.splatoon.debug")) {
+            if(commandSender.hasPermission("xenyria.splatoon.unbranded")) {
 
                 Player player = (Player)commandSender;
                 if(args.length == 1) {

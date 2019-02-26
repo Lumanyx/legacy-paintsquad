@@ -7,9 +7,18 @@ import de.xenyria.splatoon.ai.target.TargetManager;
 import de.xenyria.splatoon.ai.task.paint.PaintableRegion;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.SplatoonSecondaryWeapon;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.Beacon;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.InkMineSecondary;
+import de.xenyria.splatoon.game.projectile.mine.InkMine;
+import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.RandomUtil;
+import net.minecraft.server.v1_13_R2.BlockPosition;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -170,6 +179,63 @@ public class SecondaryWeaponManager {
                                 tries--;
 
                             }
+
+                        }
+
+                    } else if(type == AIWeaponManager.AISecondaryWeaponType.BEACON) {
+
+                        Beacon beacon = (Beacon) npc.getEquipment().getSecondaryWeapon();
+                        if(!beacon.beaconActive()) {
+
+                            if(npc.getLocation().distance(npc.getSpawnPoint()) >= 32) {
+
+                                if(npc.isOnGround()) {
+
+                                    Block block = npc.getLocation().getBlock();
+                                    BlockFace[] possibleFaces = new BlockFace[]{
+                                            BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST
+                                    };
+                                    block = block.getRelative(possibleFaces[new Random().nextInt(possibleFaces.length-1)]);
+
+                                    if(block.isEmpty()) {
+
+                                        Block below = block.getRelative(BlockFace.DOWN);
+                                        if(!below.isEmpty() && !AABBUtil.isPassable(below.getType())) {
+
+                                            double height = AABBUtil.getHeight(new BlockPosition(
+                                                    below.getX(), below.getY(), below.getZ()
+                                            ), ((CraftWorld)below.getWorld()).getHandle());
+                                            if(height == 1d) {
+
+                                                if(npc.hasLineOfSight(new Location(npc.getWorld(),
+                                                        below.getX()+.5, below.getY()+1.125, below.getZ()+.5))) {
+
+                                                    beacon.place(below.getX(), below.getY(), below.getZ());
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    } else if(type == AIWeaponManager.AISecondaryWeaponType.MINE) {
+
+                        SplatoonSecondaryWeapon weapon = npc.getEquipment().getSecondaryWeapon();
+                        InkMineSecondary secondary = (InkMineSecondary) weapon;
+                        if(!secondary.isMineSet()) {
+
+                            if(npc.getTargetManager().nearbyThreats(npc.getLocation().toVector(), 10).isEmpty() &&
+                            !npc.getTargetManager().nearbyThreats(npc.getLocation().toVector(), 20).isEmpty())
+
+                            secondary.layMine();
 
                         }
 

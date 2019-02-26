@@ -444,7 +444,7 @@ public class SquidAStar {
 
                                     }
 
-                                    //Viewport.GLOBAL_VIEWPORT.spawnParticle(RPGPlayer.getPlayers().get(0), Particle.END_ROD, new Location(Bukkit.getWorld("debug"), successor.getX()+.5, successor.getY()+.2, successor.getZ()+.5), 0);
+                                    //Viewport.GLOBAL_VIEWPORT.spawnParticle(RPGPlayer.getPlayers().get(0), Particle.END_ROD, new Location(Bukkit.getWorld("unbranded"), successor.getX()+.5, successor.getY()+.2, successor.getZ()+.5), 0);
 
                                 }
 

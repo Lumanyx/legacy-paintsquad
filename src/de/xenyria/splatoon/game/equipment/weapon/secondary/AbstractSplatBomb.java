@@ -2,7 +2,7 @@ package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
 import de.xenyria.math.trajectory.Trajectory;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SplatBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.SplatBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.BombProjectile;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;

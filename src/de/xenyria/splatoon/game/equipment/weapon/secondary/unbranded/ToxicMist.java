@@ -1,7 +1,6 @@
-package de.xenyria.splatoon.game.equipment.weapon.secondary.debug;
+package de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded;
 
 import de.xenyria.splatoon.game.equipment.Brand;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.AbstractDetector;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.AbstractToxicMist;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.SecondaryWeaponType;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;

@@ -24,16 +24,21 @@ public class MatchCommand implements CommandExecutor {
         //for(int i = 0; i < 20; i++) {
 
         TurfWarMatch match = new TurfWarMatch();
-        match.addAIPlayer("Player1", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player2", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
-        match.addAIPlayer("Player3", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
-        match.addAIPlayer("Player4", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player5", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
-        match.addAIPlayer("Player6", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
-        match.addAIPlayer("Player7", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
-        match.addAIPlayer("Player8", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+
+        match.addAIPlayer("Spieler1", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Spieler2", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+        match.addAIPlayer("Spieler3", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+        match.addAIPlayer("Spieler4", 0, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Spieler5", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+        match.addAIPlayer("Spieler6", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.ROLLER);
+        match.addAIPlayer("Spieler7", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.CHARGER);
+        match.addAIPlayer("Spieler8", 1, AIProperties.Difficulty.HARD, AIWeaponManager.AIPrimaryWeaponType.SHOOTER);
+
+        match.setMusicID(player1, 1);
+        match.selectMap(2);
         player1.joinMatch(match);
-        match.chooseTeam(player1, -1);
+
+        match.chooseTeam(player1, 0);
         match.start();
 
         /*}

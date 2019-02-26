@@ -31,6 +31,13 @@ public class WeaponDrop extends GameObject {
     }
 
     @Override
+    public void onRemove() {
+
+        item.remove();
+
+    }
+
+    @Override
     public ObjectType getObjectType() {
         return ObjectType.HITBOX;
     }

@@ -30,6 +30,12 @@ public class Gusher extends GameObject implements HitableEntity {
     private WeaponModel model;
     private double impulse;
 
+    public void onRemove() {
+
+        model.removeForcefully();
+
+    }
+
     public Gusher(Match match, Block mountedBlock, BlockFace face, double impulse) {
 
         super(match);

@@ -24,7 +24,11 @@ public class BallerHitbox extends GameObject implements HitableEntity {
         this.baller = baller;
 
     }
+    public void onRemove() {
 
+
+
+    }
     @Override
     public ObjectType getObjectType() {
         return ObjectType.HITBOX;

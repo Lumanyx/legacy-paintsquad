@@ -57,7 +57,6 @@ public class TutorialManager {
             // Alle Dateien aus der Tutorialwelt löschen
             File folder = new File(System.getProperty("user.dir") + File.separator + "sp_tutorial");
             FileUtils.deleteDirectory(folder);
-            Bukkit.createWorld(new WorldCreator("sp_tutorial").generator("VoidGenerator"));
 
             World world = Bukkit.createWorld(new WorldCreator("sp_tutorial").type(WorldType.FLAT).generator(new ChunkGenerator() {
                 @Override
@@ -99,27 +98,37 @@ public class TutorialManager {
             placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
                 return Material.ORANGE_TERRACOTTA; }
                 public Material getReplacement() { return primary.getClay(); }
-                public boolean addMetadata() { return false; }
-                public Metadata getMetadata() { return null; }
+                public boolean handleFlagData() { return false; }
+                public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {}
             });
             placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
                 return Material.BLUE_TERRACOTTA; }
                 public Material getReplacement() { return primary.getClay(); }
-                public boolean addMetadata() { return false; }
-                public Metadata getMetadata() { return null; }
+                public boolean handleFlagData() { return false; }
+                public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {}
             });
             placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
                 return Material.ORANGE_WOOL; }
                 public Material getReplacement() { return primary.getWool(); }
-                public boolean addMetadata() { return true; }
-                public Metadata getMetadata() { return new Metadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), primary.name())); }
+                public boolean handleFlagData() { return true; }
+                public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {
+
+                flag.addFlag(BlockFlagManager.PAINTABLE); flag.setTeamID((byte)0);
+
+            }
             });
             placeholders.add(new ArenaPlaceholder() { public Material getTriggeringMaterial() {
+
                 return Material.BLUE_WOOL; }
                 public Material getReplacement() { return secondary.getWool(); }
-                public boolean addMetadata() { return true; }
-                public Metadata getMetadata() { return new Metadata("Team", new FixedMetadataValue(XenyriaSplatoon.getPlugin(), secondary.name())); }
+                public boolean handleFlagData() { return true; }
+                public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {
+
+                flag.addFlag(BlockFlagManager.PAINTABLE); flag.setTeamID((byte)1);
+
+            }
             });
+
 
             ArenaProvider.ArenaGenerationTask task = new ArenaProvider.ArenaGenerationTask(getWorld(), "tutorial_map.xsc", new Vector(i*300, 64, 0), null, null, placeholders);
             long begin = System.nanoTime();
@@ -127,19 +136,13 @@ public class TutorialManager {
             long end = System.nanoTime();
 
             XenyriaSplatoon.getXenyriaLogger().log("Cluster #" + i + " generiert. (Dauerte " + ((end - begin) / 1000000f) + " ms)");
+            TutorialMatch match = new TutorialMatch(getWorld(), new Vector(i*300,64,0), task.getSchematic().getStoredPlaceholders());
+            match.handleFlags(task.getFlagData());
 
-            TutorialMatch match = new TutorialMatch(getWorld());
             Team team = new Team(0, primary);
             Team enemy = new Team(1, secondary);
             match.registerTeam(team);
             match.registerTeam(enemy);
-            for(StoredPlaceholder placeholder : task.getSchematic().getStoredPlaceholders()) {
-
-                match.handlePlaceholder(new Vector(i*300, 64, 0), placeholder);
-
-            }
-
-            match.createRails();
             matches.add(match);
 
             try {

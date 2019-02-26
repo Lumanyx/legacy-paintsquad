@@ -278,7 +278,6 @@ public abstract class WeaponModel {
 
                     }
 
-                    stand1.getWorld().addEntity(stand1);
                     stand = (ArmorStand) stand1.getBukkitEntity();
                     stand.setVisible(false);
 
@@ -314,7 +313,6 @@ public abstract class WeaponModel {
 
                 }
 
-                stand1.getWorld().addEntity(stand1);
                 stand = (ArmorStand) stand1.getBukkitEntity();
                 stand.setVisible(false);
 

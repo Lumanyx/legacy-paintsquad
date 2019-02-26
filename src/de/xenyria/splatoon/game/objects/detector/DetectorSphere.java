@@ -126,4 +126,9 @@ public class DetectorSphere extends GameObject {
     public void reset() {
 
     }
+
+    @Override
+    public void onRemove() {
+
+    }
 }

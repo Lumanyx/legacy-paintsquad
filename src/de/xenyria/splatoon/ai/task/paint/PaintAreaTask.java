@@ -72,7 +72,7 @@ public class PaintAreaTask extends AITask {
 
     private PaintStrip target;
 
-    public float[] possibleDirections = new float[]{0f, 45f, 90f, 135f, 180f, 215f, 270f, 315f};
+    private static float[] possibleDirections = new float[]{0f, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330};
 
     @Override
     public boolean doneCheck() {
@@ -191,7 +191,7 @@ public class PaintAreaTask extends AITask {
 
         }
 
-        if(errorCount > 5) {
+        if(errorCount > 2) {
 
             navigationFlag = false;
             setTarget();
@@ -249,40 +249,44 @@ public class PaintAreaTask extends AITask {
 
                         }
 
-                        ArrayList<Block> unpainted = getUnpaintedBlocks(result.getTrajectory());
-                        PaintStrip strip = new PaintStrip(start, direction, start.distance(shootEnd));
+                        if(start.distance(shootEnd) >= 2d) {
 
-                        for(Block block : unpainted) {
+                            ArrayList<Block> unpainted = getUnpaintedBlocks(result.getTrajectory());
+                            PaintStrip strip = new PaintStrip(start, direction, start.distance(shootEnd));
 
-                            boolean wall = getNPC().getMatch().isWall(block);
+                            for (Block block : unpainted) {
 
-                            if(getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
+                                boolean wall = getNPC().getMatch().isWall(block);
 
-                                if(!wall) {
+                                if (getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
 
-                                    strip.enemyBlocks++;
+                                    if (!wall) {
 
-                                }
+                                        strip.enemyBlocks++;
 
-                            } else {
-
-                                if(!wall) {
-
-                                    strip.paintableBlocks++;
+                                    }
 
                                 } else {
 
-                                    strip.paintableWallBlocks++;
+                                    if (!wall) {
+
+                                        strip.paintableBlocks++;
+
+                                    } else {
+
+                                        strip.paintableWallBlocks++;
+
+                                    }
 
                                 }
 
                             }
+                            strip.list = unpainted;
+                            if ((strip.enemyBlocks + strip.paintableBlocks) >= 4) {
 
-                        }
-                        strip.list = unpainted;
-                        if((strip.enemyBlocks+strip.paintableBlocks) >= 2) {
+                                strips.add(strip);
 
-                            strips.add(strip);
+                            }
 
                         }
 
@@ -302,31 +306,36 @@ public class PaintAreaTask extends AITask {
                         distance = result.getHitPosition().distance(start);
 
                     }
-                    Vector cursor = start.clone();
 
-                    for(double d = 0; d <= distance; d+=.25d) {
+                    if(distance >= 3d) {
 
-                        cursor.add(direction.clone().multiply(0.25d));
-                        Block block = BlockUtil.ground(cursor.toLocation(getNPC().getWorld()), 10);
+                        Vector cursor = start.clone();
 
-                        if(getNPC().getMatch().isPaintable(getNPC().getTeam(), block.getX(), block.getY(), block.getZ())) {
+                        for (double d = 0; d <= distance; d += .25d) {
 
-                            if(!blocks.contains(block)) {
+                            cursor.add(direction.clone().multiply(0.25d));
+                            Block block = BlockUtil.ground(cursor.toLocation(getNPC().getWorld()), 10);
 
-                                blocks.add(block);
-                                if (getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
+                            if (getNPC().getMatch().isPaintable(getNPC().getTeam(), block.getX(), block.getY(), block.getZ())) {
 
-                                    strip.enemyBlocks++;
+                                if (!blocks.contains(block)) {
 
-                                } else {
+                                    blocks.add(block);
+                                    if (getNPC().getMatch().isEnemyTurf(block, getNPC().getTeam())) {
 
-                                    if (getNPC().getMatch().isWall(block)) {
-
-                                        strip.paintableWallBlocks++;
+                                        strip.enemyBlocks++;
 
                                     } else {
 
-                                        strip.paintableBlocks++;
+                                        if (getNPC().getMatch().isWall(block)) {
+
+                                            strip.paintableWallBlocks++;
+
+                                        } else {
+
+                                            strip.paintableBlocks++;
+
+                                        }
 
                                     }
 
@@ -335,12 +344,12 @@ public class PaintAreaTask extends AITask {
                             }
 
                         }
+                        strip.target = start.clone().add(direction.clone().multiply(direction));
+                        if ((strip.enemyBlocks + strip.paintableBlocks) >= (getNPC().getWeaponManager().maxWeaponDistance() * .825d)) {
 
-                    }
-                    strip.target = start.clone().add(direction.clone().multiply(direction));
-                    if((strip.enemyBlocks+strip.paintableBlocks) >= (getNPC().getWeaponManager().maxWeaponDistance()*.825d)) {
+                            strips.add(strip);
 
-                        strips.add(strip);
+                        }
 
                     }
 
@@ -355,8 +364,10 @@ public class PaintAreaTask extends AITask {
                     @Override
                     public int compare(PaintStrip o1, PaintStrip o2) {
 
-                        double weight1 = (o1.enemyBlocks*5)+(o1.paintableBlocks*2);
-                        double weight2 = (o2.enemyBlocks*5)+(o2.paintableBlocks*2);
+                        boolean charger = getNPC().getWeaponManager().getAIPrimaryWeaponType() == AIWeaponManager.AIPrimaryWeaponType.CHARGER;
+
+                        double weight1 = (o1.enemyBlocks*5)+(o1.paintableBlocks*7)+((!charger) ? (o1.paintableWallBlocks) : 0);
+                        double weight2 = (o2.enemyBlocks*5)+(o2.paintableBlocks*7)+((!charger) ? (o2.paintableWallBlocks) : 0);
 
                         return -Double.compare(weight1, weight2);
 
@@ -413,7 +424,7 @@ public class PaintAreaTask extends AITask {
                     getNPC().getWeaponManager().fire(30);
                     if (targetChangeTicks == 0) {
 
-                        targetChangeTicks = 6 + (new Random().nextInt(12));
+                        targetChangeTicks = 6 + (new Random().nextInt(5));
 
                     }
 
@@ -567,7 +578,7 @@ public class PaintAreaTask extends AITask {
 
         @Override
         public int maxNodeVisits() {
-            return 65;
+            return 145;
         }
 
         public ThreeDimensionalArray<Double> cachedCoverage = new ThreeDimensionalArray<>();
@@ -712,8 +723,8 @@ public class PaintAreaTask extends AITask {
 
                             double coverageVal = getCoverage(node.x, node.y, node.z);
                             double coverage = coverageVal
-                                    + (visitCounts.getOrDefault(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z), 0) * 12);
-                                    //+ (getNearbyTeamMembers(node.x, node.y, node.z) * 10);
+                                    + (visitCounts.getOrDefault(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z), 0) * 7);
+
                             if (coverageVal != -1D && coverageVal <= getRegionCoverageThreshold() && (lowest == null || coverage < lowestCoverage)) {
 
                                 lowest = node;
@@ -785,7 +796,7 @@ public class PaintAreaTask extends AITask {
 
     public double getRegionCoverageThreshold() {
 
-        return 85d;
+        return 70d;
 
     }
 
@@ -803,7 +814,7 @@ public class PaintAreaTask extends AITask {
         for(Vector3f vector : trajectory.getVectors()) {
 
             Location location = new Location(getNPC().getWorld(), vector.x, vector.y, vector.z);
-            Block block = BlockUtil.ground(location, 15);
+            Block block = BlockUtil.ground(location, 5);
 
             Match match = getNPC().getMatch();
             if(match.isPaintable(getNPC().getTeam(), block.getX(), block.getY(), block.getZ())) {

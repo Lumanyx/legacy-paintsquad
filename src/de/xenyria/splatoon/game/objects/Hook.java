@@ -213,6 +213,14 @@ public class Hook extends GameObject implements HitableEntity {
 
     }
 
+    @Override
+    public void onRemove() {
+
+        mainArmorStand.remove();
+        decoStand1.remove();
+
+    }
+
     public Vector delta(Vector locationVector) {
 
         Vector curPos = target.toVector();

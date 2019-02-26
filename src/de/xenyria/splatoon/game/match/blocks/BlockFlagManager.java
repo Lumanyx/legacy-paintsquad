@@ -86,9 +86,9 @@ public class BlockFlagManager {
     }
 
     // Ähnliche Funktionsweise wie die Metadaten für Blöcke in der Bukkit API, nur effizienter
-    private static final byte PAINTABLE = (byte)0;
-    private static final byte WALL = (byte)1;
-    private static final byte TRAIL = (byte)2;
+    public static final byte PAINTABLE = (byte)0;
+    public static final byte WALL = (byte)1;
+    public static final byte TRAIL = (byte)2;
     private static final byte FLAG_CNT = 3;
 
     public static class BlockFlag {
@@ -138,6 +138,13 @@ public class BlockFlagManager {
         public byte getTeamID() { return teamID; }
 
         public boolean isWall() { return flags[WALL] == ON; }
+
+        public void set(byte b, boolean b1) {
+
+            flags[b]= b1 ? (byte)1 : (byte)0;
+
+        }
+
     }
 
 

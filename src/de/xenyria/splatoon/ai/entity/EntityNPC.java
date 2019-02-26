@@ -32,6 +32,7 @@ import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchType;
 import de.xenyria.splatoon.game.objects.Hook;
+import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.player.TeamEntity;
 import de.xenyria.splatoon.game.player.superjump.SuperJump;
@@ -54,6 +55,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftArmorStand;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_13_R2.entity.CraftSquid;
 import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
 import org.bukkit.craftbukkit.v1_13_R2.util.CraftChatMessage;
 import org.bukkit.enchantments.Enchantment;
@@ -71,13 +73,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static de.xenyria.splatoon.game.player.SplatoonPlayer.BASE_INK_CHARGE_VALUE;
 import static de.xenyria.splatoon.game.player.SplatoonPlayer.HUMAN_INK_CHARGE_VALUE;
 
 public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
-    private static ArrayList<EntityNPC> npcs = new ArrayList<>();
+    private static CopyOnWriteArrayList<EntityNPC> npcs = new CopyOnWriteArrayList<>();
     public static void tickNPCs() {
 
         for(EntityNPC npc : npcs) {
@@ -92,7 +95,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     public boolean isVisibleInTab() { return visibleInTab; }
     public void setVisibleInTab(boolean visibleInTab) { this.visibleInTab = visibleInTab; }
 
-    public static ArrayList<EntityNPC> getNPCs() { return npcs; }
+    public static CopyOnWriteArrayList<EntityNPC> getNPCs() { return npcs; }
 
     public void handleProjectileHit(SplatoonProjectile projectile) {
 
@@ -329,6 +332,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         disableTracker();
         match.removePlayer(this);
         removed = true;
+        EntityNPC.getNPCs().remove(this);
 
         /*
         if(diagnosticStand1 != null && !diagnosticStand1.isDead()) {
@@ -376,6 +380,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     public int getTicksSinceRespawn() { return ticksSinceRespawn; }
     private boolean diedOnce = false;
 
+    public void untrack(SplatoonPlayer player) {
+
+        trackers.remove(player);
+        sendRemovalPackets(((SplatoonHumanPlayer)player).getPlayer());
+
+    }
+
     public class SquidManager {
 
         private Squid visualSquid;
@@ -386,6 +397,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             if(visualSquid == null) {
 
                 visualSquid = (Squid) getLocation().getWorld().spawnEntity(getLocation(), EntityType.SQUID);
+                ((CraftSquid)visualSquid).getHandle().noclip = true;
 
             }
 
@@ -887,7 +899,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         ticksSinceRespawn = 0;
         diedOnce = true;
-        burst(splatter, splatter.getColor());
+        burst(splatter, (splatter != null) ? splatter.getColor() : getColor());
 
         getLocation().getWorld().playSound(getLocation(), Sound.ENTITY_SQUID_DEATH, 1.4f, 1.4f);
         if(isSquid()) {
@@ -1226,7 +1238,8 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         tank = new EntityArmorStand(getMatch().nmsWorld(), 0,0,0);
         tank.setInvisible(true);
         tank.setEquipment(EnumItemSlot.HEAD, CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.APPLE)));
-        tank.setPosition(getLocation().getX(), getLocation().getY(), getLocation().getZ());
+        //tank.setPosition(getLocation().getX(), getLocation().getY(), getLocation().getZ());
+        //tank.getWorld().removeEntity(tank);
         setTankVisible(true);
 
         equipment = new Equipment(this);
@@ -1249,6 +1262,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         if(getEquipment() != null && getEquipment().getSpecialWeapon() != null && getEquipment().getSpecialWeapon() instanceof Baller) {
 
+            return;
 
         }
 
@@ -1494,6 +1508,12 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             if(bool1) {
 
+                if(lastInkContactTicks > 10) {
+
+                    SplatoonServer.broadcastColorizedBreakParticle(getWorld(), getLocation().getX(), getLocation().getY(), getLocation().getZ(), getTeam().getColor());
+
+                }
+
                 lastInkContactTicks = 0;
                 lastEnemyInkContactTicks = 99;
 
@@ -1554,6 +1574,28 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public static final double TRACKING_RANGE = 96D;
 
+    public void sendRemovalPackets(Player player) {
+
+        try {
+
+            ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                    nmsEntity.getId()
+            ));
+            ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                    movementArmorStand.getId()
+            ));
+            ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                    tank.getId()
+            ));
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+        }
+
+    }
+
     public void manageTracking() {
 
         if(trackerActive) {
@@ -1566,23 +1608,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
                 if (!player.isOnline() || !player.getWorld().equals(nmsEntity.getBukkitEntity().getWorld()) || player.getLocation().distance(getLocation()) > TRACKING_RANGE) {
 
                     iterator.remove();
-                    try {
-
-                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
-                                nmsEntity.getId()
-                        ));
-                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
-                                movementArmorStand.getId()
-                        ));
-                        ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
-                                tank.getId()
-                        ));
-
-                    } catch (Exception e) {
-
-                        e.printStackTrace();
-
-                    }
+                    sendRemovalPackets(player);
 
                 }
 
@@ -1614,6 +1640,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
                                     if(trackers.contains(playerCopy)) {
 
+                                        System.out.println("Despawn sent");
                                         ((CraftPlayer)playerCopy).getHandle().playerConnection.sendPacket(
                                                 new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER,
                                                         nmsEntity)
@@ -1935,11 +1962,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
                         Location oldLoc = getLocation().clone();
                         updateInventory();
                         currentJump = null;
-                        for(Player player : Bukkit.getOnlinePlayers()) {
+                        for(SplatoonHumanPlayer player : getMatch().getHumanPlayers()) {
 
-                            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutRemoveEntityEffect(getEntityID(),
+                            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutRemoveEntityEffect(getEntityID(),
                                         MobEffects.INVISIBILITY));
-                            sendEquipment(player);
+                            sendEquipment(player.getPlayer());
 
                         }
 
@@ -2349,16 +2376,16 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             Location spawnLoc = getLocation().clone();
             spawnLoc.setY(spawnLoc.getY() - 1.625);
 
-            for(Player player : Bukkit.getOnlinePlayers()) {
+            for(SplatoonHumanPlayer player : getMatch().getHumanPlayers()) {
 
-                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(getEntityID(),
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(getEntityID(),
                         getNMSEntity().getDataWatcher(), isOnGround()));
                 for(EnumItemSlot slot : EnumItemSlot.values()) {
 
-                    ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(nmsEntity.getId(), slot, CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.AIR))));
+                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEquipment(nmsEntity.getId(), slot, CraftItemStack.asNMSCopy(new org.bukkit.inventory.ItemStack(Material.AIR))));
 
                 }
-                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityEffect(nmsEntity.getId(), new MobEffect(MobEffects.INVISIBILITY, 2, 99999, false, false, false)));
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityEffect(nmsEntity.getId(), new MobEffect(MobEffects.INVISIBILITY, 2, 99999, false, false, false)));
 
             }
 
@@ -2424,11 +2451,11 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         if(getNMSEntity().isInvisible()) {
 
             getNMSEntity().setInvisible(false);
-            for(Player player : Bukkit.getOnlinePlayers()) {
+            for(SplatoonHumanPlayer player : getMatch().getHumanPlayers()) {
 
-                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(getEntityID(),
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(getEntityID(),
                         getNMSEntity().getDataWatcher(), isOnGround()));
-                ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
+                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(nmsEntity));
 
 
             }

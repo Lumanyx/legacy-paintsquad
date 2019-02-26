@@ -90,7 +90,7 @@ public class Sponge extends GameObject implements HitableEntity {
 
                 server.setTypeUpdate(entry.getKey(), entry.getValue());
                 Block block = getMatch().getWorld().getBlockAt(entry.getKey().getX(), entry.getKey().getY(), entry.getKey().getZ());
-                BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlockIfExist(block.getX(), block.getY(), block.getZ());
+                BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlock(getMatch().getOffset(), block.getX(), block.getY(), block.getZ());
                 flag.setTeamID(owningTeam.getID());
 
             }
@@ -119,7 +119,7 @@ public class Sponge extends GameObject implements HitableEntity {
                 for(int z = minZ; z <= maxZ; z++) {
 
                     Block block = world.getBlockAt(x,y,z);
-                    BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlockIfExist(x,y,z);
+                    BlockFlagManager.BlockFlag flag = getMatch().getBlockFlagManager().getBlock(getMatch().getOffset(), x,y,z);
                     if(flag.hasSetTeam()) {
 
                         flag.setTeamID(BlockFlagManager.BlockFlag.NO_TEAM);
@@ -311,6 +311,14 @@ public class Sponge extends GameObject implements HitableEntity {
         health = 0d;
         owningTeam = null;
         rebuild();
+
+    }
+
+    @Override
+    public void onRemove() {
+
+        reset();
+        baseBlock.setType(Material.AIR);
 
     }
 }

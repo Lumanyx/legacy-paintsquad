@@ -122,7 +122,6 @@ public class InkProjectile extends SplatoonProjectile implements DamageDealingPr
         item1.setNoGravity(true);
         item1.world.addEntity(item1);
 
-
         item1.getBoundingBox().setFilter(NMSUtil.filter);
         if(getShooter() != null) {
 

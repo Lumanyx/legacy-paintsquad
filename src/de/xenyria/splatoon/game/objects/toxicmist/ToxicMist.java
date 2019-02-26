@@ -97,4 +97,9 @@ public class ToxicMist extends GameObject {
     public void reset() {
 
     }
+
+    @Override
+    public void onRemove() {
+
+    }
 }

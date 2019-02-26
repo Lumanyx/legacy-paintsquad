@@ -107,6 +107,12 @@ public class RainmakerBarrierHitbox extends GameObject implements HitableEntity,
     }
 
     @Override
+    public void onRemove() {
+
+
+    }
+
+    @Override
     public ArrayList<HitableEntity> allObjects() {
         return barrier.getHitboxes();
     }

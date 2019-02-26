@@ -1,11 +1,9 @@
 package de.xenyria.splatoon.shootingrange;
 
-import com.mysql.jdbc.Buffer;
 import de.xenyria.core.chat.Characters;
 import de.xenyria.servercore.spigot.player.XenyriaSpigotPlayer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.arena.boundary.ArenaBoundaryConfiguration;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.Beacon;
 import de.xenyria.splatoon.game.gui.StaticItems;
 import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
@@ -13,7 +11,6 @@ import de.xenyria.splatoon.game.match.MatchControlInterface;
 import de.xenyria.splatoon.game.match.MatchType;
 import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.match.scoreboard.ScoreboardSlotIDs;
-import de.xenyria.splatoon.game.objects.Dummy;
 import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.objects.RemovableGameObject;
 import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
@@ -25,10 +22,7 @@ import de.xenyria.splatoon.game.team.Team;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.scoreboard.Objective;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;

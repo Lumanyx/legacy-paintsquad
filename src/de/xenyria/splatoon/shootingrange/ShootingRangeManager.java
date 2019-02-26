@@ -14,6 +14,7 @@ import de.xenyria.splatoon.arena.schematic.SchematicProvider;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.map.Map;
 import de.xenyria.splatoon.game.match.PlaceholderReader;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.objects.Dummy;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.team.Team;
@@ -135,16 +136,16 @@ public class ShootingRangeManager {
 
             public Material getTriggeringMaterial() { return Material.ORANGE_TERRACOTTA; }
             public Material getReplacement() { return primaryColor.getClay(); }
-            public boolean addMetadata() { return false; }
-            public Metadata getMetadata() { return null; }
+            public boolean handleFlagData() { return false; }
+            public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {}
 
         });
         placeholders.add(new ArenaPlaceholder() {
 
             public Material getTriggeringMaterial() { return Material.ORANGE_CARPET; }
             public Material getReplacement() { return primaryColor.getCarpet(); }
-            public boolean addMetadata() { return false; }
-            public Metadata getMetadata() { return null; }
+            public boolean handleFlagData() { return false; }
+            public void addFlags(ArenaProvider.ArenaGenerationTask.FlagData flag) {}
 
         });
 

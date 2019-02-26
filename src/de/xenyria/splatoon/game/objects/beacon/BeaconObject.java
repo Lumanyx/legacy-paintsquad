@@ -165,6 +165,13 @@ public class BeaconObject extends GameObject implements HitableEntity, Removable
         remove();
     }
 
+    @Override
+    public void onRemove() {
+
+        block.setType(Material.AIR);
+
+    }
+
     private Team team;
     public Team getTeam() { return team; }
 

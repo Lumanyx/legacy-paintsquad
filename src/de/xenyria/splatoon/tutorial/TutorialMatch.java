@@ -6,9 +6,11 @@ import de.xenyria.schematics.internal.placeholder.SchematicPlaceholder;
 import de.xenyria.schematics.internal.placeholder.StoredPlaceholder;
 import de.xenyria.splatoon.ai.entity.AIProperties;
 import de.xenyria.splatoon.ai.entity.EntityNPC;
+import de.xenyria.splatoon.arena.ArenaProvider;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchControlInterface;
 import de.xenyria.splatoon.game.match.MatchType;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import de.xenyria.splatoon.game.objects.*;
 import de.xenyria.splatoon.game.objects.beacon.BeaconObject;
 import de.xenyria.splatoon.game.objects.beacon.JumpPoint;
@@ -31,6 +33,26 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TutorialMatch extends Match {
+
+    public void handleFlags(ArrayList<ArenaProvider.ArenaGenerationTask.FlagData> flagData) {
+
+        for(ArenaProvider.ArenaGenerationTask.FlagData data : flagData) {
+
+            BlockFlagManager.BlockFlag flag = getBlockFlagManager().getBlock(offset, data.getX(), data.getY(), data.getZ());
+            if (data.getTeamID() != -1) {
+
+                flag.setTeamID(data.getTeamID());
+
+            }
+            for(byte b : data.getFlags()) {
+
+                flag.set(b, true);
+
+            }
+
+        }
+
+    }
 
     public class TutorialAIEntity {
 
@@ -67,17 +89,18 @@ public class TutorialMatch extends Match {
                 aiEntity.npc.remove();
 
             }
+            /*
             TutorialAIEntity entity = new TutorialAIEntity(new EntityNPC("Gegner", aiEntity.spawnPoint, getRegisteredTeams().get(1), this, TUTORIAL_PROPERTIES), aiEntity.spawnPoint);
             entity.npc.getEquipment().setPrimaryWeapon(23);
             entity.npc.setVisibleInTab(false);
             entity.npc.setSpawnPoint(aiEntity.spawnPoint);
             newEntities.add(entity);
 
-            addPlayer(entity.npc);
+            addPlayer(entity.npc);*/
 
         }
         aiEntities.clear();
-        aiEntities.addAll(newEntities);
+        //aiEntities.addAll(newEntities);
 
         for(SplatoonProjectile projectile : getProjectiles()) {
 
@@ -88,30 +111,15 @@ public class TutorialMatch extends Match {
 
         for(GameObject object : getGameObjects()) {
 
-            if(object instanceof Sponge) {
-
-                ((Sponge)object).reset();
-
-            } else if(object instanceof WeaponDrop) {
-
-                ((WeaponDrop)object).restore();
-
-            } else if(object instanceof RideRail || object instanceof InkRail) {
-
-                object.reset();
-
-            } else if(object instanceof Gusher) {
-
-                object.reset();
-
-            }
+            object.onRemove();
+            queueObjectRemoval(object);
 
         }
 
     }
 
 
-    private AIProperties TUTORIAL_PROPERTIES = new AIProperties(20d, 20d, 25d);
+    private AIProperties TUTORIAL_PROPERTIES = new AIProperties(20d, 50d, 25d);
 
     @Override
     public void removeBeacon(BeaconObject object) {
@@ -119,9 +127,26 @@ public class TutorialMatch extends Match {
 
 
     }
-    public TutorialMatch(World world) {
+    private Vector offset;
+    public Vector getOffset() { return offset; }
+
+    private ArrayList<StoredPlaceholder> placeholders;
+    public void addPlaceholders() {
+
+        for(StoredPlaceholder placeholder : placeholders) {
+
+            handlePlaceholder(offset, placeholder);
+
+        }
+        createRails();
+
+    }
+
+    public TutorialMatch(World world, Vector vector, ArrayList<StoredPlaceholder> placeholders) {
 
         super(world);
+        this.placeholders = placeholders;
+        this.offset = vector;
         enableRollback();
         setMatchController(new MatchControlInterface() {
             @Override
@@ -132,8 +157,15 @@ public class TutorialMatch extends Match {
             @Override
             public void playerAdded(SplatoonPlayer player) {
 
+                if(getHumanPlayers().size() == 1 && player instanceof SplatoonHumanPlayer) {
+
+                    addPlaceholders();
+
+                }
+
                 if (player instanceof SplatoonHumanPlayer) {
 
+                    ((SplatoonHumanPlayer)player).getXenyriaPlayer().getScoreboard().reset();
                     player.teleport(spawnPoint);
                     player.setTeam(getRegisteredTeams().get(0));
                     player.setSpawnPoint(spawnPoint);
@@ -203,10 +235,10 @@ public class TutorialMatch extends Match {
 
     private Location spawnPoint = null;
     private Location currentRespawnPoint = null;
-    private HashMap<String, ArrayList<Vector>> foundJoints = new HashMap<>();
     private StoredPlaceholder jumpPointPlaceholder = null;
     private Vector pos = new Vector();
 
+    private HashMap<String, ArrayList<Vector>> foundJoints = new HashMap<>();
     public void createRails() {
 
         for(Map.Entry<String, ArrayList<Vector>> entry : foundJoints.entrySet()) {
@@ -243,6 +275,7 @@ public class TutorialMatch extends Match {
             }
 
         }
+        foundJoints.clear();
 
         LaunchPad pad = new LaunchPad(this, pos.clone().add(new Vector(0, -.4, 0)).toLocation(getWorld()), getRegisteredTeams().get(0).getColor(), spawnPoint.toVector(), () -> {
 

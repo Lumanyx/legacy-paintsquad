@@ -42,12 +42,12 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements A
 
         long totalTime = chargeDuration;
         double mod = (distance/getRange());
-        return (long) (mod*(totalTime)) + 50;
+        return (long) (mod*(totalTime)) + 200;
 
     }
 
     public double getRange() {
-        return range-1f;
+        return range-2f;
     }
 
     public float maxDamage, range;

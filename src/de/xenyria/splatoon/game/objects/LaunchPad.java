@@ -133,5 +133,10 @@ public class LaunchPad extends GameObject {
 
     }
 
+    @Override
+    public void onRemove() {
+
+    }
+
     public Location getLocation() { return location; }
 }

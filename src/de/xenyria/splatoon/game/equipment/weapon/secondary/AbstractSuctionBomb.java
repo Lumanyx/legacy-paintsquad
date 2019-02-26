@@ -1,12 +1,10 @@
 package de.xenyria.splatoon.game.equipment.weapon.secondary;
 
 import de.xenyria.math.trajectory.Trajectory;
-import de.xenyria.splatoon.game.equipment.Brand;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIThrowableBomb;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.SuctionBomb;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.SuctionBomb;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
-import de.xenyria.splatoon.game.projectile.SprinklerProjectile;
 import de.xenyria.splatoon.game.projectile.SuctionBombProjectile;
 import org.bukkit.Location;
 import org.bukkit.Material;

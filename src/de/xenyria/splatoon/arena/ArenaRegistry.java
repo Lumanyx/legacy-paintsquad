@@ -72,6 +72,36 @@ public class ArenaRegistry {
         urchinUnderpass.addPaintableMaterial(Material.COARSE_DIRT);
 
         arenas.put(1, urchinUnderpass);
+
+        GamemodeSchematicMap saltsprayRigModeMap = new GamemodeSchematicMap();
+        saltsprayRigModeMap.put(MatchType.TURF_WAR, "turfwar_saltsprayrig");
+        ArenaData saltsprayRig = new ArenaData(2, Material.NAUTILUS_SHELL, "Nautilus Bohrinsel", ArenaCategory.REPLICA, saltsprayRigModeMap);
+        saltsprayRig.setMaxTeams(2);
+        saltsprayRig.setMaxPlayersPerTeam(4);
+        saltsprayRig.addPaintableMaterial(Material.GRAY_CONCRETE);
+        saltsprayRig.addPaintableMaterial(Material.BONE_BLOCK);
+        saltsprayRig.addPaintableMaterial(Material.COAL_BLOCK);
+        saltsprayRig.addPaintableMaterial(Material.BLACK_TERRACOTTA);
+        saltsprayRig.addPaintableMaterial(Material.LIGHT_GRAY_TERRACOTTA);
+        saltsprayRig.addPaintableMaterial(Material.IRON_BLOCK);
+        saltsprayRig.addPaintableMaterial(Material.YELLOW_CONCRETE);
+        saltsprayRig.addPaintableMaterial(Material.QUARTZ_STAIRS);
+        saltsprayRig.addPaintableMaterial(Material.QUARTZ_PILLAR);
+        saltsprayRig.addPaintableMaterial(Material.BLACK_TERRACOTTA);
+        saltsprayRig.addPaintableMaterial(Material.CYAN_TERRACOTTA);
+        saltsprayRig.addPaintableMaterial(Material.YELLOW_TERRACOTTA);
+        saltsprayRig.addPaintableMaterial(Material.SMOOTH_RED_SANDSTONE);
+        saltsprayRig.addPaintableMaterial(Material.DARK_PRISMARINE);
+        saltsprayRig.addPaintableMaterial(Material.OAK_PLANKS);
+        saltsprayRig.addPaintableMaterial(Material.STRIPPED_OAK_WOOD);
+        saltsprayRig.setResultHeightOffset(90d);
+        saltsprayRig.getPlaceholders().add(new StoredTeamPlaceholder(Material.LIME_STAINED_GLASS, StoredTeamPlaceholder.ReplacementType.GLASS, 1));
+        saltsprayRig.getPlaceholders().add(new StoredTeamPlaceholder(Material.PINK_STAINED_GLASS, StoredTeamPlaceholder.ReplacementType.GLASS, 0));
+
+        saltsprayRig.getPlaceholders().add(new StoredTeamPlaceholder(Material.LIME_TERRACOTTA, StoredTeamPlaceholder.ReplacementType.STAINED_CLAY, 1));
+        saltsprayRig.getPlaceholders().add(new StoredTeamPlaceholder(Material.PINK_TERRACOTTA, StoredTeamPlaceholder.ReplacementType.STAINED_CLAY, 0));
+        arenas.put(2, saltsprayRig);
+
         XenyriaSplatoon.getXenyriaLogger().log("§e" + arenas.size() + " Arenen §7wurden registriert.");
 
     }

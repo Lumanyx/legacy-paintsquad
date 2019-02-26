@@ -128,7 +128,7 @@ public class NavigationManager {
 
     };
     private int ticksSinceLastNewNavigationPoint;
-    public boolean isStuck() { return ticksSinceLastNodeProgress > 20; }
+    public boolean isStuck() { return ticksSinceLastNodeProgress > 10; }
     public boolean isDoingComplexTask() {
 
         if(skipPoint) {
@@ -244,27 +244,31 @@ public class NavigationManager {
 
                 if (npc.hasControl()) {
 
-                    if (!isSquidOnNavigationFinish()) {
+                    if(npc.getWeaponManager().getAIPrimaryWeaponType() != AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
 
-                        if (npc.isSquid()) {
+                        if (!isSquidOnNavigationFinish()) {
 
-                            if (!npc.isSubmergedInInk()) {
+                            if (npc.isSquid()) {
 
-                                if (npc.getLastFormChangeTicks() > 5) {
+                                if (!npc.isSubmergedInInk()) {
 
-                                    npc.leaveSquidForm();
+                                    if (npc.getLastFormChangeTicks() > 5) {
+
+                                        npc.leaveSquidForm();
+
+                                    }
 
                                 }
 
-                            }
+                            } else {
 
-                        } else {
+                                if (npc.onTeamTerritory()) {
 
-                            if (npc.onTeamTerritory()) {
+                                    if (npc.getLastFormChangeTicks() > 5) {
 
-                                if (npc.getLastFormChangeTicks() > 5) {
+                                        npc.enterSquidForm();
 
-                                    npc.enterSquidForm();
+                                    }
 
                                 }
 

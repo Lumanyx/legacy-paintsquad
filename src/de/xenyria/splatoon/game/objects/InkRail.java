@@ -43,10 +43,10 @@ public class InkRail extends GameObject implements HitableEntity {
         location.setY(location.getY() - ARMORSTAND_HEAD_OFFSET);
 
         double minX = Math.min(vectors[0].getX() - 0.5, vectors[0].getX() + 0.5);
-        double minY = Math.min(vectors[0].getY() - 0.5, vectors[0].getY() + 0.5);
+        double minY = Math.min(vectors[0].getY() - 1, vectors[0].getY() + 1);
         double minZ = Math.min(vectors[0].getZ() - 0.5, vectors[0].getZ() + 0.5);
         double maxX = Math.max(vectors[0].getX() - 0.5, vectors[0].getX() + 0.5);
-        double maxY = Math.max(vectors[0].getY() - 0.5, vectors[0].getY() + 0.5);
+        double maxY = Math.max(vectors[0].getY() - 1, vectors[0].getY() + 1);
         double maxZ = Math.max(vectors[0].getZ() - 0.5, vectors[0].getZ() + 0.5);
 
         firstJointAABB = new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);
@@ -325,6 +325,17 @@ public class InkRail extends GameObject implements HitableEntity {
 
     }
 
+    @Override
+    public void onRemove() {
+
+        for(ArmorStand stand : joints) {
+
+            stand.remove();
+
+        }
+
+    }
+
     public Location nearestLocation(Location loc) {
 
         Vector vector = loc.toVector();
@@ -377,6 +388,7 @@ public class InkRail extends GameObject implements HitableEntity {
 
         Location location = new Location(loc.getWorld(), targetVector.getX(), targetVector.getY(), targetVector.getZ(), loc.getYaw(), loc.getPitch());
         splatoonPlayer.updateRidingIndex(indx);
+        System.out.println("Index: " + indx);
 
         if(splatoonPlayer.isSquid()) {
 

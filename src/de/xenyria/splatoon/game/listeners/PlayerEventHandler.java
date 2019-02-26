@@ -591,6 +591,7 @@ public class PlayerEventHandler implements Listener {
     @EventHandler
     public void foodLevel(FoodLevelChangeEvent event) {
 
+        event.setFoodLevel(6);
         event.setCancelled(true);
 
     }

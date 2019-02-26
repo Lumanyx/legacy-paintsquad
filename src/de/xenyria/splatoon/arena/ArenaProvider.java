@@ -14,6 +14,7 @@ import de.xenyria.splatoon.arena.placeholder.StoredTeamPlaceholder;
 import de.xenyria.splatoon.arena.schematic.SchematicProvider;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.match.MatchType;
+import de.xenyria.splatoon.game.match.blocks.BlockFlagManager;
 import net.minecraft.server.v1_13_R2.*;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
@@ -92,7 +93,7 @@ public class ArenaProvider {
         ArrayList<ArenaPlaceholder> placeholders = new ArrayList<>();
         for(StoredTeamPlaceholder placeholder : data.getPlaceholders()) { placeholders.add(placeholder.toPlaceholder(match)); }
 
-        ArenaGenerationTask task = new ArenaGenerationTask(arenaWorld, data.getMap().get(match.getMatchType()) + ".xsc", lastOffset, match, XenyriaSplatoon.getArenaRegistry().getArenaData(1), placeholders);
+        ArenaGenerationTask task = new ArenaGenerationTask(arenaWorld, data.getMap().get(match.getMatchType()) + ".xsc", lastOffset, match, XenyriaSplatoon.getArenaRegistry().getArenaData(id), placeholders);
         lastOffset = lastOffset.clone().add(new Vector(1000, 0, 0));
         XenyriaSplatoon.getArenaBuilder().queueTask(task);
         return task;
@@ -137,6 +138,8 @@ public class ArenaProvider {
         private HashMap<ChunkCoordIntPair, Chunk> chunkReferences = new HashMap<>();
         private ArrayList<BlockCoordinate> syncCoords = new ArrayList<>();
         private HashMap<BlockCoordinate, ArenaPlaceholder.Metadata> metadata = new HashMap<>();
+        private ArrayList<FlagData> flagData = new ArrayList<>();
+        public ArrayList<FlagData> getFlagData() { return flagData; }
 
         private int minX,minY,minZ,maxX,maxY,maxZ;
         private long calculateBegin = 0;
@@ -144,6 +147,31 @@ public class ArenaProvider {
 
             return (System.nanoTime() - calculateBegin) / 1000000f;
 
+        }
+
+        public static class FlagData {
+
+            private int x,y,z;
+            public int getX() { return x; }
+            public int getY() { return y; }
+            public int getZ() { return z; }
+
+            public FlagData(int x, int y, int z) {
+
+                this.x = x;
+                this.y = y;
+                this.z = z;
+
+            }
+
+            private byte teamID = -1;
+            public byte getTeamID() { return teamID; }
+            public void setTeamID(byte id) { this.teamID = id; }
+
+            private ArrayList<Byte> enabledFlags = new ArrayList<>();
+            public void addFlag(byte v) { enabledFlags.add(v); }
+
+            public ArrayList<Byte> getFlags() { return enabledFlags; }
         }
 
         public void work() {
@@ -252,9 +280,11 @@ public class ArenaProvider {
                         if (placeholder.getTriggeringMaterial().equals(item.getT().material)) {
 
                             data = CraftBlockData.newData(placeholder.getReplacement(), "").getState();
-                            if(placeholder.addMetadata()) {
+                            if(placeholder.handleFlagData()) {
 
-                                metadata.put(coordinate, placeholder.getMetadata());
+                                FlagData data1 = new FlagData(realX, realY,realZ);
+                                placeholder.addFlags(data1);
+                                flagData.add(data1);
 
                             }
 

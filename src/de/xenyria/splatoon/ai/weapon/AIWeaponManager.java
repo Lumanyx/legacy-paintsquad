@@ -11,22 +11,14 @@ import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponRoller;
 import de.xenyria.splatoon.game.equipment.weapon.ai.AIWeaponShooter;
 import de.xenyria.splatoon.game.equipment.weapon.primary.*;
 import de.xenyria.splatoon.game.equipment.weapon.secondary.SplatoonSecondaryWeapon;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.*;
-import de.xenyria.splatoon.game.objects.Sprinkler;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.*;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.projectile.mine.InkMine;
 import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 import de.xenyria.splatoon.game.util.VectorUtil;
-import net.minecraft.server.v1_13_R2.EntityPlayer;
-import net.minecraft.server.v1_13_R2.EnumItemSlot;
-import net.minecraft.server.v1_13_R2.Item;
-import net.minecraft.server.v1_13_R2.PacketPlayOutEntityEquipment;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
@@ -612,7 +604,7 @@ public class AIWeaponManager {
 
     public static enum AISecondaryWeaponType {
 
-        PAINTBOMB,DAMAGEBOMB,BEACON;
+        PAINTBOMB,DAMAGEBOMB,BEACON,MINE;
 
     }
 
@@ -621,7 +613,8 @@ public class AIWeaponManager {
         SplatoonSecondaryWeapon secondary = npc.getEquipment().getSecondaryWeapon();
         if(secondary instanceof SplatBomb ||
                 secondary instanceof ToxicMist ||
-                secondary instanceof BurstBomb) {
+                secondary instanceof BurstBomb ||
+                secondary instanceof Autobomb) {
 
             return AISecondaryWeaponType.DAMAGEBOMB;
 
@@ -632,6 +625,10 @@ public class AIWeaponManager {
         } else if(secondary instanceof Beacon) {
 
             return AISecondaryWeaponType.BEACON;
+
+        } else if(secondary instanceof InkMineSecondary) {
+
+            return AISecondaryWeaponType.MINE;
 
         }
         return null;

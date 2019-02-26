@@ -8,6 +8,7 @@ import de.xenyria.splatoon.game.equipment.weapon.util.PlayerDamageCooldownMap;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.objects.GameObject;
 import de.xenyria.splatoon.game.objects.ObjectType;
+import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.projectile.*;
 import de.xenyria.splatoon.game.team.Team;
@@ -65,11 +66,11 @@ public class RainmakerBarrier extends GameObject implements TentaMissleTarget {
                 i++;
 
             }
-            for (Player player : Bukkit.getOnlinePlayers()) {
+            for (SplatoonHumanPlayer player : getMatch().getHumanPlayers()) {
 
                 if (player.getWorld().equals(getMatch().getWorld()) && player.getLocation().toVector().distance(position) < 96) {
 
-                    ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(ids));
+                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(ids));
 
                 }
 
@@ -267,6 +268,18 @@ public class RainmakerBarrier extends GameObject implements TentaMissleTarget {
         damage = 0d;
         targetRadius = minSize;
         this.generateSphere(targetRadius);
+
+    }
+
+    @Override
+    public void onRemove() {
+
+        stand.remove();
+        for(ArmorStand stand : armorStands) {
+
+            stand.remove();
+
+        }
 
     }
 

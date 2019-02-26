@@ -116,4 +116,9 @@ public class InkCloud extends GameObject {
 
     }
 
+    @Override
+    public void onRemove() {
+
+    }
+
 }

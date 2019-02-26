@@ -6,13 +6,10 @@ import de.xenyria.splatoon.game.equipment.weapon.SplatoonWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.primary.ai.tutorial.TutorialOctoshot;
 import de.xenyria.splatoon.game.equipment.weapon.primary.debug.*;
 import de.xenyria.splatoon.game.equipment.weapon.primary.unbranded.*;
-import de.xenyria.splatoon.game.equipment.weapon.secondary.debug.*;
+import de.xenyria.splatoon.game.equipment.weapon.secondary.unbranded.*;
 import de.xenyria.splatoon.game.equipment.weapon.special.armor.InkArmor;
 import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
-import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.BurstBombRush;
-import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.CurlingBombRush;
-import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.SplatBombRush;
-import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.SuctionBombRush;
+import de.xenyria.splatoon.game.equipment.weapon.special.bombrush.*;
 import de.xenyria.splatoon.game.equipment.weapon.special.inkstorm.InkStorm;
 import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.equipment.weapon.special.splashdown.Splashdown;
@@ -80,7 +77,7 @@ public class SplatoonWeaponRegistry {
         registerWeapon(15, DebugSlosher.class);
         registerWeapon(16, Splatling.class);
         registerWeapon(17, DebugBrella.class);
-        registerWeapon(18, DebugBlaster.class);
+        registerWeapon(18, Blaster.class);
         registerWeapon(19, RainMaker.class);
         registerWeapon(20, BurstBomb.class);
         registerWeapon(21, SplattershotJr.class);
@@ -103,6 +100,9 @@ public class SplatoonWeaponRegistry {
         registerWeapon(38, CurlingBombRush.class);
         registerWeapon(39, SuctionBombRush.class);
         registerWeapon(40, BurstBombRush.class);
+        registerWeapon(41, Autobomb.class);
+        registerWeapon(42, AutobombRush.class);
+        registerWeapon(43, InkMineSecondary.class);
 
         for(int id : weaponClassMap.keySet()) {
 

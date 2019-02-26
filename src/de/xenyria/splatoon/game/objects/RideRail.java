@@ -29,6 +29,13 @@ public class RideRail extends GameObject implements HitableEntity {
 
     private AxisAlignedBB bb;
 
+    @Override
+    public void onRemove() {
+
+        stand.remove();
+
+    }
+
     public RideRail(Match match, Vector... vectors) {
 
         super(match);
@@ -36,10 +43,10 @@ public class RideRail extends GameObject implements HitableEntity {
 
 
         double minX = Math.min(vectors[0].getX() - 0.5, vectors[0].getX() + 0.5);
-        double minY = Math.min(vectors[0].getY() - 0.5, vectors[0].getY() + 0.5);
+        double minY = Math.min(vectors[0].getY() - 1, vectors[0].getY() + 1);
         double minZ = Math.min(vectors[0].getZ() - 0.5, vectors[0].getZ() + 0.5);
         double maxX = Math.max(vectors[0].getX() - 0.5, vectors[0].getX() + 0.5);
-        double maxY = Math.max(vectors[0].getY() - 0.5, vectors[0].getY() + 0.5);
+        double maxY = Math.max(vectors[0].getY() - 1, vectors[0].getY() + 1);
         double maxZ = Math.max(vectors[0].getZ() - 0.5, vectors[0].getZ() + 0.5);
 
         bb = new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);

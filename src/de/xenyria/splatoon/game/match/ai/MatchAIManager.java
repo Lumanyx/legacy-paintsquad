@@ -457,7 +457,7 @@ public class MatchAIManager {
 
             }
             PaintableRegion region = new PaintableRegion(getMatch().getWorld(), this, start, end, nodes);
-            if(region.foundBlocks() > 0) {
+            if(region.foundBlocks() > 16) {
 
                 //System.out.println(coordinate.getX() + " " + coordinate.getY() + " " + coordinate.getZ() + " > " + region.foundBlocks());
                 paintableRegions.add(region);

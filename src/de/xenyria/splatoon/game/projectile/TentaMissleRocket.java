@@ -81,19 +81,18 @@ public class TentaMissleRocket extends SplatoonProjectile implements DamageDeali
     @Override
     public void tick() {
 
-
         if(payload != null && !payload.isDead()) {
 
             ((CraftItem)payload).getHandle().getBoundingBox().setFilter(NMSUtil.filter);
             ((CraftItem)payload).getHandle().move(EnumMoveType.SELF, 0, -.34, 0);
             payload.setVelocity(new Vector());
-            for(Player player : Bukkit.getOnlinePlayers()) {
+            for(SplatoonHumanPlayer player : getMatch().getHumanPlayers()) {
 
                 if(player.getLocation().distance(payload.getLocation()) <= 96D) {
 
-                    ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(((CraftItem)payload).getHandle()));
+                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(((CraftItem)payload).getHandle()));
                     ((CraftItem)payload).getHandle().motY = -.34;
-                    ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityVelocity(((CraftItem)payload).getHandle()));
+                    player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityVelocity(((CraftItem)payload).getHandle()));
                     ((CraftItem)payload).getHandle().motY = 0;
 
                 }
@@ -250,7 +249,7 @@ public class TentaMissleRocket extends SplatoonProjectile implements DamageDeali
 
                 }
 
-            }, ticksToChange);
+            }, 40);
 
         }
 

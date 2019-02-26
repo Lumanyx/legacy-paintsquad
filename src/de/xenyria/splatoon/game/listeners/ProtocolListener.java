@@ -150,18 +150,26 @@ public class ProtocolListener extends PacketAdapter {
 
                 if (WeaponModel.resourcePackIgnoreIDs.contains(id)) {
 
-                    //System.out.println("cancel");
                     event.setCancelled(true);
 
                 }
 
             }
 
-
-
         } else if(event.getPacketType() == PacketType.Play.Server.SPAWN_ENTITY_LIVING) {
 
             SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
+            int id = event.getPacket().getIntegers().read(0);
+            if (ResourcePackUtil.hasCustomResourcePack(event.getPlayer())) {
+
+                if (WeaponModel.resourcePackIgnoreIDs.contains(id)) {
+
+                    event.setCancelled(true);
+
+                }
+
+            }
+
             if(player != null) {
 
                 int i = event.getPacket().getIntegers().read(0);
@@ -423,7 +431,6 @@ public class ProtocolListener extends PacketAdapter {
             SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(event.getPlayer());
             if(player != null) {
 
-                player.updateLastInteraction();
 
                 EnumWrappers.EntityUseAction action1 = event.getPacket().getEntityUseActions().read(0);
                 if (action1 == EnumWrappers.EntityUseAction.ATTACK) {
@@ -436,6 +443,7 @@ public class ProtocolListener extends PacketAdapter {
 
                 } else {
 
+                    player.updateLastInteraction();
                     if(entityID == player.getTank().getId()) {
 
                         Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {

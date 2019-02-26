@@ -94,10 +94,11 @@ public enum Color {
 
         XenyriaSplatoon.getXenyriaLogger().log("Farbe §" + c + name + " §7registriert. RGB: " + color.getRed() + ", " + color.getGreen() + ", " + color.getBlue() + " | " + hexStr);
         woolData = CraftBlockData.newData(wool, "").getState();
+        clayData = CraftBlockData.newData(clay, "").getState();
 
     }
 
-    private IBlockData woolData;
+    private IBlockData woolData, clayData;
 
     public String prefix() { return "§" + color; }
 
@@ -112,5 +113,6 @@ public enum Color {
     public ChatColor getChatColor() { return chatColor; }
 
     public IBlockData getWoolData() { return woolData; }
+    public IBlockData getClayData() { return clayData; }
 
 }

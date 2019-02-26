@@ -81,24 +81,6 @@ public abstract class SplatoonWeapon {
 
     }
 
-    public void use() {
-
-        if(canUse()) {
-
-            if(player.getInk() >= nextInkUsage) {
-
-                player.removeInk(nextInkUsage);
-                shoot();
-
-            } else {
-
-                player.notEnoughInk();
-
-            }
-
-        }
-
-    }
     // Wird nur von Nicht-Automatik-Waffen benutzt
     public abstract void shoot();
 

@@ -7,11 +7,13 @@ import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 import org.bukkit.Material;
 
-public class DebugBlaster extends AbstractBlaster {
+public class Blaster extends AbstractBlaster {
 
-    public DebugBlaster() {
+    public static final int ID = 18;
 
-        super(18, "Protoblaster", 2.75f, 110, 1000, 13, 6);
+    public Blaster() {
+
+        super(ID, "Protoblaster", 2.75f, 110, 1000, 13, 6);
 
     }
 
@@ -38,7 +40,7 @@ public class DebugBlaster extends AbstractBlaster {
     @Override
     public void calculateNextInkUsage() {
 
-        setNextInkUsage(12d);
+        setNextInkUsage(14d);
 
     }
 

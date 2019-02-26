@@ -147,10 +147,10 @@ public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
         }
 
-        for(Player player : Bukkit.getOnlinePlayers()) {
+        for(SplatoonHumanPlayer player : getPlayer().getMatch().getHumanPlayers()) {
 
-            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(mimic));
-            ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(mimic, (byte)(mimic.yaw * (0.70333333))));
+            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(mimic));
+            player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityHeadRotation(mimic, (byte)(mimic.yaw * (0.70333333))));
 
         }
 
@@ -167,7 +167,7 @@ public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
     public void explode() {
 
-        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), 5f, 0, 150, false);
+        BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), 7f, 0, 250, false);
         projectile.spawn(0, mimic.getBukkitEntity().getLocation());
         getPlayer().getMatch().queueProjectile(projectile);
         getPlayer().getLocation().getWorld().playSound(getPlayer().getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1f, 2f);
@@ -288,7 +288,7 @@ public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
                         ((SplatoonHumanPlayer) getPlayer()).getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 99999, 2, false, false));
 
-                        for (Player player : Bukkit.getOnlinePlayers()) {
+                        for(SplatoonHumanPlayer player : getPlayer().getMatch().getHumanPlayers()) {
 
                             boolean isSelf = false;
                             if(getPlayer() instanceof SplatoonHumanPlayer) {
@@ -299,7 +299,7 @@ public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
 
                             if (player.getLocation().distance(getPlayer().getLocation()) < 96 && !isSelf) {
 
-                                ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
+                                player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(
                                         getPlayer().getNMSPlayer().getId()
                                 ));
 
@@ -330,12 +330,12 @@ public class Baller extends SplatoonSpecialWeapon implements AISpecialWeapon {
                         cameraStand.setPosition(player.locX, player.locY, player.locZ);
                         cameraStand.getBukkitEntity().addPassenger(getPlayer().getBukkitEntity());
                         cameraStand.setInvisible(true);
-                        for (Player player1 : Bukkit.getOnlinePlayers()) {
+                        for(SplatoonHumanPlayer player1 : getPlayer().getMatch().getHumanPlayers()) {
 
                             if (player1.getLocation().distance(getPlayer().getLocation()) < 96) {
 
-                                ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(mimic));
-                                ((CraftPlayer) player1).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(mimic.getId(), mimic.getDataWatcher(), mimic.onGround));
+                                player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutNamedEntitySpawn(mimic));
+                                player1.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(mimic.getId(), mimic.getDataWatcher(), mimic.onGround));
 
                             }
 
