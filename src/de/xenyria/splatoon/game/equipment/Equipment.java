@@ -28,6 +28,12 @@ public class Equipment {
     public SplatoonPrimaryWeapon getPrimaryWeapon() { return primaryWeapon; }
     public void setPrimaryWeapon(int weaponID) {
 
+        if(primaryWeapon != null) {
+
+            resetPrimaryWeapon();
+
+        }
+
         primaryWeapon = (SplatoonPrimaryWeapon) XenyriaSplatoon.getWeaponRegistry().newInstance(weaponID);
         primaryWeapon.assign(player);
         if(player instanceof SplatoonHumanPlayer) {
@@ -43,6 +49,13 @@ public class Equipment {
         return secondaryWeapon;
     }
     public void setSecondaryWeapon(int secondaryWeapon1) {
+
+        if(secondaryWeapon != null) {
+
+            resetSecondaryWeapon();
+
+        }
+
         secondaryWeapon = (SplatoonSecondaryWeapon) XenyriaSplatoon.getWeaponRegistry().newInstance(secondaryWeapon1);
         secondaryWeapon.assign(player);
 
@@ -100,6 +113,12 @@ public class Equipment {
     private SplatoonSpecialWeapon specialWeapon;
     public SplatoonSpecialWeapon getSpecialWeapon() { return specialWeapon; }
     public void setSpecialWeapon(int i) {
+
+        if(specialWeapon != null) {
+
+            resetSpecialWeapon();
+
+        }
 
         specialWeapon = (SplatoonSpecialWeapon) XenyriaSplatoon.getWeaponRegistry().newInstance(i);
         specialWeapon.assign(player);

@@ -349,7 +349,7 @@ public abstract class Match {
     private HashMap<Team, Inventory> jumpMenuMap = new HashMap<>();
     private HashMap<Team, HashMap<Integer, JumpPoint>> jumpPointSlotMap = new HashMap<>();
 
-    public static final String JUMP_MENU_TITLE = " §8" + Characters.FAT_ARROW_RIGHT + " Wähle ein Ziel";
+    public static final String JUMP_MENU_TITLE = " §8" + Characters.FAT_ARROW_RIGHT + " Zielliste";
 
     public Inventory getOrCreateJumpMenu(Team team) {
 
@@ -1349,6 +1349,17 @@ public abstract class Match {
 
     }
 
+    public Team getTeamByIndex(int teamID) {
+
+        if(teamID <= (getRegisteredTeams().size()-1)) {
+
+            return getRegisteredTeams().get(teamID);
+
+        }
+        return null;
+
+    }
+
     public Team getTeam(Block block) {
 
         BlockFlagManager.BlockFlag flag = blockFlagManager.getBlockIfExist(block.getX(), block.getY(), block.getZ());
@@ -1368,6 +1379,7 @@ public abstract class Match {
     public boolean hasPlayer(SplatoonHumanPlayer player) { return registeredPlayers.contains(player); }
 
     public int getSelectedMapID() { return -1; }
+
 
 
     //public ArrayList<JumpPoint> getJumpPoints(SplatoonPlayer player) {

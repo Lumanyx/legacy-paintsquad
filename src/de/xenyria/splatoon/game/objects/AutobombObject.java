@@ -198,7 +198,11 @@ public class AutobombObject extends GameObject {
         if(!AABBUtil.hasSpace(getMatch().getWorld(), bb)) {
 
             Vector wrap = AABBUtil.resolveWrap(getMatch().getWorld(), targetPos, bb);
-            targetPos = wrap.clone();
+            if(wrap != null) {
+
+                targetPos = wrap.clone();
+
+            }
 
         }
 

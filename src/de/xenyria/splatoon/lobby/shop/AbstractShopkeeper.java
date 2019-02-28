@@ -27,6 +27,8 @@ public abstract class AbstractShopkeeper {
     public static ArrayList<AbstractShopkeeper> getShopkeepers() { return shopkeepers; }
 
     private Villager villager;
+    public Villager getVillager() { return villager; }
+
     private World world;
     private Location location;
 

@@ -60,7 +60,14 @@ public class PaintableRegion {
     private ArrayList<Node> floorCoordinates = new ArrayList<>();
     public ArrayList<Node> getFloorCoordinates() { return floorCoordinates; }
 
+
     public static class Coordinate {
+
+        public String toString() {
+
+            return "{x="+x+",y="+y+",z="+z+"}";
+
+        }
 
         public static Coordinate fromWorldCoordinates(int x, int y, int z) {
 
@@ -106,21 +113,6 @@ public class PaintableRegion {
     private MatchAIManager manager;
     public MatchAIManager getManager() { return manager; }
 
-    public int getUnpaintedBlocks() {
-
-        int amount = 0;
-        for(Block block : paintableBlocks) {
-
-            if(!block.hasMetadata("Team")) {
-
-                amount++;
-
-            }
-
-        }
-        return amount;
-
-    }
     public Block[] getPaintableBlocks(Color color) {
 
         String teamName = color.name();
@@ -207,11 +199,11 @@ public class PaintableRegion {
                             }
 
                         }
-                        //if(blockedFaceCounter <= 4) {
+                        if(blockedFaceCounter <= 4) {
 
                             paintableBlocks.add(block);
 
-                        //}
+                        }
 
                     }
 
@@ -220,6 +212,7 @@ public class PaintableRegion {
             }
 
         }
+        System.out.println("Begin init " + Coordinate.fromWorldCoordinates(start.getBlockX(), start.getBlockY(), start.getBlockZ()).toString());
 
         int possibleNodes = possiblePositions.size();
         HashMap<Block, Integer> blockVisibilityScore = new HashMap<>();
@@ -231,12 +224,16 @@ public class PaintableRegion {
 
                 if(node.x >= minX && node.y >= minY && node.z >= minZ && node.x <= maxX && node.y <= maxY && node.z <= maxZ) {
 
-                    if(!iteratedPositions.contains(new BlockPosition(node.x, node.y, node.z))) {
+                    if(true) {
 
-                        iteratedPositions.add(new BlockPosition(node.x, node.y, node.z));
-                        if (node.getType() == TransitionType.WALK) {
+                        if(!iteratedPositions.contains(new BlockPosition(node.x, node.y, node.z))) {
 
-                            floorCoordinates.add(node);
+                            iteratedPositions.add(new BlockPosition(node.x, node.y, node.z));
+                            if (node.getType() == TransitionType.WALK) {
+
+                                floorCoordinates.add(node);
+
+                            }
 
                         }
 
@@ -271,14 +268,15 @@ public class PaintableRegion {
             @Override
             public int compare(Block o1, Block o2) {
 
-                return Integer.compare(blockVisibilityScore.get(o1), blockVisibilityScore.get(o2));
+                return -Integer.compare(blockVisibilityScore.get(o1), blockVisibilityScore.get(o2));
 
             }
         });
         sortedBlockList.putAll(blockVisibilityScore);
 
+        System.out.println("Paintable Block size before1 " + paintableBlocks.size());
         paintableBlocks.clear();
-        int minAvailabilityCount = 2;
+        int minAvailabilityCount = 1;
 
         for(Map.Entry<Block, Integer> entry : sortedBlockList.entrySet()) {
 
@@ -289,6 +287,7 @@ public class PaintableRegion {
             }
 
         }
+        System.out.println("Paintable Block size before2 " + paintableBlocks.size());
 
         // Sort
         ArrayList<Block> sortedBlocks = new ArrayList<>();
@@ -332,6 +331,7 @@ public class PaintableRegion {
             paintableBlocks = sortedBlocks;
 
         }
+        System.out.println("Paintable Block size afterwards " + paintableBlocks.size());
 
     }
 

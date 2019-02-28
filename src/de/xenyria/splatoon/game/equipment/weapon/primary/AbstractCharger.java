@@ -21,10 +21,12 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
+import org.bukkit.craftbukkit.v1_13_R2.block.data.CraftBlockData;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftArmorStand;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftEntity;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Player;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
@@ -42,7 +44,7 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements A
 
         long totalTime = chargeDuration;
         double mod = (distance/getRange());
-        return (long) (mod*(totalTime)) + 200;
+        return (long) (mod*(totalTime)) + 350;
 
     }
 
@@ -169,7 +171,7 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements A
                         lastChargeUpdate = 0;
                         final float maxRange = range * fPercentage;
 
-                        Location begin = getPlayer().getShootingLocation(true).clone().add(getPlayer().getLocation().getDirection().clone().multiply(0.5));
+                        Location begin = getPlayer().getEyeLocation().toVector().add(getPlayer().getEyeLocation().getDirection().clone().multiply(.5d)).toLocation(getPlayer().getWorld());
                         Location target = begin.clone().add(getPlayer().getLocation().getDirection().multiply(maxRange));
 
                         float dmg = maxDamage * fPercentage;
@@ -224,14 +226,23 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements A
                                 }
                             } else {
 
-                                RayTraceResult result = getPlayer().getMatch().getWorldInformationProvider().rayTraceBlocks(begin.toVector(), getPlayer().getLocation().getDirection().clone(), maxRange,true);
+                                RayTraceResult result = getPlayer().getMatch().getWorldInformationProvider().rayTraceBlocks(begin.toVector(), getPlayer().getLocation().getDirection().clone(), maxRange,false);
                                 if(result != null) {
 
                                     hitRange = (float) result.getHitPosition().distance(begin.toVector());
 
                                     if(result.getHitBlock() != null) {
 
-                                        hitWall = result.getHitBlock().getRelative(result.getHitBlockFace().getOppositeFace());
+                                        hitWall = result.getHitBlock();
+                                        for(Player player : Bukkit.getOnlinePlayers()) {
+
+                                            Bukkit.getScheduler().runTaskLater(XenyriaSplatoon.getPlugin(), () -> {
+
+                                                player.sendBlockChange(result.getHitBlock().getLocation(), CraftBlockData.newData(Material.IRON_BLOCK, null));
+
+                                            },20l);
+
+                                        }
 
                                     }
 
@@ -273,7 +284,7 @@ public abstract class AbstractCharger extends SplatoonPrimaryWeapon implements A
                                 for(int x = 0; x < 16; x++) {
 
                                     block1 = block1.getRelative(BlockFace.DOWN);
-                                    if(getPlayer().getMatch().isPaintable(getPlayer().getTeam(), block1.getX(), block1.getY(), block1.getZ())) {
+                                    if(getPlayer().getMatch().isPaintable(getPlayer().getTeam(), block1.getX(), block1.getY(), block1.getZ()) || getPlayer().getMatch().isOwnedByTeam(block1, getPlayer().getTeam())) {
 
                                         getPlayer().getMatch().paint(getPlayer(), block1.getLocation().toVector(), getPlayer().getTeam());
                                         getPlayer().getMatch().colorSquare(block1, getPlayer().getTeam(), getPlayer(), 1);

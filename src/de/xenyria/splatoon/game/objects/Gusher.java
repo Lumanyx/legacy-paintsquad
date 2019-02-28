@@ -2,6 +2,10 @@ package de.xenyria.splatoon.game.objects;
 
 import de.xenyria.splatoon.ai.entity.VelocityProcessor;
 import de.xenyria.splatoon.game.combat.HitableEntity;
+import de.xenyria.splatoon.game.equipment.weapon.special.SplatoonSpecialWeapon;
+import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
+import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
+import de.xenyria.splatoon.game.equipment.weapon.special.splashdown.Splashdown;
 import de.xenyria.splatoon.game.equipment.weapon.viewmodel.WeaponModel;
 import de.xenyria.splatoon.game.match.Match;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
@@ -175,6 +179,17 @@ public class Gusher extends GameObject implements HitableEntity {
         for(SplatoonPlayer player : getMatch().getAllPlayers()) {
 
             if(!player.isSplatted() && player.getTeam() == lastShootingTeam) {
+
+                if(player.specialActive()) {
+
+                    SplatoonSpecialWeapon weapon = player.getEquipment().getSpecialWeapon();
+                    if(weapon instanceof Jetpack || weapon instanceof Splashdown || weapon instanceof Baller) {
+
+                        continue;
+
+                    }
+
+                }
 
                 if(player.aabb().c(fountainAABB)) {
 

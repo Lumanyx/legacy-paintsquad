@@ -12,8 +12,10 @@ import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.equipment.weapon.special.stingray.StingRay;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.util.VectorUtil;
+import net.minecraft.server.v1_13_R2.EntityBoat;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.entity.Boat;
 import org.bukkit.entity.Squid;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
@@ -37,7 +39,7 @@ public class TargetManager {
     public void resetTarget() {
 
         if(target != null) { removePotentialTarget(target.enemy); }
-
+        invisibleTicks = 0;
         target = null;
 
     }
@@ -66,6 +68,9 @@ public class TargetManager {
 
         target = null;
         possibleTargets.clear();
+        enemyQuery.clear();
+        pathNotFoundPunishTicks.clear();
+        this.targetFindTicker = 0;
 
     }
 
@@ -281,6 +286,23 @@ public class TargetManager {
 
     public void tick() {
 
+        if(EntityNPC.DEBUG_MODE) {
+
+            String str = "";
+            if(hasTarget()) {
+
+                str="§cTarget->" + target.getEnemy().getName() + " | " + invisibleTicks;
+
+            } else {
+
+                str="§cNoSetTarget ";
+
+            }
+            str+="§bPotential: " + possibleTargets.size();
+            npc.a2.setCustomName(str);
+
+        }
+
         boolean processingEnemyQueries = isProcessingEnemyQuery();
 
         Iterator<Map.Entry<SplatoonPlayer, Integer>> iterator = pathNotFoundPunishTicks.entrySet().iterator();
@@ -329,7 +351,20 @@ public class TargetManager {
 
                             double distance = npc.getLocation().distance(player.getLocation());
                             boolean highlighted = npc.isHighlighted(player);
-                            if (distance < MAX_ENEMY_DETECTION_DISTANCE || highlighted) {
+
+                            boolean distOkay = false;
+                            AIWeaponManager.AIPrimaryWeaponType type = npc.getWeaponManager().getAIPrimaryWeaponType();
+                            if(type != AIWeaponManager.AIPrimaryWeaponType.CHARGER) {
+
+                                distOkay = distance < MAX_ENEMY_DETECTION_DISTANCE || highlighted;
+
+                            } else {
+
+                                distOkay = (distance+1) < npc.getWeaponManager().maxWeaponDistance();
+
+                            }
+
+                            if (distOkay) {
 
                                 // "Frustum" Viewcheck
                                 float npcYaw = npc.yaw();

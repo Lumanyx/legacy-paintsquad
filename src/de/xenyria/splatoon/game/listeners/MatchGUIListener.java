@@ -12,10 +12,13 @@ import de.xenyria.splatoon.arena.ArenaCategory;
 import de.xenyria.splatoon.arena.ArenaData;
 import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.Match;
+import de.xenyria.splatoon.game.match.MatchManager;
 import de.xenyria.splatoon.game.match.outro.OutroManager;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
+import de.xenyria.splatoon.game.team.Team;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -112,7 +115,9 @@ public class MatchGUIListener implements Listener {
                 title.equalsIgnoreCase(BattleMatch.SPECTATOR_MENU_TITLE) ||
                 title.equalsIgnoreCase(OutroManager.BACK_TO_LOBBY_TITLE) ||
                 title.equalsIgnoreCase(OutroManager.BATTLE_STATISTIC) ||
-                title.equalsIgnoreCase(BattleMatch.SPECTATE_MENU_TITLE)) {
+                title.equalsIgnoreCase(BattleMatch.SPECTATE_MENU_TITLE) ||
+                title.equalsIgnoreCase(BattleMatch.CHOOSE_TEAM_TITLE) ||
+                title.equalsIgnoreCase(MatchManager.CUSTOM_BATTLES_TITLE)) {
 
                 event.setCancelled(true);
                 ItemStack stack = event.getCurrentItem();
@@ -429,7 +434,7 @@ public class MatchGUIListener implements Listener {
                                                 public void onFail() {
 
                                                 }
-                                            }, "§6Wieviele Spieler/Team?", "§8(Min. 1, Max. " + data.getMaxPlayersPerTeam() + ")");
+                                            }, "§6Wieviele Spieler pro Team?", "§8(Min. 1, Max. " + data.getMaxPlayersPerTeam() + ")");
                                             dialog.show();
 
                                         } else {
@@ -703,6 +708,132 @@ public class MatchGUIListener implements Listener {
 
                                             player.getPlayer().closeInventory();
                                             player.sendMessage(Chat.SYSTEM_PREFIX + "Der gewählte Spieler konnte nicht gefunden werden.");
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        } else {
+
+                            if(inventory.getTitle() != null) {
+
+                                if(inventory.getTitle().equalsIgnoreCase(BattleMatch.CHOOSE_TEAM_TITLE)) {
+
+                                    if(ItemBuilder.hasValue(stack, "JoinTeam")) {
+
+                                        int roomID = ItemBuilder.getIntValue(stack, "RoomID");
+                                        BattleMatch match1 = XenyriaSplatoon.getMatchManager().getRoom(roomID);
+
+                                        if(match1 != null) {
+
+                                            if(!match1.allowRejoining()) {
+
+                                                player.sendMessage(Chat.SYSTEM_PREFIX + "Der von dir gewählte Raum ist nicht mehr gültig.");
+                                                player.getPlayer().closeInventory();
+                                                return;
+
+                                            }
+
+                                            int teamID = ItemBuilder.getIntValue(stack, "JoinTeam");
+                                            Team team = match1.getTeamByIndex(teamID);
+                                            if(team != null) {
+
+                                                int totalPlayerCount = match1.combinedPlayerCount(team);
+                                                if((totalPlayerCount+1) <= match1.getPlayersPerTeamCount()) {
+
+                                                    Location spawnPoint = match1.getNextSpawnPoint(team);
+                                                    if(spawnPoint != null) {
+
+                                                        player.leaveMatch();
+                                                        player.teleport(spawnPoint);
+                                                        player.joinMatch(match1);
+                                                        match1.chooseTeam(player, teamID);
+                                                        player.setTeam(team);
+                                                        player.setSpawnPoint(spawnPoint);
+
+                                                    } else {
+
+                                                        player.sendMessage(Chat.SYSTEM_PREFIX + "Es konnte kein Spawnpunkt gefunden werden. Probiere es später erneut!");
+
+                                                    }
+
+                                                } else {
+
+                                                    player.sendMessage(Chat.SYSTEM_PREFIX + "In diesem Team ist kein Platz frei.");
+
+                                                }
+
+                                            } else {
+
+                                                // Spectator (teamID = -1)
+                                                int spectatorCount = match1.getSpectators().size();
+                                                if((spectatorCount+1) <= BattleMatch.MAX_SPECTATORS) {
+
+                                                    player.leaveMatch();
+                                                    player.getPlayer().teleport(match1.spectatorSpawnLocation);
+                                                    player.joinMatch(match1);
+                                                    player.setTeam(null);
+                                                    match1.chooseTeam(player, -1);
+                                                    match1.broadcast("§8" + player.getName() + " §7hat den Raum betreten.");
+
+                                                } else {
+
+                                                    player.sendMessage(Chat.SYSTEM_PREFIX + "Es ist kein freier Zuschauerplatz vorhanden.");
+
+                                                }
+
+                                            }
+
+                                        } else {
+
+                                            player.sendMessage(Chat.SYSTEM_PREFIX + "Der von dir gewählte Raum ist nicht mehr gültig.");
+                                            player.getPlayer().closeInventory();
+
+                                        }
+
+                                    } else if(ItemBuilder.hasValue(stack, "BackToPrivateLobbies")) {
+
+                                        player.leaveMatch();
+
+                                    }
+
+                                } else if(inventory.getTitle().equalsIgnoreCase(MatchManager.CUSTOM_BATTLES_TITLE)) {
+
+                                    if(ItemBuilder.hasValue(stack, "JoinMatch")) {
+
+                                        int matchID = ItemBuilder.getIntValue(stack, "JoinMatch");
+                                        BattleMatch match1 = XenyriaSplatoon.getMatchManager().getRoom(matchID);
+                                        if(match1 != null) {
+
+                                            if(match1.hasPassword()) {
+
+                                                XenyriaSplatoon.getMatchManager().joinPasswordProtectedMatch(player, matchID);
+
+                                            } else {
+
+                                                XenyriaSplatoon.getMatchManager().joinPrivateMatch(player, matchID);
+
+                                            }
+
+                                        } else {
+
+                                            player.sendMessage(Chat.SYSTEM_PREFIX + "Der gewählte Raum ist nicht mehr gültig.");
+
+                                        }
+
+                                    } else if(ItemBuilder.hasValue(stack, "CreateNewRoom")) {
+
+                                        if(!XenyriaSplatoon.getMatchManager().isRoomLimitExceeded()) {
+
+                                            BattleMatch match1 = XenyriaSplatoon.getMatchManager().createNewRoom(player);
+
+                                        } else {
+
+                                            player.sendMessage(Chat.SYSTEM_PREFIX + "Das maximale Raumlimit wurde erreicht. Kein neuer Raum möglich.");
 
                                         }
 

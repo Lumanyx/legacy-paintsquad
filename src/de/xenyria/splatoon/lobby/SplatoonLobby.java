@@ -41,7 +41,9 @@ import de.xenyria.splatoon.lobby.shop.weapons.WeaponShopkeeper;
 import net.minecraft.server.v1_13_R2.EntityArmorStand;
 import org.bukkit.*;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
@@ -254,6 +256,9 @@ public class SplatoonLobby extends Match {
         weaponShop = new WeaponShop(weaponShopkeeper);
 
         headShopkeeper = new GearShopkeeper(headGearShopkeeperLocation, "§dHutverkäufer");
+        bodyShopkeeper = new GearShopkeeper(bodyGearShopkeeperLocation, "§bShirtverkäufer");
+        footShopkeeper = new GearShopkeeper(footGearShopkeeperLocation, "§6Schuhverkäufer");
+
         Location[] locations = new Location[headGearItemLocations.size()];
         int i = 0;
         for(Vector vector : headGearItemLocations) {
@@ -262,9 +267,33 @@ public class SplatoonLobby extends Match {
             i++;
 
         }
-
         headGearShop = new GearShop(headShopkeeper, AbstractShop.ShopType.HEAD_GEAR, locations);
+
+
+        Location[] locations1 = new Location[bodyGearItemLocations.size()];
+        i = 0;
+        for(Vector vector : bodyGearItemLocations) {
+
+            locations1[i] = new Location(plazaWorld, vector.getX(), vector.getY(), vector.getZ());
+            i++;
+
+        }
+        bodyGearShop = new GearShop(bodyShopkeeper, AbstractShop.ShopType.BODY_GEAR, locations1);
+
+        Location[] locations2 = new Location[footGearItemLocations.size()];
+        i = 0;
+        for(Vector vector : footGearItemLocations) {
+
+            locations2[i] = new Location(plazaWorld, vector.getX(), vector.getY(), vector.getZ());
+            i++;
+
+        }
+        footGearShop = new GearShop(footShopkeeper, AbstractShop.ShopType.FOOT_GEAR, locations2);
+
+
         gearShops.add(headGearShop);
+        gearShops.add(bodyGearShop);
+        gearShops.add(footGearShop);
 
     }
 
@@ -320,10 +349,27 @@ public class SplatoonLobby extends Match {
     private static ArrayList<RecentPlayerNPC> npcs = new ArrayList<>();
     public static int minRecentPlayerCount() { return npcs.size() + 3; }
 
+    public static Villager privateMatchesVillager, publicMatchesVillager;
+
     public SplatoonLobby(World world) {
 
         super(world);
         createLocations();
+        privateMatchesVillager = (Villager) world.spawnEntity(privateBattle, EntityType.VILLAGER);
+        privateMatchesVillager.setProfession(Villager.Profession.NITWIT);
+        privateMatchesVillager.setAI(false);
+        privateMatchesVillager.setCollidable(false);
+        privateMatchesVillager.setCustomNameVisible(true);
+        privateMatchesVillager.setCustomName("§b§lPrivatkämpfe");
+        privateMatchesVillager.setGravity(false);
+
+        publicMatchesVillager = (Villager) world.spawnEntity(publicBattle, EntityType.VILLAGER);
+        publicMatchesVillager.setProfession(Villager.Profession.BLACKSMITH);
+        publicMatchesVillager.setAI(false);
+        publicMatchesVillager.setCollidable(false);
+        publicMatchesVillager.setCustomNameVisible(true);
+        publicMatchesVillager.setCustomName("§c§lÖffentliche Kämpfe");
+        publicMatchesVillager.setGravity(false);
 
         npcs.add(new RecentPlayerNPC(talk1_1, new TalkAnimation()));
         npcs.add(new RecentPlayerNPC(talk1_2, new TalkAnimation()));
@@ -606,6 +652,26 @@ public class SplatoonLobby extends Match {
     public void teleportToFights(SplatoonHumanPlayer player1) {
 
         player1.getPlayer().teleport(fightTeleport);
+
+    }
+
+    public GearShopkeeper getNearestShop(SplatoonHumanPlayer player) {
+
+        GearShopkeeper[] shopkeeper = new GearShopkeeper[]{headShopkeeper, bodyShopkeeper, footShopkeeper};
+
+        double lowest = 0d;
+        GearShopkeeper shop1 = null;
+        for(GearShopkeeper shop : shopkeeper) {
+
+            if(shop1 == null || shop.getLocation().toVector().distance(player.getLocation().toVector()) < lowest) {
+
+                lowest = shop.getLocation().distance(player.getLocation());
+                shop1 = shop;
+
+            }
+
+        }
+        return shop1;
 
     }
 

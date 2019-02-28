@@ -86,8 +86,6 @@ public class PaintAreaTask extends AITask {
     private int targetChangeTicks = 0;
     private int timeoutTicker = 0;
 
-    private ConcurrentHashMap<PaintableRegion.Coordinate, Integer> visitCounts = new ConcurrentHashMap<>();
-
     public static void main(String[] args) {
 
         ArrayList<Double> doubles = new ArrayList<>();
@@ -131,33 +129,6 @@ public class PaintAreaTask extends AITask {
         }
 
         AIWeaponManager.AIPrimaryWeaponType type = getNPC().getWeaponManager().getAIPrimaryWeaponType();
-        visitCountRemoveTicker++;
-        if(visitCountRemoveTicker > 70) {
-
-            visitCountRemoveTicker = 0;
-            Iterator<Map.Entry<PaintableRegion.Coordinate, Integer>> iterator = visitCounts.entrySet().iterator();
-            while (iterator.hasNext()) {
-
-                Map.Entry<PaintableRegion.Coordinate, Integer> entry = iterator.next();
-                PaintableRegion.Coordinate coordinate = entry.getKey();
-                if(coordinate.center().distance(getNPC().getLocation().toVector()) >= 25d) {
-
-                    int newVal = entry.getValue() - 1;
-                    if(newVal < 1) {
-
-                        iterator.remove();
-
-                    } else {
-
-                        entry.setValue(newVal);
-
-                    }
-
-                }
-
-            }
-
-        }
 
         if(target != null) {
 
@@ -667,7 +638,7 @@ public class PaintAreaTask extends AITask {
                     //int members = getNearbyTeamMembers(node.x, node.y, node.z);
                     PaintableRegion.Coordinate coordinate = PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z);
                     double additionalWeight = 0d;
-                    if(visitCounts.containsKey(coordinate)) { additionalWeight = visitCounts.get(coordinate) * 80; }
+                    if(getNPC().getRegionTracker().hasCoordinate(coordinate)) { additionalWeight = getNPC().getRegionTracker().getVisitCounts(coordinate) * 80; }
 
                     double distance = positionBefore.distance(node.toVector());
                     //additionalWeight+=members*35;
@@ -723,7 +694,7 @@ public class PaintAreaTask extends AITask {
 
                             double coverageVal = getCoverage(node.x, node.y, node.z);
                             double coverage = coverageVal
-                                    + (visitCounts.getOrDefault(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z), 0) * 7);
+                                    + (getNPC().getRegionTracker().getVisitCounts(PaintableRegion.Coordinate.fromWorldCoordinates(node.x, node.y, node.z)) * 7);
 
                             if (coverageVal != -1D && coverageVal <= getRegionCoverageThreshold() && (lowest == null || coverage < lowestCoverage)) {
 
@@ -760,6 +731,13 @@ public class PaintAreaTask extends AITask {
                             int amount = 4;
                             if(!coordinate1.equals(coordinate)) { amount = 1; }
 
+                            for(int i = 0; i < amount; i++) {
+
+                                getNPC().getRegionTracker().addVisitCount(coordinate1);
+
+                            }
+
+                            /*
                             if (!visitCounts.containsKey(coordinate1)) {
 
                                 visitCounts.put(coordinate1, amount);
@@ -768,7 +746,7 @@ public class PaintAreaTask extends AITask {
 
                                 visitCounts.put(coordinate1, visitCounts.get(coordinate1) + amount);
 
-                            }
+                            }*/
 
                         }
 

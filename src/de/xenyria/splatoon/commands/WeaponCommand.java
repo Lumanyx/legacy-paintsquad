@@ -96,10 +96,17 @@ public class WeaponCommand implements CommandExecutor {
 
                         }
 
+                        SplatoonPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
+                        if(player1.getTeam() == null) {
+
+                            player.sendMessage(Chat.SYSTEM_PREFIX + "Du bist derzeit keinem Team zugeteilt. Daher kannst du dir keine Waffe geben.");
+                            return true;
+
+                        }
+
                         Class<SplatoonWeapon> weapon = SplatoonWeaponRegistry.getWeaponClass(id);
                         if(weapon != null) {
 
-                            SplatoonPlayer player1 = SplatoonHumanPlayer.getPlayer(player);
                             SplatoonWeapon dummy = SplatoonWeaponRegistry.getDummy(id);
                             if(dummy instanceof SplatoonPrimaryWeapon) {
 

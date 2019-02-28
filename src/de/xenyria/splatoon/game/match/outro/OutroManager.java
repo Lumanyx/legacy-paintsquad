@@ -93,9 +93,9 @@ public class OutroManager {
 
             }
             player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.getId()));
-            removeSpawnedEntity(player, entity);
 
         }
+        spawnedEntities.remove(player);
 
     }
     public void addSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {

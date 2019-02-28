@@ -71,9 +71,37 @@ public class ApproachPaintableRegionTask extends AITask {
             return new SquidAStar.MovementCapabilities();
         }
 
+        private PaintableRegion lastRegion;
         @Override
         public void beginPathfinding() {
 
+            double threshold = 60d;
+            PaintableRegion region = null;
+            if(lastRegion != null) {
+
+                if(lastRegion.coverage(getNPC().getTeam()) < threshold) {
+
+                    region = lastRegion;
+
+                } else {
+
+                    region = getNPC().getMatch().getAIController().getNextBestRegion(getNPC().getTeam(), getNPC().getLocation().toVector(), threshold, getNPC());
+                    lastRegion = region;
+
+                }
+
+            } else {
+
+                region = getNPC().getMatch().getAIController().getNextBestRegion(getNPC().getTeam(), getNPC().getLocation().toVector(), threshold, getNPC());
+                lastRegion = region;
+
+            }
+
+            if(region != null) {
+
+                orientationLocation = region.getCenter();
+
+            }
 
         }
 

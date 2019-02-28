@@ -41,6 +41,7 @@ import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.craftbukkit.v1_13_R2.CraftChunk;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -176,6 +177,8 @@ public class PlayerEventHandler implements Listener {
     @EventHandler
     public void antiSave(ChunkUnloadEvent event) {
 
+        Chunk chunk = ((CraftChunk)event.getChunk()).getHandle();
+
         World world = event.getWorld();
         String name = world.getName();
         if(name.equalsIgnoreCase("sp_tutorial") || name.equalsIgnoreCase("sp_arena")) {
@@ -183,6 +186,8 @@ public class PlayerEventHandler implements Listener {
             if(name.equalsIgnoreCase("sp_arena")) {
 
                 event.setSaveChunk(false);
+                chunk.mustSave = false;
+                chunk.setLastSaved(System.currentTimeMillis());
                 if(ArenaBuilder.keepLoaded(new ChunkCoordIntPair(event.getChunk().getX(), event.getChunk().getZ()))) {
 
                     event.setCancelled(true);
@@ -418,16 +423,43 @@ public class PlayerEventHandler implements Listener {
         ItemStack stack = e.getPlayer().getInventory().getItem(e.getHand());
         handleInteraction(e.getPlayer(), stack, Action.RIGHT_CLICK_AIR);
 
-
-
         if(e.getRightClicked() != null) {
 
-            for (AbstractShopkeeper shopkeeper : AbstractShopkeeper.getShopkeepers()) {
+            SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer(e.getPlayer());
+            if(player != null) {
 
-                if (e.getRightClicked().getEntityId() == shopkeeper.getEntityID()) {
+                if(player.getMatch() != null) {
 
-                    shopkeeper.onInteraction(e.getPlayer());
-                    e.setCancelled(true);
+                    for (AbstractShopkeeper shopkeeper : AbstractShopkeeper.getShopkeepers()) {
+
+                        if (e.getRightClicked().getEntityId() == shopkeeper.getEntityID()) {
+
+                            if(player.getMatch() instanceof SplatoonLobby) {
+
+                                shopkeeper.onInteraction(e.getPlayer());
+                                e.setCancelled(true);
+                                return;
+
+                            } else {
+
+                                player.sendMessage(Chat.SYSTEM_PREFIX + "Du kannst den Shop nicht öffnen wenn du dich in einer Runde befindest.");
+
+                            }
+
+                        }
+
+                    }
+                    if (e.getRightClicked().equals(SplatoonLobby.privateMatchesVillager)) {
+
+                        e.setCancelled(true);
+                        e.getPlayer().openInventory(XenyriaSplatoon.getMatchManager().getPrivateLobbyInventory());
+
+                    } else if (e.getRightClicked().equals(SplatoonLobby.publicMatchesVillager)) {
+
+                        e.setCancelled(true);
+                        e.getPlayer().sendMessage("not_yet_implemented");
+
+                    }
 
                 }
 
@@ -512,6 +544,33 @@ public class PlayerEventHandler implements Listener {
 
                     }
 
+                } else {
+
+                    if(ItemBuilder.hasValue(stack, "OpenMatchScreen")) {
+
+                        Match match = player.getMatch();
+                        if(match instanceof BattleMatch) {
+
+                            BattleMatch match1 = (BattleMatch) match;
+                            if(match1.inLobbyPhase()) {
+
+                                ((BattleMatch) match).openLobbyInventory(player);
+
+                            }
+
+                        }
+
+                    } else if(ItemBuilder.hasValue(stack, "OpenInventory")) {
+
+                        player.getInventory().open();
+
+                    } else if(ItemBuilder.hasValue(stack, "QuitMatch")) {
+
+                        player.leaveMatch();
+                        XenyriaSplatoon.getLobbyManager().addPlayerToLobby(player);
+
+                    }
+
                 }
 
             }
@@ -538,6 +597,7 @@ public class PlayerEventHandler implements Listener {
     @EventHandler
     public void updateInteraction(PlayerInteractEvent event) {
 
+        event.setCancelled(true);
         ItemStack itemStack = event.getItem();
         if(itemStack != null) {
 

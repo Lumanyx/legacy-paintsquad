@@ -13,6 +13,7 @@ public enum ItemCategory {
     CHESTPLATES(Material.LEATHER_CHESTPLATE, "§eBrustpanzer", "§7Hier findest du deine\n§7erworbenen Brustpanzer.", 36),
     BOOTS(Material.LEATHER_BOOTS, "§aStiefel", "§7Hier findest du deine\n§7erworbenen Stiefel.", 36),
     CONSUMABLES(Material.POTION, "§bSnacks & Drinks", "§7Hier findest du deine\n§7erworbenen Snacks und Drinks.", 36),
+    FRAGMENTS(Material.STONE_BUTTON, "§7Fragmente", "§7Hier findest du gesammelte Fragmente.", 36*3),
     GADGETS(Material.HOPPER, "§3Gadgets", "§7Hier findest du deine\n§7erworbenen Gadgets für die Lobby.", 18);
 
     private Material material;

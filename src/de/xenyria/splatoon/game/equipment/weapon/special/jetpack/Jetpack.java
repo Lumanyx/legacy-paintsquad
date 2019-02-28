@@ -433,7 +433,13 @@ public class Jetpack extends SplatoonSpecialWeapon implements AISpecialWeapon {
         hitboxStand.setNoGravity(true);
         hitboxStand.setPosition(startLocation.getX(), startLocation.getY(), startLocation.getZ());
         getPlayer().resetSpecialGauge();
-        ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponBegin();
+
+        if(getPlayer() instanceof  EntityNPC) {
+
+            ((EntityNPC) getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponBegin();
+
+        }
+
         getPlayer().addInk(100d);
         getPlayer().getMatch().broadcast(" " + getPlayer().coloredName() + " §7aktiviert den §eTintendüser§7!");
 

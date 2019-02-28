@@ -17,6 +17,7 @@ import de.xenyria.splatoon.ai.entity.AISkin;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.combat.HitableEntity;
 import de.xenyria.splatoon.game.equipment.Equipment;
+import de.xenyria.splatoon.game.equipment.gear.SpecialEffect;
 import de.xenyria.splatoon.game.equipment.weapon.primary.AbstractRoller;
 import de.xenyria.splatoon.game.equipment.weapon.primary.SplatoonPrimaryWeapon;
 import de.xenyria.splatoon.game.equipment.weapon.set.WeaponSet;
@@ -85,6 +86,72 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
     public void enableWalkSpeedOverride() { walkSpeedOverrideActive = true; }
     public void disableWalkSpeedOverride() { walkSpeedOverrideActive = false; }
     public boolean doOverrideWalkspeed() { return walkSpeedOverrideActive; }
+
+    private ActiveEffect currentEffect;
+    public ActiveEffect getCurrentEffect() { return currentEffect; }
+
+    public static class ActiveEffect {
+
+        public String getName() {
+
+            return type.getName() + " (" + getModifier(level) + "x) (Noch für " + remainingMatches + ((remainingMatches==1) ? "Match" : "Matches") + ")";
+
+        }
+
+        public static enum Type {
+
+            EXPERIENCE("Erfahrungsbooster"),
+            MONEY("Talerbooster"),
+            GEAR_ABILITY("Ausrüstungsbooster");
+
+            private String name;
+            public String getName() { return name; }
+
+            Type(String name) {
+
+                this.name = name;
+
+            }
+
+        }
+
+        public static float getModifier(int level) {
+
+            switch (level) {
+
+                case 1: return 1.0f;
+                case 2: return 1.5f;
+                case 3: return 2f;
+                case 4: return 3f;
+
+            }
+            return 1f;
+
+        }
+
+        private Type type;
+        public Type getType() { return type; }
+
+        private int remainingMatches;
+        public int getRemainingMatches() { return remainingMatches; }
+
+        private int level;
+        public int getLevel() { return level; }
+
+        private SpecialEffect effect;
+        public SpecialEffect getEffect() { return effect; }
+        public boolean isAbilityEffect() { return effect != null; }
+
+        public ActiveEffect(Type type, int remainingMatches, int level, @Nullable SpecialEffect effect) {
+
+            this.type = type;
+            this.remainingMatches = remainingMatches;
+            this.level = level;
+            this.effect = effect;
+
+        }
+
+    }
 
     private EntityArmorStand tank;
     public EntityArmorStand getTank() { return tank; }
@@ -1126,8 +1193,12 @@ public class SplatoonHumanPlayer extends SplatoonPlayer {
                     for (int i = 0; i < 5; i++) {
 
                         Vector vector = locationVector();
-                        SplatoonServer.broadcastColorParticleExplosion(player.getWorld(),
-                                vector.getX(), vector.getY(), vector.getZ(), team.getColor());
+                        if(team != null) {
+
+                            SplatoonServer.broadcastColorParticleExplosion(player.getWorld(),
+                                    vector.getX(), vector.getY(), vector.getZ(), team.getColor());
+
+                        }
 
                     }
 

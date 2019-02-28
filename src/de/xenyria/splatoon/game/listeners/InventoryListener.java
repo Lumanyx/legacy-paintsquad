@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.listeners;
 
 import de.xenyria.api.spigot.ItemBuilder;
+import de.xenyria.core.Xenyria;
 import de.xenyria.core.chat.Chat;
 import de.xenyria.servercore.spigot.XenyriaSpigotServerCore;
 import de.xenyria.servercore.spigot.listener.SpigotListenerUtil;
@@ -15,10 +16,13 @@ import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.userdata.inventory.InventoryItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.ItemCategory;
 import de.xenyria.splatoon.game.player.userdata.inventory.UserInventory;
+import de.xenyria.splatoon.game.player.userdata.inventory.effect.ConsumableItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.gear.GearItem;
 import de.xenyria.splatoon.game.player.userdata.inventory.set.WeaponSetItem;
 import de.xenyria.splatoon.lobby.SplatoonLobby;
+import de.xenyria.splatoon.lobby.shop.gear.GearShop;
 import de.xenyria.splatoon.lobby.shop.gear.GearShopItem;
+import de.xenyria.splatoon.lobby.shop.gear.GearShopkeeper;
 import de.xenyria.splatoon.lobby.shop.item.ShopItem;
 import de.xenyria.splatoon.lobby.shop.weapons.WeaponShop;
 import de.xenyria.splatoon.shootingrange.ShootingRange;
@@ -417,6 +421,62 @@ public class InventoryListener implements Listener {
                         player.getPlayer().closeInventory();
 
                     }
+
+                }
+
+            } else if(event.getInventory().getTitle().equalsIgnoreCase(ConsumableItem.CONSUME_ASK_TITLE)) {
+
+                event.setCancelled(true);
+                ItemStack stack = event.getCurrentItem();
+                SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer((Player) event.getWhoClicked());
+                if(stack != null) {
+
+                    if (ItemBuilder.hasValue(stack, "Dismiss")) {
+
+                        player.getInventory().open();
+
+                    } else if(ItemBuilder.hasValue(stack, "Remove")) {
+
+                        int localItemID = ItemBuilder.getIntValue(stack, "Remove");
+                        player.getInventory().removeItem(localItemID);
+                        player.getInventory().open();
+
+                    } else if(ItemBuilder.hasValue(stack, "UseEffect")) {
+
+                        int localItemID = ItemBuilder.getIntValue(stack, "UseEffect");
+
+                    }
+
+                }
+
+            } else if(event.getInventory().getTitle().equalsIgnoreCase(GearShopkeeper.INFORMATION_TITLE)) {
+
+                event.setCancelled(true);
+                ItemStack stack = event.getCurrentItem();
+                SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer((Player) event.getWhoClicked());
+                if(stack != null) {
+
+                    if(stack.equals(GearShopkeeper.EFFECT_DETAILS)) {
+
+                        GearShopkeeper.openAbilityInfo(player.getPlayer(), true);
+
+                    } else if(ItemBuilder.hasValue(stack, "Dismiss")) {
+
+                        player.getPlayer().closeInventory();
+
+                    }
+
+                }
+
+            } else if(event.getInventory().getTitle().equalsIgnoreCase(GearShopkeeper.ABILITIES)) {
+
+                event.setCancelled(true);
+                ItemStack stack = event.getCurrentItem();
+                SplatoonHumanPlayer player = SplatoonHumanPlayer.getPlayer((Player) event.getWhoClicked());
+                if(ItemBuilder.hasValue(stack, "Back")) {
+
+                    GearShopkeeper shopkeeper = XenyriaSplatoon.getLobbyManager().getLobby().getNearestShop(player);
+                    shopkeeper.onInteraction(player.getPlayer());
 
                 }
 

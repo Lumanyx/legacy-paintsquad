@@ -86,6 +86,12 @@ public class NavigationManager {
 
             }
 
+            if(found.getTransitionType() == TransitionType.ENTER_FOUNTAIN) {
+
+                horRange=0.1d;
+
+            }
+
             if(!found.isReached(npc.getLocation(), horRange, vertRange) && !skipPoint) {
 
                 return found;
@@ -214,6 +220,38 @@ public class NavigationManager {
     public boolean isSquidOnNavigationFinish() { return squidOnNavigationFinish; }
 
     public void tick() {
+
+        if(EntityNPC.DEBUG_MODE) {
+
+            String debugData = "";
+            debugData += "§eDisbl: " + disabled + " ";
+            debugData += "§cStck: " + isStuck() + " ";
+            debugData += "§aDone: " + isDone() + " ";
+            debugData += "§9complx: " + isDoingComplexTask() + " ";
+            debugData += "§1T: " + ticksSincePathFound + " " + ticksSinceLastNewNavigationPoint + " " + ticksSinceLastNodeProgress;
+
+            if(!remainingNavigationPoints.isEmpty()) {
+
+                NavigationPoint point = remainingNavigationPoints.get(0);
+                debugData+="§dPnt: " + point.x +", " + point.y+", " +point.z + "->"+point.getTransitionType();
+
+                if(isStuck()) {
+
+                    npc.getWorld().spawnParticle(Particle.SMOKE_LARGE, point.toVector().toLocation(npc.getWorld()), 0);
+                    npc.getWorld().spawnParticle(Particle.SMOKE_LARGE, point.toVector().toLocation(npc.getWorld()), 0);
+                    npc.getWorld().spawnParticle(Particle.SMOKE_LARGE, point.toVector().toLocation(npc.getWorld()), 0);
+
+                }
+
+            } else {
+
+                debugData+="§dPnt: NONE";
+
+            }
+
+            npc.a4.setCustomName(debugData);
+
+        }
 
         if(!disabled) {
 
@@ -360,11 +398,20 @@ public class NavigationManager {
 
             }
 
+            String strBefore = "";
+            if(EntityNPC.DEBUG_MODE) {
+
+                strBefore = npc.a4.getCustomName();
+
+            }
+
             if (!remainingNavigationPoints.isEmpty()) {
 
+                strBefore+="1 ";
 
                 NavigationPoint point = nextNavigationPoint();
                 if (point != null) {
+                    strBefore+="2 ";
 
                     NavigationPoint point1 = remainingNavigationPoints.get(remainingNavigationPoints.size() - 1);
 
@@ -374,6 +421,7 @@ public class NavigationManager {
 
                     if (VectorUtil.isValid(direction)) {
 
+                        strBefore+="3 ";
                         Vector movementDirection = new Vector(direction.getX(), 0, direction.getZ());
                         Vector origMovement = movementDirection.clone().multiply(npc.getMovementSpeed());
                         double npcSpeed = npc.getMovementSpeed();
@@ -386,6 +434,7 @@ public class NavigationManager {
 
                         movementDirection = movementDirection.multiply(npcSpeed);
                         if (npc.isRidingARail() && (point.getTransitionType() != TransitionType.RIDE_RAIL && point.getTransitionType() != TransitionType.INK_RAIL)) {
+                            strBefore+="3a ";
 
                             npc.forceRailLeave();
                             return;
@@ -399,6 +448,7 @@ public class NavigationManager {
                                 point.getTransitionType() == TransitionType.CLIMB ||
                                 point.getTransitionType().isRollNode()) {
 
+                            strBefore+="4 ";
                             TransitionType type = point.getTransitionType();
                             if (type.isRollNode()) {
 
@@ -456,6 +506,11 @@ public class NavigationManager {
                                 Location location = new Location(Bukkit.getWorlds().get(0), 0, 0, 0);
                                 location.setDirection(origMovement);
                                 npc.updateAngles(location.getYaw(), location.getPitch());
+
+                            }
+                            if(EntityNPC.DEBUG_MODE) {
+
+                                npc.a4.setCustomName(strBefore);
 
                             }
 
@@ -736,6 +791,9 @@ public class NavigationManager {
         remainingNavigationPoints.clear();
         pathfindRequest = null;
         disabled = false;
+        skipPoint = false;
+        lookInWalkingDirection = true;
+        newNavpointFlag = false;
 
     }
 

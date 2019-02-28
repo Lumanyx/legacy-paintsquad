@@ -28,6 +28,7 @@ import net.minecraft.server.v1_13_R2.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.craftbukkit.v1_13_R2.entity.CraftEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
@@ -217,7 +218,7 @@ public class ProtocolListener extends PacketAdapter {
 
                         if (player.getMatch().getOutroManager().isZoomActive()) {
 
-                            event.getPacket().getFloat().write(1, 0.2f);
+                            event.getPacket().getFloat().write(1, 0.1f);
 
                         }
 
@@ -233,6 +234,10 @@ public class ProtocolListener extends PacketAdapter {
                         if (charger.hasZoom() && charger.isSelected() && charger.isCharging()) {
 
                             event.getPacket().getFloat().write(1, charger.getZoomModificator());
+
+                        } else {
+
+                            event.getPacket().getFloat().write(1, 0f);
 
                         }
 
@@ -271,7 +276,8 @@ public class ProtocolListener extends PacketAdapter {
 
                     if(GearShopItem.getShopItemEntityIDs().containsKey(id)) {
 
-                        WrappedDataWatcher watcher = new WrappedDataWatcher(GearShopItem.getShopItemEntityIDs().get(id).getDataWatcher()).deepClone();
+                        Entity entity = GearShopItem.getShopItemEntityIDs().get(id);
+                        WrappedDataWatcher watcher = new WrappedDataWatcher(entity.getDataWatcher()).deepClone();
                         ItemStack stack = watcher.getItemStack(6);
                         if (ItemBuilder.hasValue(stack, "rwr_mat")) {
 

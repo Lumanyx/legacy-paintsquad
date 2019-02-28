@@ -15,6 +15,7 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Random;
 
 public class ApproachEnemiesTask extends AITask {
 
@@ -30,7 +31,7 @@ public class ApproachEnemiesTask extends AITask {
     @Override
     public boolean doneCheck() {
 
-        return flag1 && (getNPC().getNavigationManager().isDone() || getNPC().getNavigationManager().isStuck() || getNPC().getTargetManager().hasPotentialTarget() || getNPC().getTargetManager().hasTarget());
+        return (getNPC().getNavigationManager().isStuck() && new Random().nextBoolean()) || (flag1 && (getNPC().getNavigationManager().isDone() || getNPC().getTargetManager().hasPotentialTarget() || getNPC().getTargetManager().hasTarget()));
     }
 
     private boolean flag1;

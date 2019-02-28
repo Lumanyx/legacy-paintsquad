@@ -86,6 +86,7 @@ public class IntroManager {
             player.getNMSPlayer().playerConnection.sendPacket(new PacketPlayOutEntityDestroy(entity.getId()));
 
         }
+        spawnedEntities.remove(player);
 
     }
     public void addSpawnedEntity(SplatoonHumanPlayer player, Entity entity) {

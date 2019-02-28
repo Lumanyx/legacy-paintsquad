@@ -293,8 +293,8 @@ public class AIWeaponManager {
 
     private Location aimLocation;
 
-    public static final double AIM_MAX_ACCURACY = 0.1d;
-    public static final double AIM_MIN_ACCURACY = 0.4d;
+    public static final double AIM_MAX_ACCURACY = 0.05d;
+    public static final double AIM_MIN_ACCURACY = 0.3d;
 
     public void aim(Vector target) {
 
@@ -322,10 +322,10 @@ public class AIWeaponManager {
     public void aim(SplatoonPlayer enemy) {
 
         targetBlock = null;
-        double offsetRange = (AIM_MIN_ACCURACY - AIM_MAX_ACCURACY) * (npc.getProperties().getAccuracy() / 100d);
+        double offsetRange = (AIM_MIN_ACCURACY - AIM_MAX_ACCURACY) * ((1d)-(npc.getProperties().getAccuracy() / 100d));
 
-        double minHeight = enemy.getHeight() * .25;
-        double maxHeight = enemy.getHeight() * .625;
+        double minHeight = (enemy.getHeight()/2) * .25;
+        double maxHeight = (enemy.getHeight()/2) * .625;
         double heightOffset = (maxHeight-minHeight) * new Random().nextFloat();
 
         Vector offset = new Vector(new Random().nextDouble() * offsetRange, minHeight + (new Random().nextDouble() * heightOffset), new Random().nextDouble() * offsetRange);
@@ -334,6 +334,29 @@ public class AIWeaponManager {
     }
 
     public void tick() {
+
+        if(EntityNPC.DEBUG_MODE) {
+
+            String str = "";
+            str+="§cFireTicks: " + getShootingTicks() + " ";
+
+            if(aimLocation != null) {
+
+                str+="§eAim: LOC ";
+
+            } else if(targetBlock != null) {
+
+                str+="§eAim: BLOCK ";
+
+            } else {
+
+                str+="§eAim not set ";
+
+            }
+            str+="Spec: " + npc.isSpecialActive();
+            npc.a1.setCustomName(str);
+
+        }
 
         if(npc.isSplatted()) {
 

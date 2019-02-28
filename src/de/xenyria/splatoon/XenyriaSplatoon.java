@@ -22,6 +22,7 @@ import de.xenyria.splatoon.game.listeners.*;
 import de.xenyria.splatoon.game.match.BattleMatch;
 import de.xenyria.splatoon.game.match.DebugMatch;
 import de.xenyria.splatoon.game.match.Match;
+import de.xenyria.splatoon.game.match.MatchManager;
 import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.player.userdata.level.Level;
@@ -98,6 +99,9 @@ public class XenyriaSplatoon extends JavaPlugin {
 
     private static ShootingRangeManager shootingRangeManager;
     public static ShootingRangeManager getShootingRangeManager() { return shootingRangeManager; }
+
+    private static MatchManager matchManager;
+    public static MatchManager getMatchManager() { return matchManager; }
 
     private static MusicManager musicManager;
     public static MusicManager getMusicManager() { return musicManager; }
@@ -188,6 +192,7 @@ public class XenyriaSplatoon extends JavaPlugin {
         genericGearRegistry = new SplatoonGenericGearRegistry();
         weaponSetRegistry = new WeaponSetRegistry();
         musicManager = new MusicManager();
+        matchManager = new MatchManager();
         //match.registerTeam(Team.DEBUG_TEAM_3);
         //match.registerTeam(Team.DEBUG_TEAM_4);
         /*match.getMap().getPaintDefinition().getPaintableMaterials().add(Material.SMOOTH_STONE);

@@ -440,6 +440,24 @@ public class AITaskController {
 
         }
 
+        if(EntityNPC.DEBUG_MODE) {
+
+            String dbgStr = "";
+            if (task == null) {
+
+                dbgStr = "§cNo Task";
+
+            } else {
+
+                String className = task.getClass().getName();
+                String name = className.split("\\.")[className.split("\\.").length - 1];
+                dbgStr = "§4" + name;
+
+            }
+            npc.a3.setCustomName(dbgStr);
+
+        }
+
         if(task != null) {
 
             /*String className = task.getClass().getName();

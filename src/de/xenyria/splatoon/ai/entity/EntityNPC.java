@@ -1,30 +1,26 @@
 package de.xenyria.splatoon.ai.entity;
 
 import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLib;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.PacketContainer;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import de.xenyria.api.spigot.ItemBuilder;
-import de.xenyria.core.math.AngleUtil;
 import de.xenyria.core.math.SlowRotation;
 import de.xenyria.math.trajectory.Vector3f;
 import de.xenyria.servercore.spigot.listener.ProtocolListener;
 import de.xenyria.splatoon.SplatoonServer;
 import de.xenyria.splatoon.XenyriaSplatoon;
 import de.xenyria.splatoon.ai.navigation.NavigationManager;
-import de.xenyria.splatoon.ai.paint.PaintManager;
+import de.xenyria.splatoon.ai.paint.PaintableRegionTracker;
 import de.xenyria.splatoon.ai.pathfinding.grid.NodeGrid;
 import de.xenyria.splatoon.ai.target.TargetManager;
-import de.xenyria.splatoon.ai.task.AITask;
 import de.xenyria.splatoon.ai.task.AITaskController;
 import de.xenyria.splatoon.ai.task.signal.SignalManager;
 import de.xenyria.splatoon.ai.weapon.AIWeaponManager;
 import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.equipment.Equipment;
 import de.xenyria.splatoon.game.equipment.weapon.special.baller.Baller;
-import de.xenyria.splatoon.game.equipment.weapon.special.jetpack.Jetpack;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.LocationProvider;
 import de.xenyria.splatoon.game.equipment.weapon.special.tentamissles.TentaMissleTarget;
 import de.xenyria.splatoon.game.equipment.weapon.util.ResourcePackUtil;
@@ -38,14 +34,12 @@ import de.xenyria.splatoon.game.player.TeamEntity;
 import de.xenyria.splatoon.game.player.superjump.SuperJump;
 import de.xenyria.splatoon.game.projectile.SplatoonProjectile;
 import de.xenyria.splatoon.game.projectile.ink.InkProjectile;
-import de.xenyria.splatoon.game.resourcepack.ResourcePackItemOption;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.AABBUtil;
 import de.xenyria.splatoon.game.util.NMSUtil;
 import de.xenyria.splatoon.game.util.RandomUtil;
 import de.xenyria.splatoon.game.util.VectorUtil;
 import net.minecraft.server.v1_13_R2.*;
-import net.minecraft.server.v1_13_R2.Entity;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -53,18 +47,15 @@ import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.craftbukkit.v1_13_R2.CraftWorld;
-import org.bukkit.craftbukkit.v1_13_R2.entity.CraftArmorStand;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_13_R2.entity.CraftSquid;
 import org.bukkit.craftbukkit.v1_13_R2.inventory.CraftItemStack;
-import org.bukkit.craftbukkit.v1_13_R2.util.CraftChatMessage;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
@@ -74,9 +65,6 @@ import java.util.Iterator;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static de.xenyria.splatoon.game.player.SplatoonPlayer.BASE_INK_CHARGE_VALUE;
-import static de.xenyria.splatoon.game.player.SplatoonPlayer.HUMAN_INK_CHARGE_VALUE;
 
 public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
@@ -918,11 +906,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
         }
 
-        paintManager.reset();
+        disableWalkSpeedOverride();
+        disableWallSwimMode();
         targetManager.reset();
         weaponManager.reset();
         taskController.reset();
         signalManager.reset();
+        navigationManager.resetTarget();
         setItemSlot(0);
 
 
@@ -1153,8 +1143,8 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
     private AITaskController taskController = new AITaskController(this);
     public AITaskController getTaskController() { return taskController; }
 
-    private PaintManager paintManager = new PaintManager(this);
-    public PaintManager getPaintManager() { return paintManager; }
+    // PaintManager paintManager = new PaintManager(this);
+    //public PaintManager getPaintManager() { return paintManager; }
 
     private static int id;
     public static int nextID() { return id++; }
@@ -1183,6 +1173,8 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         movementArmorStand.setCustomNameVisible(true);
         movementArmorStand.getBukkitEntity().setCustomName(team.getColor().prefix() + name);
         movementArmorStand.setInvisible(true);
+        movementArmorStand.setPosition(location.getX(), location.getY(), location.getZ());
+
         this.spawnPoint = origin.clone();
         this.match = match;
         this.team = team;
@@ -1242,6 +1234,27 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         //tank.getWorld().removeEntity(tank);
         setTankVisible(true);
 
+        if(DEBUG_MODE) {
+
+            a1 = (ArmorStand) getLocation().getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
+            a2 = (ArmorStand) getLocation().getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
+            a3 = (ArmorStand) getLocation().getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
+            a4 = (ArmorStand) getLocation().getWorld().spawnEntity(getLocation(), EntityType.ARMOR_STAND);
+            a1.setCustomNameVisible(true);
+            a2.setCustomNameVisible(true);
+            a3.setCustomNameVisible(true);
+            a4.setCustomNameVisible(true);
+            a1.setVisible(false);
+            a2.setVisible(false);
+            a3.setVisible(false);
+            a4.setVisible(false);
+            a1.setGravity(false);
+            a2.setGravity(false);
+            a3.setGravity(false);
+            a4.setGravity(false);
+
+        }
+
         equipment = new Equipment(this);
 
     }
@@ -1252,13 +1265,19 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     }
 
+    private PaintableRegionTracker regionTracker = new PaintableRegionTracker(this);
+    public PaintableRegionTracker getRegionTracker() { return regionTracker; }
+
     private EntityArmorStand movementArmorStand = null;
+
+    public ArmorStand a1,a2,a3,a4;
+    public static boolean DEBUG_MODE = false;
 
     public void move(double x, double y, double z) {
 
-        if(x >= 1) { x = 1; } else if(x < -1) { x = -1; }
-        if(y >= 1) { y = 1; } else if(y < -1) { y = -1; }
-        if(z >= 1) { z = 1; } else if(z < -1) { z = -1; }
+        if(x >= 8) { x = 8; } else if(x < -8) { x = -8; }
+        if(y >= 8) { y = 8; } else if(y < -8) { y = -8; }
+        if(z >= 8) { z = 8; } else if(z < -8) { z = -8; }
 
         if(getEquipment() != null && getEquipment().getSpecialWeapon() != null && getEquipment().getSpecialWeapon() instanceof Baller) {
 
@@ -1555,9 +1574,6 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         lastPosition = newLoc.subtract(last);
         if(!isSplatted()) {
 
-            movementArmorStand.locX=newLoc.getX();
-            movementArmorStand.locY=newLoc.getY();
-            movementArmorStand.locZ=newLoc.getZ();
             for(Player player : trackers) {
 
                 ((CraftPlayer)player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityTeleport(movementArmorStand));
@@ -1822,6 +1838,15 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
     public void tick() {
 
+        if(a1 != null) {
+
+            a1.teleport(getLocation().clone().add(0, 1, 0));
+            a2.teleport(getLocation().clone().add(0, .75, 0));
+            a3.teleport(getLocation().clone().add(0, .5, 0));
+            a4.teleport(getLocation().clone().add(0, .25, 0));
+
+        }
+
         if(respawnTicks < 1) {
 
             ticksSinceRespawn++;
@@ -1858,13 +1883,13 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
             }
             if(!xrotation.isReached()) {
 
-                xrotation.rotate(15f);
+                xrotation.rotate(2f);
                 nmsEntity.pitch = xrotation.getAngle() + 90f;
 
             }
             if(!yrotation.isReached()) {
 
-                yrotation.rotate(5f);
+                yrotation.rotate(2f);
                 nmsEntity.yaw = yrotation.getAngle();
 
             }
@@ -1874,7 +1899,6 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
 
             signalManager.tick();
             getWeaponManager().tick();
-            paintManager.tick();
             targetManager.tick();
             if(aiActive) {
 
@@ -2278,6 +2302,14 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         lastInkContactFacingTicks++;
         debugTicker++;
 
+        if(movementArmorStand != null) {
+
+            movementArmorStand.locX=getLocation().getX();
+            movementArmorStand.locY=getLocation().getY();
+            movementArmorStand.locZ=getLocation().getZ();
+
+        }
+
     }
 
     private boolean isOnEnemyTurf() {
@@ -2442,11 +2474,14 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         }
 
         timeLine.reset();
-        paintManager.reset();
         targetManager.reset();
         weaponManager.reset();
         taskController.reset();
         signalManager.reset();
+        navigationManager.resetTarget();
+        regionTracker.reset();
+        disableWalkSpeedOverride();
+        disableWallSwimMode();
 
         if(getNMSEntity().isInvisible()) {
 
@@ -2529,6 +2564,7 @@ public class EntityNPC extends SplatoonPlayer implements TeamEntity {
         }
 
         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutSpawnEntityLiving(movementArmorStand));
+        player.sendMessage("Recv: " + movementArmorStand);
         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(new PacketPlayOutEntityMetadata(movementArmorStand.getId(), movementArmorStand.getDataWatcher(), false));
 
         if(ResourcePackUtil.hasCustomResourcePack(player)) {

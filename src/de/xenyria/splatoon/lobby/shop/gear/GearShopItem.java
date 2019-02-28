@@ -12,6 +12,8 @@ import de.xenyria.splatoon.game.equipment.gear.Gear;
 import de.xenyria.splatoon.game.equipment.gear.boots.LegacyFootGear;
 import de.xenyria.splatoon.game.equipment.gear.chest.LegacyBodyGear;
 import de.xenyria.splatoon.game.equipment.gear.head.LegacyHeadGear;
+import de.xenyria.splatoon.game.player.SplatoonHumanPlayer;
+import de.xenyria.splatoon.lobby.SplatoonLobby;
 import de.xenyria.splatoon.lobby.shop.item.ShopItem;
 import net.minecraft.server.v1_13_R2.AxisAlignedBB;
 import net.minecraft.server.v1_13_R2.EntityArmorStand;
@@ -85,8 +87,8 @@ public class GearShopItem extends ShopItem {
 
         PacketContainer container = new PacketContainer(PacketType.Play.Server.ENTITY_METADATA, new PacketPlayOutEntityMetadata(stand.getId(), stand.getDataWatcher(), false));
 
-        WrappedDataWatcher watcher = new WrappedDataWatcher(stand.getDataWatcher());
-        watcher.setObject(3, visible, true);
+        WrappedDataWatcher watcher = new WrappedDataWatcher(stand.getDataWatcher()).deepClone();
+        watcher.setObject(3, visible, false);
         container.getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
         try {
 

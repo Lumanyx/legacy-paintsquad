@@ -1,6 +1,7 @@
 package de.xenyria.splatoon.game.objects.beacon;
 
 import de.xenyria.api.spigot.ItemBuilder;
+import de.xenyria.splatoon.game.color.Color;
 import de.xenyria.splatoon.game.player.SplatoonPlayer;
 import de.xenyria.splatoon.game.team.Team;
 import de.xenyria.splatoon.game.util.BlockUtil;
@@ -25,6 +26,51 @@ public abstract class JumpPoint {
                 getMaterial()
         ).setDisplayName(getItemTitle()).addLore("§7Klicke für einen Supersprung.").create();
 
+    }
+
+    public static class TeamSpawn extends JumpPoint {
+
+        private Color color;
+        private Team team;
+        private Location teamSpawnOrigin;
+        public TeamSpawn(Team team, Color color, Location teamSpawnOrigin) {
+
+            this.team = team;
+            this.color = color;
+            this.teamSpawnOrigin = teamSpawnOrigin;
+            teamSpawnOrigin = teamSpawnOrigin.clone().add(2.5, 1, 2.5);
+
+        }
+
+        @Override
+        public Material getMaterial() {
+            return color.getWool();
+        }
+
+        @Override
+        public String getItemTitle() {
+            return "Teamspawn";
+        }
+
+        @Override
+        public Location getLocation() {
+            return teamSpawnOrigin;
+        }
+
+        @Override
+        public void onJumpBegin() {
+
+        }
+
+        @Override
+        public void onJumpEnd() {
+
+        }
+
+        @Override
+        public boolean isAvailable(Team team) {
+            return team == this.team;
+        }
     }
 
     public static class Player extends JumpPoint {

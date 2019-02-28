@@ -9,10 +9,16 @@ import de.xenyria.splatoon.ai.task.AITask;
 import de.xenyria.splatoon.ai.task.TaskType;
 import org.bukkit.util.Vector;
 
+import java.util.Random;
+
 public class RegenerateTask extends AITask {
 
+    double rechargeTarget = 0d;
     public RegenerateTask(EntityNPC npc) {
+
         super(npc);
+        rechargeTarget = 60d+(new Random().nextDouble()*20);
+
     }
 
     @Override
@@ -23,7 +29,7 @@ public class RegenerateTask extends AITask {
     @Override
     public boolean doneCheck() {
 
-        return getNPC().getInk() >= 99d;
+        return getNPC().getInk() >= rechargeTarget;
 
     }
 
@@ -50,12 +56,12 @@ public class RegenerateTask extends AITask {
 
         @Override
         public boolean needsUpdate(Vector vector) {
-            return getNPC().getNavigationManager().isStuck() || !flag || (getNPC().getNavigationManager().isDone() && !getNPC().isOnOwnInk());
+            return getNPC().getNavigationManager().isStuck() || !getNPC().isSquid() || !flag || (getNPC().getNavigationManager().isDone() && !getNPC().isOnOwnInk());
         }
 
         @Override
         public boolean isReached(SquidAStar pathfinder, Node node, Vector vector) {
-            return node.getType() == TransitionType.SWIM && node.getParent() != null && node.getParent().getParent() != null;
+            return node.getType() == TransitionType.SWIM && node.getParent() != null && node.getParent().getParent() != null && node.toVector().distance(positionBefore) >= 3d;
         }
 
         @Override

@@ -41,7 +41,7 @@ public class AttackTask extends AITask {
     @Override
     public boolean doneCheck() {
 
-        return flee || target.isDead() || getNPC().getTargetManager().getTarget() != target;
+        return flee || getNPC().getNavigationManager().isStuck() || target.isDead() || getNPC().getTargetManager().getTarget() != target;
 
     }
 
@@ -139,6 +139,7 @@ public class AttackTask extends AITask {
             } else {
 
                 targetHitable = false;
+                skip();
 
             }
 
@@ -227,7 +228,7 @@ public class AttackTask extends AITask {
                     if(getNPC().getWeaponManager().getShootingTicks() == 0) {
 
                         getNPC().getWeaponManager().fire(
-                                getNPC().getWeaponManager().requiredTicksForDistance(target.getEnemy().getLocation().distance(getNPC().getLocation())+1.5d)
+                                getNPC().getWeaponManager().requiredTicksForDistance(target.getEnemy().getLocation().distance(getNPC().getLocation()))
                         );
 
                     }
@@ -541,7 +542,7 @@ public class AttackTask extends AITask {
 
             } else if(weaponType == AIWeaponManager.AIPrimaryWeaponType.ROLLER) {
 
-                return VectorUtil.horDistance(vector, target.getLastKnownLocation().toVector()) <= 0.25d;
+                return VectorUtil.horDistance(vector, target.getLastKnownLocation().toVector()) <= 0.5d;
 
             }
             return false;

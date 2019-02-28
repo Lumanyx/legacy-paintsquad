@@ -75,7 +75,7 @@ public class RayProjectile extends SplatoonProjectile implements DamageDealingPr
     public static ArrayList<Block> rayCastBlocks(double finalRange, Location startLocation, Vector direction, Match match) {
 
         ArrayList<Block> blocks = new ArrayList<>();
-        RayTraceResult result1 = match.getWorldInformationProvider().rayTraceBlocks(startLocation.toVector(), direction, finalRange, true);
+        RayTraceResult result1 = match.getWorldInformationProvider().rayTraceBlocks(startLocation.toVector(), direction, finalRange, false);
         if(result1 != null) {
 
             finalRange = result1.getHitPosition().distance(startLocation.toVector());

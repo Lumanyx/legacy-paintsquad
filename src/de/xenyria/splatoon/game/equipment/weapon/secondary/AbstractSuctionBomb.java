@@ -93,7 +93,7 @@ public abstract class AbstractSuctionBomb extends SplatoonSecondaryWeapon implem
     @Override
     public void calculateNextInkUsage() {
 
-        setNextInkUsage(10d);
+        setNextInkUsage(70d);
 
     }
 

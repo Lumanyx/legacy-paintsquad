@@ -4,6 +4,7 @@ import de.xenyria.core.array.ThreeDimensionalArray;
 import de.xenyria.io.reader.ByteArrayReader;
 import de.xenyria.io.reader.ByteArrayWriter;
 import de.xenyria.splatoon.XenyriaSplatoon;
+import de.xenyria.splatoon.ai.entity.EntityNPC;
 import de.xenyria.splatoon.ai.navigation.TransitionType;
 import de.xenyria.splatoon.ai.pathfinding.PathfindingTarget;
 import de.xenyria.splatoon.ai.pathfinding.SquidAStar;
@@ -16,7 +17,6 @@ import de.xenyria.splatoon.game.objects.Gusher;
 import de.xenyria.splatoon.game.objects.InkRail;
 import de.xenyria.splatoon.game.objects.RideRail;
 import de.xenyria.splatoon.game.team.Team;
-import net.minecraft.server.v1_13_R2.BlockPosition;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.util.Vector;
@@ -303,6 +303,37 @@ public class MatchAIManager {
 
     }
 
+    public PaintableRegion getNextBestRegion(Team team, Vector vector, double maxCoverage, EntityNPC npc) {
+
+        ArrayList<PaintableRegion> nearbyRegions = new ArrayList<>();
+        for(PaintableRegion region : paintableRegions) {
+
+            if(region.coverage(team) < maxCoverage) {
+
+                nearbyRegions.add(region);
+
+            }
+
+        }
+
+        Collections.sort(nearbyRegions, new Comparator<PaintableRegion>() {
+            @Override
+            public int compare(PaintableRegion o1, PaintableRegion o2) {
+                return Double.compare(
+                        o1.coverage(team)+o1.getCenter().distance(vector)+npc.getRegionTracker().getVisitCounts(o1)*10,
+                        o2.coverage(team)+o2.getCenter().distance(vector)+npc.getRegionTracker().getVisitCounts(o2)*10
+                );
+            }
+        });
+        if(!nearbyRegions.isEmpty()) {
+
+            return nearbyRegions.get(0);
+
+        }
+        return null;
+
+    }
+
     public PaintableRegion getNextRegion(Team team, Vector vector) {
 
         ArrayList<PaintableRegion> nearbyRegions = new ArrayList<>();
@@ -433,6 +464,7 @@ public class MatchAIManager {
             }
 
         }
+        XenyriaSplatoon.getXenyriaLogger().log("Insgesamt §e" + coordinates.size() + " verschiedene Paintspot-Koordinaten §7gefunden.");
 
         for(PaintableRegion.Coordinate coordinate : coordinates) {
 
@@ -457,7 +489,7 @@ public class MatchAIManager {
 
             }
             PaintableRegion region = new PaintableRegion(getMatch().getWorld(), this, start, end, nodes);
-            if(region.foundBlocks() > 16) {
+            if(region.foundBlocks() > 3) {
 
                 //System.out.println(coordinate.getX() + " " + coordinate.getY() + " " + coordinate.getZ() + " > " + region.foundBlocks());
                 paintableRegions.add(region);

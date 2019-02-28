@@ -35,7 +35,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
     private int downTicker = 0;
     private int impactTicker = 0;
     private boolean waitForImpact = false;
-    private float radius = 5f;
+    private float radius = 8f;
     private Location useLoc;
 
     @Override
@@ -50,7 +50,9 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
                 appliedVelocity = false;
                 impactTicker = 0;
                 doneFlag = true;
+                useLoc = null;
                 if(getPlayer() instanceof EntityNPC) { ((EntityNPC)getPlayer()).getTaskController().getSpecialWeaponManager().onSpecialWeaponEnd(); }
+                getPlayer().disableWalkSpeedOverride();
 
                 return;
 
@@ -120,6 +122,13 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
 
             }
 
+            if(waitForImpact && getPlayer() instanceof EntityNPC) {
+
+                EntityNPC npc = (EntityNPC) getPlayer();
+                npc.move(0, -1d, 0);
+
+            }
+
             Location xzCur = getPlayer().getLocation().clone();
             xzCur.setY(0);
             Location xzTar = useLoc.clone();
@@ -140,7 +149,7 @@ public class Splashdown extends SplatoonSpecialWeapon implements AISpecialWeapon
 
                 if(getPlayer().isOnGround()) {
 
-                    BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, 0, 240, false);
+                    BombProjectile projectile = new BombProjectile(getPlayer(), this, getPlayer().getMatch(), radius, 0, 180, false);
                     projectile.spawn(0, getPlayer().getLocation());
                     getPlayer().getWorld().playSound(getPlayer().getLocation(),
                             Sound.ENTITY_GENERIC_EXPLODE, 1f, 0.2f);
